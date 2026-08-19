@@ -1,0 +1,31 @@
+/* Dark only. A light theme in a blacked-out room is a hazard, not a feature. */
+:root {
+  --bg: #101014;
+  --panel: #17171d;
+  --panel-2: #1e1e26;
+  --line: #2c2c38;
+  --text: #e8e8ef;
+  --muted: #8b8b9c;
+  --accent: #5ac8fa;
+  --danger: #ff5a7a;
+  color-scheme: dark;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+#app { height: 100%; }
+button, select, input {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.on { background: var(--accent); color: #06121a; border-color: var(--accent); }
+button:disabled { opacity: .4; cursor: default; }
+input[type='range'] { padding: 0; background: none; border: none; width: 100%; }
+label { display: block; color: var(--muted); margin: 6px 0 2px; }
