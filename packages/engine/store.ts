@@ -1,5 +1,5 @@
 import {
-  emptyProject, newSurface, newId, parseProject, clamp,
+  emptyProject, newSurface, newId, parseProject, clamp, normalizeAngle,
   type Project, type Source, type Surface, type Shape, type Vec2, type ViewState, type TestPattern,
 } from './project.ts';
 
@@ -247,6 +247,13 @@ export class Store {
 
   toggleSolo(id: string): void {
     this.setView({ soloId: this.#state.view.soloId === id ? null : id });
+  }
+
+  /** Spins the content inside the frame. The frame itself, and therefore the
+   *  alignment with the physical object, is untouched — so this is safe on a
+   *  locked surface, unlike anything that moves a corner. */
+  setRotation(id: string, degrees: number): void {
+    this.patchSurface(id, { rotation: normalizeAngle(degrees) }, { coalesce: `rotation:${id}` });
   }
 
   setOpacity(id: string, opacity: number): void {

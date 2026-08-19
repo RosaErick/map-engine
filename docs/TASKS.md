@@ -1,7 +1,7 @@
 # Backlog — Projection Mapping Engine
 
 Base: `prompt-mapping-engine.md`. Este documento descreve o que **está no código hoje**
-(24 testes de unidade + 12 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
+(29 testes de unidade + 14 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
 limpos, `dist/index.html` de ~100 KB gerado como arquivo único) e o que falta. Os ids
 `AC-n` citados aqui são os de [`SPEC.md`](SPEC.md).
 
@@ -64,6 +64,26 @@ projetor apontado para uma parede.
   atravessa janela, mas o `<video>`/`ImageDecoder` atravessa.
   Onde: `packages/engine/engine.ts:41-57` (aceitar um pool injetado),
   `packages/output/output.ts:251`, `packages/engine/sources/index.ts`.
+
+- [x] ~~**Rotação do conteúdo dentro da superfície**~~ — feito
+  `Surface.rotation` (graus, horário) entra na amostragem por `uvMatrix`, que compõe
+  crop, encaixe e rotação num `mat3` em torno do centro do frame. Um quarto de volta
+  troca a proporção usada por `contain`/`cover`. O frame não se mexe, então girar é
+  seguro numa superfície travada. AC-28, com 5 testes de unidade e 2 checagens de pixel.
+  Onde: `packages/engine/project.ts`, `packages/engine/renderer.ts`,
+  `packages/engine/store.ts`, `packages/editor/Inspector.svelte`.
+
+- [ ] **Girar o frame inteiro em torno do centro** — `P`
+  Diferente de AC-28: rotacionar os 4 cantos, não o conteúdo. Útil quando o objeto
+  físico está torto e o quad inteiro precisa acompanhar, em vez de arrastar canto por
+  canto. Passaria pelo guard de lock, ao contrário da rotação de conteúdo.
+  Onde: `packages/engine/store.ts` (novo `rotateSurface(id, deg)`),
+  `packages/editor/Inspector.svelte`.
+
+- [ ] **Espelhar conteúdo (flip H/V)** — `P`
+  A matriz de UV já é `mat3`; espelhar é trocar o sinal de uma escala. Só entra se
+  aparecer o caso real — projeção em espelho ou retroprojeção.
+  Onde: `packages/engine/renderer.ts` (`uvMatrix`), `Inspector.svelte`.
 
 ### 2. Fontes de conteúdo
 

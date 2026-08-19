@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 24 testes de unidade (node:test, sem framework)
+npm test              # 29 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -82,6 +82,23 @@ Seam: `uvTransform` em `packages/engine/renderer.ts` (função pura, sem GL).
 - `contain` alarga a janela além da imagem, centrada, e a sobra vira preto real
   (descartada no shader, não borda esticada);
 - em todos os casos a janela de `crop` do usuário continua sendo respeitada.
+
+### AC-28 — Rotação do conteúdo dentro da forma
+
+**Dado** uma superfície com conteúdo
+**Quando** a rotação é ajustada
+**Então**
+- o conteúdo gira em torno do **centro** do frame, e o centro é ponto fixo;
+- a rotação é em graus no sentido horário, e uma volta completa devolve cada
+  amostra exatamente ao ponto de partida;
+- o que sair da fonte por causa do giro vira preto real, descartado no shader;
+- um quarto de volta troca a proporção usada por `contain` e `cover`, para que um
+  vídeo deitado continue encaixando;
+- o **frame não se mexe** — girar conteúdo é seguro numa superfície travada, porque
+  não toca no alinhamento com o objeto físico.
+
+> Giros de 30° não trocam a proporção: um retângulo girado 37° não tem proporção
+> única, e a rotação livre existe para corrigir projetor torto, não para reenquadrar.
 
 ---
 
@@ -222,7 +239,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 
 ## 6. Estado da verificação
 
-Última execução: `npm test` (24/24) + `npm run smoke` (12/12), build de ~100 KB.
+Última execução: `npm test` (29/29) + `npm run smoke` (14/14), build de ~100 KB.
 
 | Critério | Estado | Prova |
 |---|---|---|
@@ -246,6 +263,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-18 | provado | `smoke.mjs` (2 checagens) |
 | AC-19 | provado | `smoke.mjs` |
 | AC-20 | provado | `smoke.mjs` (0,50 px de 1,5 px permitidos) + `renderer.test.ts` |
+| AC-28 | provado | `renderer.test.ts` (5 testes) + `smoke.mjs` (2 checagens de pixel) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o
