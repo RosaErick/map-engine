@@ -1,0 +1,107 @@
+import type { Source } from '../project.ts';
+import { ColorSource } from './color.ts';
+import { ImageSource } from './image.ts';
+import { GifSource } from './gif.ts';
+import { CanvasSource } from './canvas.ts';
+import { CameraSource, CaptureSource, FileVideoSource, VideoTextureSource } from './video.ts';
+import type { SourceContext, TextureSource } from './types.ts';
+
+export * from './types.ts';
+export { ColorSource, ImageSource, GifSource, CanvasSource, CaptureSource, CameraSource, FileVideoSource, VideoTextureSource };
+
+export function createSource(desc: Source, ctx: SourceContext): TextureSource {
+  switch (desc.kind) {
+    case 'color': return new ColorSource(desc.rgb);
+    case 'image': return new ImageSource(desc.path, ctx);
+    case 'gif': return new GifSource(desc.path, ctx);
+    case 'video': return new FileVideoSource(desc.path, ctx, { loop: desc.loop, muted: desc.muted, rate: desc.rate });
+    case 'capture': return new CaptureSource();
+    case 'camera': return new CameraSource(desc.deviceId);
+    case 'canvas': return new CanvasSource(desc.moduleId, ctx);
+  }
+}
+
+/**
+ * Live texture cache, keyed by source id — never by surface. One clip feeding
+ * ten surfaces is one decode and one upload per frame.
+ *
+ * `sync` reconciles the cache against the project's source list: it rebuilds an
+ * entry whose descriptor changed in a way the instance cannot absorb (a new
+ * file path), and merely patches one it can (a colour, a playback rate).
+ */
+export class SourcePool {
+  #entries = new Map<string, { desc: Source; source: TextureSource }>();
+  #ctx: SourceContext;
+
+  constructor(ctx: SourceContext) { this.#ctx = ctx; }
+
+  sync(gl: WebGL2RenderingContext, descs: readonly Source[]): void {
+    const seen = new Set<string>();
+    for (const desc of descs) {
+      seen.add(desc.id);
+      const existing = this.#entries.get(desc.id);
+      if (!existing) {
+        this.#entries.set(desc.id, { desc, source: createSource(desc, this.#ctx) });
+        continue;
+      }
+      if (existing.desc === desc) continue;
+      if (this.#patch(existing.source, existing.desc, desc)) {
+        existing.desc = desc;
+      } else {
+        existing.source.dispose(gl);
+        this.#entries.set(desc.id, { desc, source: createSource(desc, this.#ctx) });
+      }
+    }
+    for (const [id, entry] of this.#entries) {
+      if (!seen.has(id)) {
+        entry.source.dispose(gl);
+        this.#entries.delete(id);
+      }
+    }
+  }
+
+  /** Returns true when the change was absorbed without a rebuild. */
+  #patch(source: TextureSource, before: Source, after: Source): boolean {
+    if (before.kind !== after.kind) return false;
+    if (after.kind === 'color' && source instanceof ColorSource) {
+      source.setColor(after.rgb);
+      return true;
+    }
+    if (after.kind === 'video' && before.kind === 'video' && source instanceof VideoTextureSource) {
+      if (before.path !== after.path) return false;
+      source.setPlayback({ loop: after.loop, muted: after.muted, rate: after.rate });
+      return true;
+    }
+    // Anything else: rebuild unless nothing meaningful changed.
+    return JSON.stringify(before) === JSON.stringify(after);
+  }
+
+  get(id: string | null): TextureSource | null {
+    return id ? this.#entries.get(id)?.source ?? null : null;
+  }
+
+  /** True when any live source animates — the render loop uses this to decide
+   *  whether it may go back to sleep. */
+  get hasAnimated(): boolean {
+    for (const { source } of this.#entries.values()) {
+      if (source.animated && source.status === 'ready') return true;
+    }
+    return false;
+  }
+
+  update(gl: WebGL2RenderingContext): void {
+    for (const { source } of this.#entries.values()) source.update(gl);
+  }
+
+  /** Called on the first user gesture — browsers block autoplay until then. */
+  unlock(): void {
+    for (const { source } of this.#entries.values()) {
+      if (source instanceof VideoTextureSource) source.unlock();
+    }
+  }
+
+  disposeAll(gl: WebGL2RenderingContext): void {
+    for (const { source } of this.#entries.values()) source.dispose(gl);
+    this.#entries.clear();
+  }
+}

@@ -1,0 +1,293 @@
+import {
+  emptyProject, newSurface, newId, parseProject, clamp,
+  type Project, type Source, type Surface, type Shape, type Vec2, type ViewState, type TestPattern,
+} from './project.ts';
+
+export interface StoreState {
+  project: Project;
+  view: ViewState;
+}
+
+type Listener = (state: StoreState) => void;
+
+/** Undo grouping. A corner drag fires dozens of mutations; they must collapse
+ *  into one history entry or ctrl+Z becomes useless. Pass the same
+ *  `coalesce` key for the whole gesture. */
+export interface MutateOpts {
+  history?: 'push' | 'none';
+  coalesce?: string;
+}
+
+const HISTORY_LIMIT = 100;
+
+/**
+ * The single source of truth. Everything mutates through methods here, which
+ * is what makes an OSC/MIDI bridge later a pure adapter: it calls the same
+ * methods the editor calls.
+ *
+ * `subscribe` matches the Svelte store contract exactly (call immediately,
+ * return an unsubscriber) so the editor can write `$store` with no adapter,
+ * while this file stays free of any framework import.
+ */
+export class Store {
+  #state: StoreState;
+  #listeners = new Set<Listener>();
+  #undo: Project[] = [];
+  #redo: Project[] = [];
+  #lastCoalesce: string | null = null;
+
+  constructor(project: Project = emptyProject()) {
+    this.#state = {
+      project,
+      view: {
+        soloId: null,
+        selectedSurfaceId: null,
+        selectedCorner: null,
+        testPattern: 'none',
+        uiHidden: false,
+      },
+    };
+  }
+
+  get state(): StoreState { return this.#state; }
+  get project(): Project { return this.#state.project; }
+  get view(): ViewState { return this.#state.view; }
+
+  subscribe(fn: Listener): () => void {
+    this.#listeners.add(fn);
+    fn(this.#state);
+    return () => { this.#listeners.delete(fn); };
+  }
+
+  #emit(): void {
+    for (const fn of this.#listeners) fn(this.#state);
+  }
+
+  /** Every project mutation funnels through here — history and notification
+   *  happen in exactly one place. */
+  mutate(fn: (draft: Project) => void, opts: MutateOpts = {}): void {
+    const { history = 'push', coalesce } = opts;
+    const before = this.#state.project;
+    if (history === 'push') {
+      const sameGesture = coalesce !== undefined && coalesce === this.#lastCoalesce;
+      if (!sameGesture) {
+        this.#undo.push(before);
+        if (this.#undo.length > HISTORY_LIMIT) this.#undo.shift();
+        this.#redo = [];
+      }
+      this.#lastCoalesce = coalesce ?? null;
+    }
+    const draft = structuredClone(before);
+    fn(draft);
+    this.#state = { ...this.#state, project: draft };
+    this.#emit();
+  }
+
+  /** Ends a coalescing gesture so the next mutation starts a new history entry. */
+  endGesture(): void { this.#lastCoalesce = null; }
+
+  setView(patch: Partial<ViewState>): void {
+    this.#state = { ...this.#state, view: { ...this.#state.view, ...patch } };
+    this.#emit();
+  }
+
+  // --- project lifecycle ---------------------------------------------------
+
+  load(json: unknown): void {
+    const project = typeof json === 'string' ? parseProject(JSON.parse(json)) : parseProject(json);
+    this.#undo = [];
+    this.#redo = [];
+    this.#lastCoalesce = null;
+    this.#state = {
+      project,
+      view: { ...this.#state.view, selectedSurfaceId: null, selectedCorner: null, soloId: null },
+    };
+    this.#emit();
+  }
+
+  toJSON(): string { return JSON.stringify(this.#state.project, null, 2); }
+
+  setOutputSize(width: number, height: number): void {
+    this.mutate((p) => { p.output = { width, height }; });
+  }
+
+  // --- history -------------------------------------------------------------
+
+  undo(): void {
+    const prev = this.#undo.pop();
+    if (!prev) return;
+    this.#redo.push(this.#state.project);
+    this.#lastCoalesce = null;
+    this.#state = { ...this.#state, project: prev };
+    this.#emit();
+  }
+
+  redo(): void {
+    const next = this.#redo.pop();
+    if (!next) return;
+    this.#undo.push(this.#state.project);
+    this.#lastCoalesce = null;
+    this.#state = { ...this.#state, project: next };
+    this.#emit();
+  }
+
+  get canUndo(): boolean { return this.#undo.length > 0; }
+  get canRedo(): boolean { return this.#redo.length > 0; }
+
+  // --- surfaces ------------------------------------------------------------
+
+  addSurface(surface?: Surface): Surface {
+    const s = surface ?? newSurface(this.#state.project);
+    this.mutate((p) => { p.surfaces.push(s); });
+    this.setView({ selectedSurfaceId: s.id, selectedCorner: null });
+    return s;
+  }
+
+  removeSurface(id: string): void {
+    this.mutate((p) => { p.surfaces = p.surfaces.filter((s) => s.id !== id); });
+    if (this.#state.view.selectedSurfaceId === id) {
+      this.setView({ selectedSurfaceId: null, selectedCorner: null });
+    }
+  }
+
+  duplicateSurface(id: string): void {
+    const src = this.#state.project.surfaces.find((s) => s.id === id);
+    if (!src) return;
+    const copy = structuredClone(src);
+    copy.id = newId('surf');
+    copy.name = `${src.name} cópia`;
+    copy.z = this.#state.project.surfaces.length + 1;
+    // Offset so the copy is grabbable instead of hiding exactly behind the original.
+    for (const c of copy.frame) { c.x += 24; c.y += 24; }
+    this.addSurface(copy);
+  }
+
+  /** Locked surfaces reject geometry edits — this is the guard that makes the
+   *  lock affordance real, and it lives here so every caller inherits it. */
+  #editable(id: string): boolean {
+    const s = this.#state.project.surfaces.find((x) => x.id === id);
+    return !!s && !s.locked;
+  }
+
+  /**
+   * Generic patch. Geometry is stripped for a locked surface: the lock has to
+   * hold for every caller, including the external-control adapter that this
+   * class exists to make possible — that adapter would otherwise walk straight
+   * through the one affordance nobody can afford to lose. Name, visibility and
+   * `locked` itself still apply, or a locked surface could never be unlocked.
+   */
+  patchSurface(id: string, patch: Partial<Surface>, opts?: MutateOpts): void {
+    const geometryBlocked = !this.#editable(id);
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (!s) return;
+      const applied = { ...patch };
+      if (geometryBlocked) delete applied.frame;
+      Object.assign(s, applied);
+    }, opts);
+  }
+
+  setCorner(id: string, corner: number, pos: Vec2): void {
+    if (!this.#editable(id)) return;
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (s && s.frame[corner]) s.frame[corner] = { x: pos.x, y: pos.y };
+    }, { coalesce: `corner:${id}:${corner}` });
+  }
+
+  nudgeCorner(id: string, corner: number, dx: number, dy: number): void {
+    if (!this.#editable(id)) return;
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      const c = s?.frame[corner];
+      if (c) { c.x += dx; c.y += dy; }
+    }, { coalesce: `nudge:${id}:${corner}` });
+  }
+
+  moveSurface(id: string, dx: number, dy: number): void {
+    if (!this.#editable(id)) return;
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (!s) return;
+      for (const c of s.frame) { c.x += dx; c.y += dy; }
+    }, { coalesce: `move:${id}` });
+  }
+
+  setSurfaceFrame(id: string, corners: [Vec2, Vec2, Vec2, Vec2]): void {
+    if (!this.#editable(id)) return;
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (s) s.frame = structuredClone(corners);
+    });
+  }
+
+  setSurfaceShape(id: string, shape: Shape): void {
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (s) s.shape = shape;
+    });
+  }
+
+  setSurfaceSource(id: string, sourceId: string | null): void {
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (s) s.sourceId = sourceId;
+    });
+  }
+
+  toggleLock(id: string): void {
+    const s = this.#state.project.surfaces.find((x) => x.id === id);
+    if (s) this.patchSurface(id, { locked: !s.locked });
+  }
+
+  toggleVisible(id: string): void {
+    const s = this.#state.project.surfaces.find((x) => x.id === id);
+    if (s) this.patchSurface(id, { visible: !s.visible });
+  }
+
+  toggleSolo(id: string): void {
+    this.setView({ soloId: this.#state.view.soloId === id ? null : id });
+  }
+
+  setOpacity(id: string, opacity: number): void {
+    this.patchSurface(id, { opacity: clamp(opacity, 0, 1) }, { coalesce: `opacity:${id}` });
+  }
+
+  reorder(id: string, z: number): void {
+    this.patchSurface(id, { z });
+  }
+
+  // --- sources -------------------------------------------------------------
+
+  addSource(source: Source): Source {
+    this.mutate((p) => { p.sources.push(source); });
+    return source;
+  }
+
+  removeSource(id: string): void {
+    this.mutate((p) => {
+      p.sources = p.sources.filter((s) => s.id !== id);
+      for (const s of p.surfaces) if (s.sourceId === id) s.sourceId = null;
+    });
+  }
+
+  patchSource(id: string, patch: Partial<Source>): void {
+    this.mutate((p) => {
+      const s = p.sources.find((x) => x.id === id);
+      if (s) Object.assign(s, patch);
+    });
+  }
+
+  setTestPattern(pattern: TestPattern): void {
+    this.setView({ testPattern: pattern });
+  }
+}
+
+/** Surfaces the renderer should draw, in z order, honouring solo and visible. */
+export function visibleSurfaces(state: StoreState): Surface[] {
+  const { project, view } = state;
+  const list = view.soloId
+    ? project.surfaces.filter((s) => s.id === view.soloId)
+    : project.surfaces.filter((s) => s.visible);
+  return [...list].sort((a, b) => a.z - b.z);
+}
