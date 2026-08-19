@@ -34,7 +34,7 @@ const FRAG = `#version 300 es
 precision highp float;
 in vec2 vUV;
 uniform sampler2D uTex;
-uniform vec4 uUVXform;   // texture coords = vUV * xy + zw   (crop + fit)
+uniform mat3 uUVMat;     // frame space -> texture coords (crop + fit + rotation)
 uniform float uOpacity;
 uniform int uMask;       // 0 = none (quad / polygon geometry), 1 = ellipse
 uniform float uFeather;
@@ -101,7 +101,7 @@ void main() {
     // unassigned surface must not put light on the physical object.
     discard;
   } else {
-    vec2 t = vUV * uUVXform.xy + uUVXform.zw;
+    vec2 t = (uUVMat * vec3(vUV, 1.0)).xy;
     // 'contain' can push coords outside the image; letterbox with real black
     // rather than smearing the clamped edge pixel.
     if (t.x < 0.0 || t.x > 1.0 || t.y < 0.0 || t.y > 1.0) discard;
@@ -187,7 +187,7 @@ export class Renderer {
     gl.bindVertexArray(null);
 
     this.#u = Object.fromEntries(
-      ['uH', 'uResolution', 'uView', 'uTex', 'uUVXform', 'uOpacity', 'uMask', 'uFeather', 'uMode', 'uPattern', 'uTime']
+      ['uH', 'uResolution', 'uView', 'uTex', 'uUVMat', 'uOpacity', 'uMask', 'uFeather', 'uMode', 'uPattern', 'uTime']
         .map((n) => [n, gl.getUniformLocation(prog, n)]),
     );
 
@@ -259,8 +259,7 @@ export class Renderer {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW);
 
     gl.uniformMatrix3fv(this.#u['uH']!, false, toColumnMajor(h));
-    const [sx, sy, ox, oy] = uvTransform(surface, source);
-    gl.uniform4f(this.#u['uUVXform']!, sx, sy, ox, oy);
+    gl.uniformMatrix3fv(this.#u['uUVMat']!, false, uvMatrix(surface, source));
     gl.uniform1f(this.#u['uOpacity']!, surface.opacity);
     gl.uniform1i(this.#u['uMask']!, surface.shape.kind === 'ellipse' ? 1 : 0);
     gl.uniform1f(this.#u['uFeather']!, surface.shape.kind === 'ellipse' ? surface.shape.feather : 0);
@@ -364,7 +363,15 @@ export function uvTransform(surface: Surface, source: TextureSource | null): [nu
   if (fit === 'stretch' || !source || source.size[0] <= 0 || source.size[1] <= 0) {
     return [sx, sy, ox, oy];
   }
-  const srcAspect = (source.size[0] * crop.w) / (source.size[1] * crop.h);
+  // A quarter turn swaps which side of the source faces which side of the frame,
+  // so the fit has to be computed against the rotated aspect.
+  // DECISION: only quarter turns swap it. A rectangle rotated 37 degrees has no
+  // single meaningful aspect, and snapped rotations are the case that matters —
+  // free rotation is for correcting a crooked projector, not for reframing.
+  const quarterTurned = isQuarterTurned(surface.rotation);
+  const srcW = quarterTurned ? source.size[1] : source.size[0];
+  const srcH = quarterTurned ? source.size[0] : source.size[1];
+  const srcAspect = (srcW * crop.w) / (srcH * crop.h);
   const r = srcAspect / frameAspectOf(surface);
   const wide = r > 1; // the source window is wider than the frame
   if (fit === 'cover' ? wide : !wide) {
@@ -379,6 +386,36 @@ export function uvTransform(surface: Surface, source: TextureSource | null): [nu
     sy = h;
   }
   return [sx, sy, ox, oy];
+}
+
+/** True when the rotation is closer to a quarter turn than to a straight one. */
+export function isQuarterTurned(rotation: number): boolean {
+  const a = ((rotation % 180) + 180) % 180;
+  return a > 45 && a < 135;
+}
+
+/**
+ * The full frame-space -> texture-space affine, as a column-major mat3 for GL.
+ *
+ * Composed as: translate to the frame's centre, rotate by -angle (rotating the
+ * content clockwise means sampling counter-clockwise), then apply the crop/fit
+ * window. Rotating around the centre is what makes the content spin in place
+ * instead of swinging out of the shape.
+ */
+export function uvMatrix(surface: Surface, source: TextureSource | null): Float32Array {
+  const [sx, sy, ox, oy] = uvTransform(surface, source);
+  const r = (-surface.rotation * Math.PI) / 180;
+  const c = Math.cos(r);
+  const sn = Math.sin(r);
+
+  const m00 = sx * c;
+  const m01 = -sx * sn;
+  const m02 = ox + sx / 2 - sx * 0.5 * (c - sn);
+  const m10 = sy * sn;
+  const m11 = sy * c;
+  const m12 = oy + sy / 2 - sy * 0.5 * (sn + c);
+  // Column-major, same convention as toColumnMajor.
+  return new Float32Array([m00, m10, 0, m01, m11, 0, m02, m12, 1]);
 }
 
 /** Approximate aspect of a perspective frame: mean of opposite edge lengths. */

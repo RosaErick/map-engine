@@ -38,6 +38,24 @@
       oninput={(e) => store.setOpacity(s.id, +e.currentTarget.value)}
       onchange={() => store.endGesture()} />
 
+    <label for="rotation">rotação {s.rotation.toFixed(0)}°</label>
+    <div class="row">
+      <input
+        id="rotation" type="range" min="0" max="359" step="1"
+        value={s.rotation}
+        oninput={(e) => store.setRotation(s.id, +e.currentTarget.value)}
+        onchange={() => store.endGesture()}
+      />
+    </div>
+    <div class="row">
+      {#each [0, 90, 180, 270] as deg (deg)}
+        <button
+          class:on={Math.round(s.rotation) === deg}
+          onclick={() => { store.setRotation(s.id, deg); store.endGesture(); }}
+        >{deg}°</button>
+      {/each}
+    </div>
+
     <label for="fit">encaixe</label>
     <select id="fit" value={s.fit} onchange={(e) => store.patchSurface(s.id, { fit: e.currentTarget.value as Fit })}>
       <option value="stretch">esticar</option>

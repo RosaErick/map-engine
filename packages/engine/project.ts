@@ -29,6 +29,9 @@ export interface Surface {
   sourceId: string | null;
   crop: { x: number; y: number; w: number; h: number }; // 0..1 inside the source
   fit: Fit;
+  /** Content rotation inside the frame, in degrees clockwise. The frame keeps
+   *  the perspective; this only spins what is sampled into it. */
+  rotation: number;
   opacity: number;
   blend: Blend;
   locked: boolean;
@@ -91,6 +94,7 @@ export function newSurface(project: Project, name?: string): Surface {
     sourceId: null,
     crop: { x: 0, y: 0, w: 1, h: 1 },
     fit: 'stretch',
+    rotation: 0,
     opacity: 1,
     blend: 'normal',
     locked: false,
@@ -104,6 +108,7 @@ const DEFAULT_SURFACE = {
   sourceId: null,
   crop: { x: 0, y: 0, w: 1, h: 1 },
   fit: 'stretch' as Fit,
+  rotation: 0,
   opacity: 1,
   blend: 'normal' as Blend,
   locked: false,
@@ -195,6 +200,7 @@ function parseSurface(raw: unknown, sourceIds: ReadonlySet<string>): Surface | n
     sourceId: sourceId && sourceIds.has(sourceId) ? sourceId : null,
     crop: parseCrop(raw['crop']),
     fit: oneOf(raw['fit'], ['stretch', 'contain', 'cover'] as const, 'stretch'),
+    rotation: normalizeAngle(num(raw['rotation'], 0)),
     opacity: clamp(num(raw['opacity'], 1), 0, 1),
     blend: oneOf(raw['blend'], ['normal', 'add', 'screen', 'multiply'] as const, 'normal'),
     locked: bool(raw['locked'], false),
@@ -256,6 +262,13 @@ function bool(v: unknown, fallback: boolean): boolean {
 function oneOf<T extends string>(v: unknown, allowed: readonly T[], fallback: T): T {
   return allowed.includes(v as T) ? (v as T) : fallback;
 }
+/** Degrees folded into [0, 360). Keeps the UI slider and the shader in the same
+ *  range no matter how many turns a caller accumulated. */
+export function normalizeAngle(deg: number): number {
+  const a = deg % 360;
+  return a < 0 ? a + 360 : a;
+}
+
 export function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }

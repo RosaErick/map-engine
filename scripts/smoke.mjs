@@ -116,6 +116,43 @@ check('AC-19: padrão de teste chega na saída',
   gridSample.white > 500 && gridSample.white < gridSample.total * 0.2,
   `brancos=${gridSample.white}`);
 
+await page.selectOption('#pattern', 'none'); // a test pattern would bypass the uv matrix
+
+// Rotation reaches the shader: at 45 degrees the sampled window's corners fall
+// outside the source, get discarded, and the lit area becomes a diamond
+// inscribed in the frame. Corners dark, centre and edge midpoints lit.
+const rotated = await page.evaluate(() => {
+  const engine = window.engine;
+  const s = engine.store.project.surfaces[0];
+  engine.store.setSurfaceShape(s.id, { kind: 'quad' });
+  engine.store.setSurfaceFrame(s.id, [
+    { x: 660, y: 240 }, { x: 1260, y: 240 }, { x: 1260, y: 840 }, { x: 660, y: 840 },
+  ]);
+  engine.store.setRotation(s.id, 45);
+  engine.store.endGesture();
+  const v = engine.view;
+  const dpr = window.devicePixelRatio;
+  const toPx = (x, y) => [Math.round((x * v.scale + v.tx) * dpr), Math.round((y * v.scale + v.ty) * dpr)];
+  return {
+    corner: toPx(672, 252),     // just inside the frame's top-left corner
+    edgeMid: toPx(960, 252 + 8), // middle of the top edge
+    centre: toPx(960, 540),
+  };
+});
+await page.waitForTimeout(50);
+const rotCorner = await pixel(...rotated.corner);
+const rotEdge = await pixel(...rotated.edgeMid);
+const rotCentre = await pixel(...rotated.centre);
+check('AC-28: rotação de 45° corta os cantos do frame', rotCorner.slice(0, 3).every((v) => v < 20), `rgb=${rotCorner}`);
+check('AC-28: meio da aresta e centro continuam acesos',
+  rotEdge[0] > 200 && rotCentre[0] > 200, `aresta=${rotEdge} centro=${rotCentre}`);
+
+await page.evaluate(() => {
+  const engine = window.engine;
+  engine.store.setRotation(engine.store.project.surfaces[0].id, 0);
+  engine.store.endGesture();
+});
+
 // Trap 1: perspective-correct UV. A homography maps straight lines to straight
 // lines, so on a strongly skewed quad the boundary between two colour bars must
 // stay straight. The classic linearly-interpolated-UV bug kinks it exactly at

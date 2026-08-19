@@ -162,7 +162,10 @@ modo de desenho via `#modeFor` (0 textura, 1 mídia faltando, 2 nada), monta os 
 cacheia a textura, e `surfaceNumber(project, surface)` decide **qual** número é esse:
 posição na ordem z decrescente, a mesma da lista do editor, para o número projetado bater
 com o item selecionado. Também exporta as funções puras `toColumnMajor(h)`,
-`uvTransform(surface, source)` (dobra `crop` e `fit` num único `vec4`),
+`uvTransform(surface, source)` (dobra `crop` e `fit` num par escala/deslocamento),
+`uvMatrix(surface, source)` (compõe `crop`, `fit` e **rotação** num `mat3`
+column-major — a rotação é aplicada em torno do centro do frame, então o conteúdo
+gira no lugar em vez de sair da forma), `isQuarterTurned(rotation)`,
 `frameAspectOf(surface)` (aspecto aproximado de um frame em perspectiva: média das arestas
 opostas), `frameToPixel(h, u, v)` e as constantes `IDENTITY_VIEW` / o tipo `ViewTransform`.
 
@@ -177,7 +180,7 @@ histórico; `endGesture()` fecha o grupo. Os métodos públicos são a API de co
 `load`, `toJSON`, `setOutputSize`, `undo`/`redo` (com `canUndo`/`canRedo`),
 `addSurface`, `removeSurface`, `duplicateSurface`, `patchSurface`, `setCorner`,
 `nudgeCorner`, `moveSurface`, `setSurfaceFrame`, `setSurfaceShape`, `setSurfaceSource`,
-`toggleLock`, `toggleVisible`, `toggleSolo`, `setOpacity`, `reorder`, `addSource`,
+`toggleLock`, `toggleVisible`, `toggleSolo`, `setOpacity`, `setRotation`, `reorder`, `addSource`,
 `removeSource`, `patchSource`, `setView` e `setTestPattern`. O guard privado `#editable(id)`
 faz o *lock* ser real: `setCorner`, `nudgeCorner`, `moveSurface` e `setSurfaceFrame`
 simplesmente não fazem nada numa superfície travada, e `patchSurface` descarta `frame` do

@@ -66,6 +66,24 @@ não precisa de rede.
 
 ---
 
+## Encaixe do conteúdo
+
+Dentro de cada superfície o conteúdo tem quatro controles independentes, no painel
+da direita:
+
+| Controle | O que faz |
+|---|---|
+| **encaixe** | `esticar` ignora a proporção · `caber` mostra tudo e deixa preto na sobra · `preencher` cobre a forma e corta o excesso |
+| **rotação** | Gira o conteúdo em torno do centro do frame, 0–359°, com atalhos de 0/90/180/270. O **frame não se mexe**, então girar é seguro numa superfície já travada e alinhada |
+| **opacidade** | 0–100% |
+| **mistura** | `normal` · `soma` · `screen` · `multiply` |
+
+Um quarto de volta troca a proporção usada por `caber` e `preencher`, para um vídeo
+deitado continuar encaixando. Rotação livre é para corrigir projetor torto, não para
+reenquadrar.
+
+---
+
 ## Comandos
 
 | Comando | O que faz |
@@ -80,6 +98,25 @@ não precisa de rede.
 O smoke test é o que prova as promessas difíceis: que o build abre sem servidor com o
 console limpo, que fora das superfícies o preto é absoluto, e que uma borda reta
 continua reta num quadrilátero deformado em perspectiva (desvio medido: 0,50 px).
+
+---
+
+## Publicar
+
+O build é um arquivo só, com tudo embutido e caminhos relativos — ele funciona igual
+num subcaminho de GitHub Pages, num domínio próprio, ou aberto do disco.
+
+**GitHub Pages.** O workflow em [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+roda os testes, builda e publica a cada push na `main`. Ligue uma vez em
+*Settings → Pages → Source: GitHub Actions*.
+
+**Netlify.** [`netlify.toml`](netlify.toml) já traz comando e diretório. Conecte o
+repositório e não há mais nada a configurar — ou arraste a pasta `dist/` para o
+Netlify Drop, sem repositório nenhum.
+
+Nos dois casos o site sai em `https`, que é o que `getDisplayMedia`, a câmera e o
+File System Access exigem. Para o local da montagem, **baixe o `index.html` publicado
+e leve no pendrive**: sem rede, ele continua abrindo e funcionando igual.
 
 ---
 
