@@ -106,6 +106,7 @@ export const es: Messages = {
   'inspector.rotation': 'rotación del contenido',
   'inspector.opacity': 'opacidad',
   'inspector.crop': 'recorte dentro de la fuente',
+  'inspector.cropActive': 'en uso',
   'inspector.cropWidth': 'ancho',
   'inspector.cropHeight': 'alto',
   'inspector.cropReset': 'usar toda la fuente',

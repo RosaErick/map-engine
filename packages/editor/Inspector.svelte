@@ -14,6 +14,12 @@
   const ARROWS = ['←', '→', '↑', '↓'].map(kbd).join(' ');
   const SHIFT = kbd('Shift');
 
+  /** Recorte diferente da fonte inteira — o que justifica avisar no cabeçalho
+   *  recolhido, já que dali não dá para ver os valores. */
+  const cropped = $derived(
+    !!s && (s.crop.x !== 0 || s.crop.y !== 0 || s.crop.w !== 1 || s.crop.h !== 1),
+  );
+
   function setShape(kind: 'quad' | 'ellipse'): void {
     if (!s) return;
     store.setSurfaceShape(s.id, kind === 'ellipse' ? { kind: 'ellipse', feather: 0.06 } : { kind: 'quad' });
@@ -99,17 +105,22 @@
         />
       </label>
 
-      <!-- Recorte: a janela amostrada dentro da fonte, em porcentagem. Existia
-           no modelo desde o começo e não tinha controle nenhum. -->
-      <div>
-        <span class="mb-1 flex items-center justify-between text-[11px] text-base-content/55">
+      <!-- Recorte fica recolhido: quatro campos abertos o tempo todo empurravam
+           encaixe, mistura e padrão para fora da tela, e recorte é ajuste de
+           exceção — a maioria dos projetos usa a fonte inteira. -->
+      <details class="group">
+        <summary class="flex cursor-pointer list-none items-center gap-1 text-[11px] text-base-content/55 hover:text-base-content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               class="size-3 transition-transform group-open:rotate-90" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" />
+          </svg>
           {t('inspector.crop')}
-          <button
-            class="btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0 font-normal text-[10px]"
-            onclick={() => { store.setCrop(s.id, { x: 0, y: 0, w: 1, h: 1 }); store.endGesture(); }}
-          >{t('inspector.cropReset')}</button>
-        </span>
-        <div class="grid grid-cols-2 gap-2">
+          {#if cropped}
+            <span class="ml-auto text-[10px] text-primary">{t('inspector.cropActive')}</span>
+          {/if}
+        </summary>
+
+        <div class="mt-2 grid grid-cols-2 gap-2">
           {#each [
             { key: 'x', label: 'X', value: s.crop.x },
             { key: 'y', label: 'Y', value: s.crop.y },
@@ -117,7 +128,7 @@
             { key: 'h', label: t('inspector.cropHeight'), value: s.crop.h },
           ] as field (field.key)}
             <label class="flex items-center gap-1.5 text-[11px] text-base-content/55">
-              <span class="w-12 shrink-0 truncate">{field.label}</span>
+              <span class="w-10 shrink-0 truncate">{field.label}</span>
               <input
                 type="number" min="0" max="100" step="1"
                 class="input input-xs w-full"
@@ -130,7 +141,14 @@
             </label>
           {/each}
         </div>
-      </div>
+
+        {#if cropped}
+          <button
+            class="btn btn-ghost btn-xs btn-block mt-1 font-normal"
+            onclick={() => { store.setCrop(s.id, { x: 0, y: 0, w: 1, h: 1 }); store.endGesture(); }}
+          >{t('inspector.cropReset')}</button>
+        {/if}
+      </details>
 
       <div class="grid grid-cols-2 gap-2">
         <label class="block" for="fit">

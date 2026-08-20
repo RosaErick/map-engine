@@ -120,6 +120,7 @@ export const en = {
   'inspector.rotation': 'content rotation',
   'inspector.opacity': 'opacity',
   'inspector.crop': 'crop inside the source',
+  'inspector.cropActive': 'in use',
   'inspector.cropWidth': 'width',
   'inspector.cropHeight': 'height',
   'inspector.cropReset': 'use the whole source',
