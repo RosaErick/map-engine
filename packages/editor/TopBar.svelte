@@ -60,11 +60,29 @@
   </div>
 
   <div class="flex items-center gap-0.5">
+    <!--
+      A saída é um botão próprio, e não o rótulo de outro trocando de nome.
+      Enquanto ele era o botão do guia virando "voltar ao editor", a página
+      "sobre" simplesmente não tinha saída visível — e do guia não dava para
+      saber o que "guia" faria. Agora os dois botões de página mantêm o nome, e
+      dá para pular de um para o outro sem passar pelo editor.
+    -->
+    {#if session.page !== 'editor'}
+      <button
+        class="btn btn-ghost btn-xs gap-1.5 font-normal"
+        onclick={() => (session.page = 'editor')}
+      >
+        <Icon name="back" class="size-3.5" />
+        {t('topbar.backToEditor')}
+      </button>
+      <span class="mx-1 h-4 w-px bg-base-content/10"></span>
+    {/if}
+
     <button
       class="btn btn-ghost btn-xs font-normal"
       class:btn-active={session.page === 'docs'}
       onclick={() => (session.page = session.page === 'docs' ? 'editor' : 'docs')}
-    >{session.page === 'docs' ? t('topbar.backToEditor') : t('topbar.guide')}</button>
+    >{t('topbar.guide')}</button>
 
     <button
       class="btn btn-ghost btn-xs font-normal"
