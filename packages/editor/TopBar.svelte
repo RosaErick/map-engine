@@ -62,6 +62,12 @@
   </div>
 
   <div class="flex items-center gap-0.5">
+    <button
+      class="btn btn-ghost btn-xs font-normal"
+      class:btn-active={ui.page === 'docs'}
+      onclick={() => (ui.page = ui.page === 'docs' ? 'editor' : 'docs')}
+    >{ui.page === 'docs' ? t('topbar.backToEditor') : t('topbar.guide')}</button>
+
     <button class="btn btn-ghost btn-xs font-normal" onclick={onAbout}>{t('topbar.about')}</button>
 
     <a

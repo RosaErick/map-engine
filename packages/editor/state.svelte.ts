@@ -7,6 +7,7 @@ import type { Engine } from '../engine/engine.ts';
 export const store = new Store(emptyProject(1920, 1080));
 
 export type Tool = 'select' | 'polygon';
+export type Page = 'editor' | 'docs';
 
 /** Editor-only state: never saved, never seen by the engine. */
 export const ui = $state({
@@ -14,6 +15,7 @@ export const ui = $state({
   tx: 0,
   ty: 0,
   tool: 'select' as Tool,
+  page: 'editor' as Page,
   snap: true,
   snapOff: false,          // held key temporarily disables snapping
   pendingPolygon: [] as Vec2[],

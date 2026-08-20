@@ -7,7 +7,8 @@
   import Inspector from './Inspector.svelte';
   import SourcePanel from './SourcePanel.svelte';
   import About from './About.svelte';
-  import { store, ui, selected, flash, duplicateSelected } from './state.svelte.ts';
+  import DocsPage from './DocsPage.svelte';
+  import { store, ui, selected, flash, duplicateSelected, getEngine } from './state.svelte.ts';
   import { scheduleSave, localProject, hasFileSystemAccess, setMemoryLabel } from './project-folder.ts';
   import { initTheme } from './theme.svelte.ts';
   import { initLocale, i18n, t } from './i18n/index.svelte.ts';
@@ -43,6 +44,13 @@
       const saved = localProject();
       if (saved) { try { store.load(saved); } catch { /* autosave corrompido, começa limpo */ } }
     }
+  });
+
+  $effect(() => {
+    const engine = getEngine();
+    if (!engine) return;
+    if (ui.page === 'docs') engine.stop();
+    else engine.start();
   });
 
   /** O acerto de 1 px é o que separa "quase encaixado" de encaixado. As setas
@@ -98,12 +106,19 @@
 <div class="flex h-full flex-col bg-base-100">
   {#if !$store.view.uiHidden}
     <TopBar onAbout={() => (aboutOpen = true)} />
-    <Toolbar />
+    {#if ui.page === 'editor'}
+      <Toolbar />
+    {/if}
   {/if}
 
   <!-- Em tela estreita o painel desce para baixo da área de trabalho em vez de
        espremer os dois: alinhar precisa de largura, configurar não. -->
-  <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
+  <!-- O guia cobre o editor em vez de substituí-lo: desmontar a Stage destruiria
+       o contexto WebGL e faria a captura de tela pedir permissão de novo ao voltar. -->
+  <div class="relative flex min-h-0 flex-1 flex-col lg:flex-row">
+    {#if ui.page === 'docs'}
+      <DocsPage />
+    {/if}
     <Stage />
     {#if !$store.view.uiHidden}
       <aside class="max-h-[45vh] w-full shrink-0 overflow-y-auto border-t border-base-300 bg-base-100 lg:max-h-none lg:w-[320px] lg:border-t-0 lg:border-l">
