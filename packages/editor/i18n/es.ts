@@ -183,9 +183,9 @@ export const es: Messages = {
   'warn.folderUnsupported': 'Este navegador no permite abrir carpetas. Usa Chrome o Edge.',
 
   'about.kicker': 'Herramienta · Proyección',
-  'about.headline': 'Luz que envuelve',
+  'about.headline': 'Proyecta sobre',
   'about.headlineEmphasis': 'objetos reales',
-  'about.lede': 'Un proyector, una pared con cuadros, una pila de cajas. Dibujas formas sobre la proyección que coinciden con las cosas reales, y pones contenido dentro de cada una: video, imágenes, GIF, color, la captura de cualquier ventana de la máquina o la cámara en vivo.',
+  'about.lede': 'Apunta un proyector a una pared, una caja, un mueble. Marca las esquinas del objeto en pantalla, y lo que pongas ahí — video, una imagen, lo que haya en tu pantalla — toma su forma.',
   'about.quote': 'El negro es transparencia.',
   'about.quoteBody': 'Cada píxel negro es ausencia de luz, y la superficie física se ve a través de él. Fuera de las formas mapeadas no se dibuja nada — ni un gris, ni un borde, ni un píxel de interfaz. Es la única regla que manda sobre todas las demás.',
   'about.whyTitle': 'Por qué existe',

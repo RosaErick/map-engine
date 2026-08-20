@@ -182,9 +182,9 @@ export const pt: Messages = {
   'warn.folderUnsupported': 'Este navegador não permite abrir pastas. Use Chrome ou Edge.',
 
   'about.kicker': 'Ferramenta · Projeção',
-  'about.headline': 'Luz que veste',
+  'about.headline': 'Projete sobre',
   'about.headlineEmphasis': 'objetos reais',
-  'about.lede': 'Um projetor, uma parede com quadros, uma pilha de caixas. Você desenha formas por cima da projeção que coincidem com as coisas de verdade, e joga conteúdo dentro de cada uma: vídeo, imagem, GIF, cor, a captura de qualquer janela da máquina ou a câmera ao vivo.',
+  'about.lede': 'Aponte um projetor para uma parede, uma caixa, um móvel. Marque os cantos do objeto na tela, e o que você colocar ali — vídeo, imagem, o que estiver na sua tela — encaixa no formato dele.',
   'about.quote': 'Preto é transparência.',
   'about.quoteBody': 'Todo pixel preto é ausência de luz, e a superfície física aparece através dele. Fora das formas mapeadas, nada é desenhado — nem um cinza, nem uma borda, nem um pixel de interface. É a única regra que manda em todas as outras.',
   'about.whyTitle': 'Por que existe',
