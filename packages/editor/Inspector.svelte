@@ -1,8 +1,39 @@
 <script lang="ts">
   import { store } from './state.svelte.ts';
   import { PATTERNS } from './patterns.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import { t, type MessageKey } from './i18n/index.svelte.ts';
   import type { Blend, Fit, TestPattern } from '../engine/index.ts';
+
+  /**
+   * The fit and blend options, in the order the selects show them.
+   *
+   * Same idea as `PATTERNS`, one step stronger: the list is keyed by the
+   * engine's union type, so completeness is checked by the compiler. Add a
+   * member to `Fit` or `Blend` and this object literal is missing a property,
+   * which `Record<Fit, MessageKey>` rejects — the option cannot be forgotten.
+   * The label still lives in the catalogue, and typing the values as
+   * `MessageKey` means a key that is not in the catalogue fails too.
+   *
+   * The keys are camelCase (`inspector.fitStretch`) while the union members are
+   * lowercase, so a `` t(`inspector.fit${id}`) `` template would build a key
+   * that does not exist. Hence the explicit mapping instead of a cast.
+   *
+   * `Object.entries` keeps the order the members are written in, which is the
+   * order the options had before.
+   */
+  const FIT_OPTIONS: Record<Fit, MessageKey> = {
+    stretch: 'inspector.fitStretch',
+    contain: 'inspector.fitContain',
+    cover: 'inspector.fitCover',
+  };
+  const BLEND_OPTIONS: Record<Blend, MessageKey> = {
+    normal: 'inspector.blendNormal',
+    add: 'inspector.blendAdd',
+    screen: 'inspector.blendScreen',
+    multiply: 'inspector.blendMultiply',
+  };
+  const FITS = Object.entries(FIT_OPTIONS);
+  const BLENDS = Object.entries(BLEND_OPTIONS);
 
   const s = $derived(
     $store.project.surfaces.find((x) => x.id === $store.view.selectedSurfaceId) ?? null,
@@ -157,9 +188,7 @@
             id="fit" class="select select-xs w-full" value={s.fit}
             onchange={(e) => store.patchSurface(s.id, { fit: e.currentTarget.value as Fit })}
           >
-            <option value="stretch">{t('inspector.fitStretch')}</option>
-            <option value="contain">{t('inspector.fitContain')}</option>
-            <option value="cover">{t('inspector.fitCover')}</option>
+            {#each FITS as [id, key] (id)}<option value={id}>{t(key)}</option>{/each}
           </select>
         </label>
 
@@ -169,10 +198,7 @@
             id="blend" class="select select-xs w-full" value={s.blend}
             onchange={(e) => store.patchSurface(s.id, { blend: e.currentTarget.value as Blend })}
           >
-            <option value="normal">{t('inspector.blendNormal')}</option>
-            <option value="add">{t('inspector.blendAdd')}</option>
-            <option value="screen">{t('inspector.blendScreen')}</option>
-            <option value="multiply">{t('inspector.blendMultiply')}</option>
+            {#each BLENDS as [id, key] (id)}<option value={id}>{t(key)}</option>{/each}
           </select>
         </label>
       </div>
