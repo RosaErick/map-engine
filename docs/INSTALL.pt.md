@@ -1,5 +1,7 @@
 # Como instalar
 
+**Português** · [English](INSTALL.en.md) · [Español](INSTALL.es.md)
+
 Não precisa saber programar. Escolha **um** dos dois caminhos.
 
 > Use **Google Chrome** ou **Microsoft Edge**. A ferramenta usa recursos que só
@@ -33,14 +35,14 @@ Para desinstalar: abra a ferramenta, menu ⋮ → **Desinstalar**.
 Para uma máquina que nunca vai ter internet, ou para levar a ferramenta a um
 local de montagem sem depender de rede.
 
-1. Vá em **[Releases](../../releases)** e baixe o arquivo **`projection-mapping.html`**.
+1. Vá em **[Releases](../../../releases)** e baixe o arquivo **`projection-mapping.html`**.
    *(Ou, com a ferramenta já aberta, clique em **baixar offline** na barra de cima.)*
 2. Copie o arquivo para onde quiser — pendrive, área de trabalho, o que for.
 3. Dê **dois cliques** nele. Ele abre no navegador e já funciona.
 
 > 📷 *print: o arquivo na área de trabalho e a ferramenta aberta*
 
-É um arquivo só, com tudo dentro, de mais ou menos 100 KB. Não instala nada, não
+É um arquivo só, com tudo dentro, de uns 285 KB. Não instala nada, não
 precisa de servidor e não acessa a internet.
 
 **Uma limitação deste caminho:** aberta direto de um arquivo, a ferramenta pode
@@ -64,6 +66,8 @@ com frequência, prefira o Caminho 1.
 
 > 📷 *print: os quatro cantos sendo arrastados sobre um objeto*
 
+O guia completo fica dentro do app, em **guia** na barra de cima.
+
 **O ajuste que faz a diferença:** clique num canto e use as **setas do teclado**
 para movê-lo 1 pixel por vez (com **Shift**, 10 pixels). É esse ajuste fino que
 separa "quase encaixado" de encaixado.
@@ -77,6 +81,6 @@ separa "quase encaixado" de encaixado.
 | O botão **abrir pasta** está apagado | Você não está no Chrome nem no Edge. Troque de navegador. |
 | A janela de saída não abre | O navegador bloqueou a janela. Libere pop-ups para este endereço e tente de novo. |
 | A saída não vai para tela cheia | Clique na janela de saída e aperte **F11**. |
-| Uma superfície aparece com listras rosa | O arquivo de mídia sumiu da pasta do projeto. Coloque-o de volta ou escolha outro. |
+| Uma superfície aparece com listras magenta | O arquivo de mídia saiu da pasta do projeto. Devolva-o, ou use **religar** para apontar para outro arquivo. |
 | A câmera não abre | Outro programa pode estar usando. Feche o outro e recarregue. |
 | A imagem sumiu depois de mover a janela | Aperte **enquadrar** na barra de cima. |
