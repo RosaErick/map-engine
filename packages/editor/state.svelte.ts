@@ -1,4 +1,8 @@
-import { Store, emptyProject, newSurface, quadToUnit, apply, type Surface, type Vec2 } from '../engine/index.ts';
+import {
+  Store, emptyProject, newSurface, quadToUnit, solveUnitToQuad, apply, frameToPixel,
+  pointInPolygon, pointInUnitEllipse, closestOnSegment,
+  type Surface, type Vec2,
+} from '../engine/index.ts';
 import { t } from './i18n/index.svelte.ts';
 import type { Engine } from '../engine/engine.ts';
 
@@ -58,27 +62,47 @@ export function fitView(stageW: number, stageH: number): void {
 const SNAP_PX = 8;
 
 /**
- * Nearest corner of another surface, if one is within the snap radius.
- * DECISION: corners only, no edges — corner-to-corner is the alignment that
- * actually matters when two mapped objects touch, and edge snapping on a
- * perspective quad is ambiguous enough to be a v2 problem.
+ * Gruda num canto ou numa aresta de outra superfície, o que estiver mais perto.
+ *
+ * Canto ganha da aresta no empate: quando dois objetos mapeados se encontram, o
+ * que precisa coincidir é o canto, e um canto que escorrega pela aresta vizinha
+ * é pior do que não grudar. Por isso a aresta só entra se nenhum canto estiver
+ * ao alcance.
  */
 export function snapPoint(p: Vec2, exceptId: string): Vec2 {
   if (!ui.snap || ui.snapOff) return p;
   const radius = SNAP_PX / ui.scale;
-  let best: Vec2 | null = null;
-  let bestDist = radius;
+
+  let corner: Vec2 | null = null;
+  let cornerDist = radius;
+  let edge: Vec2 | null = null;
+  let edgeDist = radius;
+
   for (const s of store.project.surfaces) {
     if (s.id === exceptId) continue;
-    for (const c of s.frame) {
-      const d = Math.hypot(c.x - p.x, c.y - p.y);
-      if (d < bestDist) { bestDist = d; best = c; }
+    for (let i = 0; i < s.frame.length; i++) {
+      const a = s.frame[i]!;
+      const b = s.frame[(i + 1) % s.frame.length]!;
+
+      const d = Math.hypot(a.x - p.x, a.y - p.y);
+      if (d < cornerDist) { cornerDist = d; corner = a; }
+
+      const hit = closestOnSegment(p, a, b);
+      if (hit.distance < edgeDist) { edgeDist = hit.distance; edge = hit.point; }
     }
   }
-  return best ? { x: best.x, y: best.y } : p;
+
+  const target = corner ?? edge;
+  return target ? { x: target.x, y: target.y } : p;
 }
 
-/** Topmost surface under an output-space point, ignoring locked ones. */
+/**
+ * Superfície mais ao alto sob um ponto em pixels de saída.
+ *
+ * O teste é feito contra o **recorte**, não contra o quadrilátero envolvente:
+ * clicar no canto vazio da caixa de uma elipse ou de um polígono não deve
+ * selecionar aquilo que não está aceso ali.
+ */
 export function surfaceAt(p: Vec2): Surface | null {
   const sorted = [...store.project.surfaces].sort((a, b) => b.z - a.z);
   for (const s of sorted) {
@@ -86,9 +110,25 @@ export function surfaceAt(p: Vec2): Surface | null {
     const inv = quadToUnit(s.frame);
     if (!inv) continue;
     const uv = apply(inv, p);
-    if (uv && uv.x >= 0 && uv.x <= 1 && uv.y >= 0 && uv.y <= 1) return s;
+    if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) continue;
+
+    if (s.shape.kind === 'ellipse' && !pointInUnitEllipse(uv)) continue;
+    if (s.shape.kind === 'polygon' && !pointInPolygon(uv, s.shape.points)) continue;
+    return s;
   }
   return null;
+}
+
+/** Ponto do espaço do frame (0..1) em pixels de saída. */
+export function frameToOutput(surface: Surface, u: number, v: number): Vec2 | null {
+  const h = solveUnitToQuad(surface.frame);
+  return h ? frameToPixel(h, u, v) : null;
+}
+
+/** Pixels de saída de volta para o espaço do frame. Devolve null num frame degenerado. */
+export function outputToFrame(surface: Surface, p: Vec2): Vec2 | null {
+  const inv = quadToUnit(surface.frame);
+  return inv ? apply(inv, p) : null;
 }
 
 export function selected(): Surface | null {

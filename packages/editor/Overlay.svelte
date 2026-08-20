@@ -1,6 +1,6 @@
 <script lang="ts">
   import { drag } from './actions.ts';
-  import { store, ui, toScreen, toOutput, snapPoint } from './state.svelte.ts';
+  import { store, ui, toScreen, toOutput, snapPoint, frameToOutput, outputToFrame } from './state.svelte.ts';
   import type { Surface, Vec2 } from '../engine/index.ts';
 
   const HANDLE = 7;
@@ -49,6 +49,35 @@
         y={toScreen(surface.frame[0]).y - 6}
         class="label"
       >{surface.name}{surface.locked ? ' 🔒' : ''}</text>
+
+      <!-- Vértices do polígono: vivem no espaço do frame, então passam pela
+           homografia para virar pixels de saída e só então para a tela. Sem
+           alças aqui, um traçado errado obriga a refazer o polígono inteiro. -->
+      {#if isSelected(surface) && !surface.locked && surface.shape.kind === 'polygon'}
+        {#each surface.shape.points as point, i (i)}
+          {@const output = frameToOutput(surface, point.x, point.y)}
+          {#if output}
+            {@const screen = toScreen(output)}
+            <circle
+              cx={screen.x}
+              cy={screen.y}
+              r={HANDLE - 2}
+              class="vertex"
+              role="button"
+              tabindex="-1"
+              aria-label={`${surface.name} — ${i + 1}`}
+              use:drag={{
+                onStart: () => store.setView({ selectedSurfaceId: surface.id, selectedCorner: null }),
+                onMove: (p) => {
+                  const local = outputToFrame(surface, toOutput(p));
+                  if (local) store.setPolygonPoint(surface.id, i, local);
+                },
+                onEnd: () => store.endGesture(),
+              }}
+            />
+          {/if}
+        {/each}
+      {/if}
 
       {#if isSelected(surface) && !surface.locked}
         {#each surface.frame as corner, i (i)}
@@ -111,6 +140,14 @@
   }
   .handle:hover { fill: #10222e; }
   .handle.active { fill: #52bdff; }
+  /* O vértice é menor e vazado, para não competir com o canto do frame: são
+     duas coisas diferentes e mexer no errado custa caro. */
+  .vertex {
+    fill: #10222e; stroke: #ffb86c; stroke-width: 2;
+    cursor: grab; pointer-events: auto;
+    transition: fill 100ms ease;
+  }
+  .vertex:hover { fill: #ffb86c; }
   .pending { fill: none; stroke: #52bdff; stroke-width: 1.5; stroke-dasharray: 5 3; }
   .pending-dot { fill: #52bdff; }
 </style>
