@@ -229,6 +229,8 @@ export async function listCameras(): Promise<{ deviceId: string; label: string }
       .filter((d) => d.kind === 'videoinput')
       .map((d) => ({ deviceId: d.deviceId, label: d.label }));
   } catch {
+    // enumerateDevices rejects when the page has no permission at all. An empty
+    // list is the honest answer: there is nothing to offer the user yet.
     return [];
   }
 }

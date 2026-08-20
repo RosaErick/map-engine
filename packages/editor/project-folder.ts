@@ -163,6 +163,7 @@ export async function save(
 
 /** Project JSON kept in localStorage by the fallback path, if any. */
 export function localProject(): string | null {
+  // Private mode can refuse storage entirely; "no saved project" is the truth.
   try { return localStorage.getItem(LOCAL_KEY); } catch { return null; }
 }
 

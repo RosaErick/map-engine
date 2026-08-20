@@ -19,9 +19,12 @@
       devicePixelRatio: window.devicePixelRatio,
     });
     setEngine(engine);
-    // ponytail: one global handle. It is what the smoke test reads pixels
-    // through, and the console handle you want at 2am on site.
-    (window as unknown as { engine: typeof engine }).engine = engine;
+    // ponytail: one global handle, deliberately kept in production builds. It
+    // is what the smoke test reads pixels through — gating it behind a dev flag
+    // would leave the shipped build untested — and it is the console handle you
+    // want at 2am on site. Namespaced so an embedding page keeps its own.
+    // It grants nothing a user canvas module could not already do.
+    (window as unknown as { mapEngine: typeof engine }).mapEngine = engine;
     engine.start();
 
     const ro = new ResizeObserver(() => {
