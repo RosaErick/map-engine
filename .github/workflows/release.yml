@@ -40,5 +40,5 @@ jobs:
         run: |
           gh release create "$TAG" projection-mapping.html \
             --title "$TAG" \
-            --notes "Baixe \`projection-mapping.html\` e abra com Chrome ou Edge. Um arquivo só: sem instalação, sem servidor, sem internet. Instruções: https://github.com/${{ github.repository }}/blob/main/docs/INSTALL.pt.md" \
+            --notes "Baixe \`projection-mapping.html\` e abra com Chrome ou Edge. Um arquivo só: sem instalação, sem servidor, sem internet. Instruções: https://github.com/${{ github.repository }}/blob/main/docs/install/pt.md" \
             || gh release upload "$TAG" projection-mapping.html --clobber

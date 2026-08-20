@@ -1,6 +1,6 @@
 # Como instalar
 
-**Português** · [English](INSTALL.en.md) · [Español](INSTALL.es.md)
+**Português** · [English](en.md) · [Español](es.md)
 
 Não precisa saber programar. Escolha **um** dos dois caminhos.
 
@@ -35,7 +35,7 @@ Para desinstalar: abra a ferramenta, menu ⋮ → **Desinstalar**.
 Para uma máquina que nunca vai ter internet, ou para levar a ferramenta a um
 local de montagem sem depender de rede.
 
-1. Vá em **[Releases](../../../releases)** e baixe o arquivo **`projection-mapping.html`**.
+1. Vá em **[Releases](../../../../releases)** e baixe o arquivo **`projection-mapping.html`**.
    *(Ou, com a ferramenta já aberta, clique em **baixar offline** na barra de cima.)*
 2. Copie o arquivo para onde quiser — pendrive, área de trabalho, o que for.
 3. Dê **dois cliques** nele. Ele abre no navegador e já funciona.

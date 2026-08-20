@@ -28,8 +28,9 @@ antes de ser inserido no projeto.
 ## Instalar
 
 **Não é programador?** O passo a passo está em
-**[`docs/INSTALL.pt.md`](docs/INSTALL.pt.md)** — também em
-[inglês](docs/INSTALL.en.md) e [espanhol](docs/INSTALL.es.md). Em resumo, dois caminhos:
+**[`docs/install/`](docs/install)** — em
+[português](docs/install/pt.md), [inglês](docs/install/en.md) e
+[espanhol](docs/install/es.md). Em resumo, dois caminhos:
 
 - **Instalar como aplicativo** — abra o endereço no Chrome ou Edge e clique no ícone
   de instalar na barra de endereço. Ganha ícone próprio, janela sem barra de endereço
@@ -165,7 +166,7 @@ diz isso na tela.
 | [`docs/TASKS.md`](docs/TASKS.md) | O que falta, em ordem de quem bloqueia o teste físico |
 | [`AGENTS.md`](AGENTS.md) | As decisões de arquitetura em formato ADR, e as regras para quem for mexer |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | O que mudou a cada versão |
-| [`docs/INSTALL.pt.md`](docs/INSTALL.pt.md) | Instalação passo a passo, em três idiomas |
+| [`docs/install/`](docs/install) | Instalação passo a passo, em três idiomas |
 
 ---
 
