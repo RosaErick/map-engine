@@ -7,19 +7,24 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test 'packages/engine/*.test.ts'",
+    "test": "node --test 'packages/engine/*.test.ts' 'packages/engine/sources/*.test.ts'",
     "check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "smoke": "node scripts/smoke.mjs",
     "verify": "npm test && npm run build && npm run smoke"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.2.0",
+    "daisyui": "^5.7.19",
     "playwright": "^1.62.1",
     "svelte": "^5.19.0",
     "svelte-check": "^4.1.4",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
     "vite-plugin-singlefile": "^2.1.0"
-  }
+  },
+  "license": "AGPL-3.0-only",
+  "description": "Projection mapping no navegador: engine WebGL2 sem interface + editor."
 }
