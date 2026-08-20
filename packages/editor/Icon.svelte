@@ -6,7 +6,7 @@
    * Só entram aqui os ícones que valem mais que uma palavra. Botão de ação
    * continua com texto — é mais explicativo, que é o ponto.
    */
-  type Name = 'github' | 'sun' | 'moon' | 'laptop' | 'eye' | 'eye-off' | 'lock' | 'lock-open' | 'close' | 'trash' | 'globe' | 'back' | 'mark';
+  type Name = 'github' | 'sun' | 'moon' | 'laptop' | 'eye' | 'eye-off' | 'lock' | 'lock-open' | 'close' | 'trash' | 'globe' | 'back' | 'plus' | 'polygon' | 'undo' | 'redo' | 'magnet' | 'frame' | 'grid' | 'mark';
   let { name, class: klass = 'size-4' }: { name: Name; class?: string } = $props();
 </script>
 
@@ -56,6 +56,24 @@
     {:else if name === 'lock-open'}
       <rect x="4" y="11" width="16" height="10" rx="2"/>
       <path d="M8 11V7a4 4 0 0 1 7.5-2"/>
+    {:else if name === 'plus'}
+      <path d="M12 5v14M5 12h14"/>
+    {:else if name === 'polygon'}
+      <path d="M12 3.5 20.5 9.6 17.3 19.8H6.7L3.5 9.6Z"/>
+    {:else if name === 'undo'}
+      <path d="M3 8v6h6"/>
+      <path d="M3.5 14a8.5 8.5 0 1 1 2.2 5.6"/>
+    {:else if name === 'redo'}
+      <path d="M21 8v6h-6"/>
+      <path d="M20.5 14a8.5 8.5 0 1 0-2.2 5.6"/>
+    {:else if name === 'magnet'}
+      <path d="M6 4v8a6 6 0 0 0 12 0V4"/>
+      <path d="M6 9h4M14 9h4"/>
+    {:else if name === 'frame'}
+      <path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/>
+    {:else if name === 'grid'}
+      <rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/>
+      <path d="M9.3 3.5v17M14.7 3.5v17M3.5 9.3h17M3.5 14.7h17"/>
     {:else if name === 'back'}
       <path d="M19 12H5"/>
       <path d="m11 18-6-6 6-6"/>

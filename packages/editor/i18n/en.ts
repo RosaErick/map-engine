@@ -38,7 +38,7 @@ export const en = {
   'topbar.language': 'Language: {name}',
 
   // Toolbar
-  'toolbar.newSurface': '+ surface',
+  'toolbar.newSurface': 'surface',
   'toolbar.polygon': 'polygon',
   'toolbar.polygonHint': 'Click to trace a free outline around a crooked object',
   'toolbar.undo': 'undo',

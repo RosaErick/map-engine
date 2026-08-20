@@ -28,7 +28,7 @@ export const es: Messages = {
   'topbar.themeDark': 'Oscuro',
   'topbar.language': 'Idioma: {name}',
 
-  'toolbar.newSurface': '+ superficie',
+  'toolbar.newSurface': 'superficie',
   'toolbar.polygon': 'polígono',
   'toolbar.polygonHint': 'Haz clic para trazar un contorno libre alrededor de un objeto torcido',
   'toolbar.undo': 'deshacer',

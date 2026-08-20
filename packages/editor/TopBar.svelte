@@ -22,9 +22,11 @@
 </script>
 
 <header class="flex h-11 items-center gap-3 border-b border-base-300 bg-base-100 pl-3 pr-2">
-  <div class="flex items-center gap-2">
+  <!-- No celular a marca fica só com o símbolo: o nome por extenso comia metade
+       da barra e empurrava os controles para fora. -->
+  <div class="flex shrink-0 items-center gap-2">
     <Icon name="mark" class="size-5" />
-    <span class="text-sm font-semibold tracking-tight">{t('app.name')}</span>
+    <span class="hidden text-sm font-semibold tracking-tight sm:inline">{t('app.name')}</span>
   </div>
 
   <!-- O meio da barra responde, sem ninguém perguntar, o que uma pessoa quer
