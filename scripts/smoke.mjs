@@ -92,7 +92,7 @@ const emptyCentre = await pixel(Math.round(W / 2), Math.round(H / 2));
 check('AC-15: projeto vazio não acende nenhum pixel', emptyCentre.slice(0, 3).every((v) => v === 0), `rgb=${emptyCentre}`);
 
 // New surface, still without a source: nothing may be drawn on the wall.
-await page.getByRole('button', { name: '+ superfície' }).click();
+await page.getByRole('button', { name: 'superfície', exact: true }).click();
 const noSource = await pixel(Math.round(W / 2), Math.round(H / 2));
 check('AC-16: superfície sem fonte não põe luz no objeto', noSource.slice(0, 3).every((v) => v === 0), `rgb=${noSource}`);
 
