@@ -35,6 +35,19 @@ function walk(dir) {
 }
 
 /** Blanks a region while keeping newlines, so reported line numbers stay true. */
+/**
+ * Apaga comentários de bloco, preservando as quebras de linha para o número da
+ * linha no relatório continuar certo.
+ *
+ * A varredura por literal olha linha a linha e pulava só quem começa com `//`
+ * ou `*` — a linha de abertura de um bloco JSDoc não começa com nenhum dos
+ * dois, então uma palavra entre aspas dentro dela virava "texto em código".
+ * Mesmo defeito do apóstrofo em comentário de marcação, um nível acima.
+ */
+function blankBlockComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, blank);
+}
+
 function blank(text) {
   return text.replace(/[^\n]/g, ' ');
 }
@@ -59,7 +72,7 @@ for (const file of walk(editor)) {
   // builds toasts and default names. Skipping the script is how Portuguese in
   // `flash('...')` slipped past the first version of this check.
   if (isSvelte) {
-    for (const block of source.matchAll(/<script[\s\S]*?<\/script>/g)) {
+    for (const block of blankBlockComments(source).matchAll(/<script[\s\S]*?<\/script>/g)) {
       const startLine = source.slice(0, block.index).split('\n').length;
       block[0].split('\n').forEach((line, i) => {
         if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) return;
@@ -74,7 +87,7 @@ for (const file of walk(editor)) {
   if (isTs) {
     // In plain modules only accented literals are unambiguous copy; an English
     // word could just as well be an id, a class name or a MIME type.
-    source.split('\n').forEach((line, i) => {
+    blankBlockComments(source).split('\n').forEach((line, i) => {
       if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) return;
       for (const m of line.matchAll(/'([^']*)'|"([^"]*)"/g)) {
         const value = m[1] ?? m[2] ?? '';
