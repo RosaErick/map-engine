@@ -454,6 +454,52 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// O guia da malha só serve se for visível sobre o conteúdo — e é sobre a imagem
+// que se julga o alinhamento. Medido no elemento renderizado de verdade, com o
+// CSS aplicado, e não na folha de estilo.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  if (!store.project.surfaces[0]) store.addSurface();
+  const s = store.project.surfaces[0];
+  store.setView({ selectedSurfaceId: s.id });
+  store.enableWarp(s.id);
+});
+// O overlay é Svelte: as alças só existem no DOM depois que ele pinta.
+await page.waitForSelector('.warp-casing', { state: 'attached', timeout: 5000 });
+
+const contrast = await page.evaluate(() => {
+  const read = (selector) => {
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const css = getComputedStyle(el);
+    const rgb = css.stroke.match(/[\d.]+/g)?.map(Number) ?? null;
+    return rgb && { rgb: rgb.slice(0, 3), alpha: Number(css.opacity) };
+  };
+  const casing = read('.warp-casing');
+  const line = read('.warp-line');
+  if (!casing || !line) return null;
+
+  // Luminância relativa da WCAG, e a razão de contraste entre duas cores.
+  const lum = ([r, g, b]) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const ratio = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  const over = (fg, alpha, bg) => fg.map((c, i) => c * alpha + bg[i] * (1 - alpha));
+
+  const measure = (bg) => {
+    const cased = over(casing.rgb, casing.alpha, bg);
+    return Math.max(ratio(cased, bg), ratio(over(line.rgb, line.alpha, cased), bg));
+  };
+  return { branco: measure([255, 255, 255]), preto: measure([0, 0, 0]) };
+});
+check('AC-61: o guia da malha se distingue sobre branco e sobre preto',
+  contrast !== null && contrast.branco >= 2 && contrast.preto >= 2,
+  contrast ? `branco=${contrast.branco.toFixed(2)}x preto=${contrast.preto.toFixed(2)}x` : 'elementos do guia não encontrados');
+
 // O clique tem que respeitar a silhueta, e não a caixa. Um polígono ocupa uma
 // fração da própria bbox, então o canto vazio dela é o lugar exato onde
 // selecionar a superfície errada custa caro: acontece em cima de uma escada,
