@@ -18,6 +18,11 @@ const editor = join(root, 'packages/editor');
 /** Attributes whose value is read by a person, not by the browser. */
 const COPY_ATTRS = /\s(?:title|aria-label|placeholder|alt)="([^"{}]*[\p{L}]{2,}[^"{}]*)"/gu;
 const ACCENTED = /[áàâãäéèêëíìîïóòôõöúùûüçñ]/i;
+/** Nomes de tecla do DOM — comparação de evento, não texto de interface. */
+const DOM_KEYS = new Set([
+  'Enter', 'Escape', 'Shift', 'Control', 'Alt', 'Meta', 'Tab', 'Backspace', 'Delete',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown',
+]);
 
 function walk(dir) {
   const out = [];
@@ -81,8 +86,26 @@ for (const file of walk(editor)) {
     .replace(/<script[\s\S]*?<\/script>/g, blank)
     .replace(/<style[\s\S]*?<\/style>/g, blank);
 
-  // Svelte expressions are translated content by definition; blank them out so
-  // only literal text is left behind.
+  // Svelte expressions usually hold translated content — but not always: a
+  // template literal inside an attribute expression is copy too, and blanking
+  // the whole expression is how `aria-label={`Canto ${i}`}` hid here for weeks.
+  // Scanning the raw markup avoids the brace-matching problem entirely: an
+  // expression containing `${...}` has nested braces and never matched.
+  for (const m of markup.matchAll(/`([^`]*)`|'([^']*)'|"([^"]*)"/g)) {
+    const value = m[1] ?? m[2] ?? m[3] ?? '';
+    const words = value.replace(/\$\{[^}]*\}/g, ' ').trim();
+    if (DOM_KEYS.has(words)) continue;
+    // Inside an expression almost everything is a key, a class name or an enum
+    // value — all lowercase. Copy is what reads like a sentence: it starts a
+    // word with a capital, or it carries an accent. Narrow on purpose: a
+    // heuristic that cries wolf gets switched off.
+    if (/\b\p{Lu}\p{Ll}{2,}/u.test(words) || ACCENTED.test(words)) {
+      const line = markup.slice(0, m.index).split('\n').length;
+      report(file, line, 'texto em expressão', words);
+    }
+  }
+
+  // Now blank them, so only literal text is left behind.
   let previous;
   do {
     previous = markup;

@@ -58,6 +58,8 @@ export const en = {
   'toolbar.hideUiHint': 'Hides the whole interface. Press H to bring it back',
 
   // Stage
+  'overlay.corner': 'Corner {number}',
+  'overlay.vertex': '{name} — vertex {number}',
   'stage.label': 'Mapping area',
   'stage.polygonHint': 'Click to trace the polygon · double click to close ·',
   'stage.polygonHintCancel': 'cancels',

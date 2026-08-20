@@ -47,6 +47,8 @@ export const pt: Messages = {
   'toolbar.hideUi': 'esconder UI',
   'toolbar.hideUiHint': 'Esconde toda a interface. Tecla H para voltar',
 
+  'overlay.corner': 'Canto {number}',
+  'overlay.vertex': '{name} — vértice {number}',
   'stage.label': 'Área de mapeamento',
   'stage.polygonHint': 'Clique para traçar o polígono · duplo clique para fechar ·',
   'stage.polygonHintCancel': 'cancela',
