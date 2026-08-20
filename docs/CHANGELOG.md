@@ -67,8 +67,24 @@ arquivo único anexado.
 - Instalação como aplicativo (PWA) com service worker versionado pelo hash do build.
 - Publicação no GitHub Pages e Release com o `.html` avulso anexado.
 
+### Corrigido
+- Uma fonte que terminava de carregar depois de o loop de render dormir **nunca
+  aparecia na parede**: nada marcava o frame como sujo. Coberto por AC-39, que lê o
+  pixel sem forçar um frame — forçar esconderia exatamente esse bug.
+- `patchSurface` aceitava valores que nenhum método nomeado aceitaria (opacidade 5,
+  recorte vazio, encaixe inexistente). Todo caminho de escrita passa por um sanitizador
+  único.
+- Ids repetidos num `project.json` faziam toda busca acertar a errada e apagar as duas.
+
+### Desempenho
+- Homografia, triangulação e buffers de vértice passaram a ser calculados uma vez por
+  versão da superfície, e não a cada frame. Trabalho de JS por frame com 30 superfícies
+  (metade polígonos de 12 lados): **0,3 ms → 0,1 ms** de mediana, 0,7 → 0,2 ms de p95.
+- O loop dorme de verdade: reconciliar o pool de fontes só acontece quando a lista muda.
+- CSS de 105 KB para 80 KB restringindo daisyUI aos componentes realmente usados.
+
 ### Verificação
-- 37 testes de unidade sem framework (`node:test`).
-- 18 checagens de integração em chromium headless, lendo pixels do build real.
+- 62 testes de unidade sem framework (`node:test`).
+- 19 checagens de integração em chromium headless, lendo pixels do build real.
 - `npm run i18n` reprova string fixa no editor e tradução que perdeu placeholder ou
   marcação.

@@ -718,44 +718,39 @@ HTTP significa mexer só ali — está escrito no comentário `DECISION:` do arq
 ## 6. Lacunas conhecidas
 
 Coisas que estão no código mas incompletas, ou que o brief pede e não estão exercidas.
-A lista é curta de propósito: o que saiu dela saiu porque foi feito, não porque foi
-esquecido.
 
 - **Mídia sem pasta não sobrevive ao reinício.** `importFile` guarda o arquivo em
   `memoryFiles` quando não há handle de diretório; o `project.json` fica no
-  `localStorage`, os arquivos não. O usuário é avisado, e **religar** reconstrói o
-  vínculo sem apagar e recriar a fonte — mas continua sendo trabalho manual a cada
-  sessão. A cura de verdade é usar uma pasta.
+  `localStorage`, os arquivos não. **Religar** reconstrói o vínculo sem apagar e recriar
+  a fonte, mas continua sendo trabalho manual a cada sessão. A cura de verdade é usar
+  uma pasta.
 - **O handle da pasta não é persistido entre sessões.** O brief pede "abrir usa
-  `showDirectoryPicker()` e guarda o handle"; hoje ele só vive na memória do módulo, e
-  toda abertura do app exige re-selecionar a pasta. Guardar em IndexedDB e pedir
-  `queryPermission` na volta resolveria.
+  `showDirectoryPicker()` e guarda o handle"; hoje ele só vive na memória do módulo.
 - **Polígono: dá para mover vértice, não para acrescentar ou remover.** As alças existem
-  em [`Overlay`](../packages/editor/Overlay.svelte) e passam por
-  `Store.setPolygonPoint`, que respeita a trava. Errar a *quantidade* de pontos ainda
-  obriga a refazer o traçado.
-- **Feather só na elipse.** Polígono tem borda dura, como o brief define para a v1: a
-  máscara dele é geometria, não campo de distância.
+  e respeitam a trava; errar a *quantidade* de pontos ainda obriga a refazer o traçado.
+- **Feather só na elipse.** Polígono tem borda dura, como o brief define para a v1.
 - **Triangulação O(n²), só polígono simples.** Anotado com `ponytail:` em
-  [`geometry.ts`](../packages/engine/geometry.ts). Correto para um contorno traçado à
-  mão com uma dúzia de pontos; só vira problema se alguém importar SVG.
-- **A meta de performance nunca foi medida.** 30 superfícies com 4 vídeos 1080p a 60fps
-  é afirmação do brief, não número observado.
+  [`geometry.ts`](../packages/engine/geometry.ts) — e desde o cache de desenho ela roda
+  uma vez por versão da superfície, não uma vez por frame.
+- **A meta de performance não foi medida numa GPU real.** O trabalho de JS por frame foi:
+  30 superfícies, metade delas polígonos de 12 lados, dão **0,1 ms de mediana** e 0,2 ms
+  de p95 — mas isso é chromium headless com SwiftShader, então diz respeito ao JS, não à
+  GPU. AC-27 segue `not-tested`.
 - **A matriz de navegadores não foi verificada.** O caminho sem
   `requestVideoFrameCallback` — Firefox e Safari mais antigo — só se prova naqueles
-  navegadores, e é onde vivia um congelamento silencioso.
+  navegadores.
+- **daisyUI ainda é a maior fatia do CSS.** Medido: 83 dos 105 KB. Restringir a
+  biblioteca aos componentes usados devolveu 25 KB; os 80 KB restantes só caem
+  abandonando daisyUI e reimplementando `dropdown` e `modal`.
 
-### Resolvido depois desta lista
+### Resolvido, com o que substituiu
 
-Ficam registrados porque a lista anterior os descrevia como pendências, e quem leu a
-versão antiga precisa saber que mudou: `crop` ganhou controles no
-[`Inspector`](../packages/editor/Inspector.svelte); a fonte `canvas` e o seletor de
-câmera ganharam UI no [`SourcePanel`](../packages/editor/SourcePanel.svelte), junto com
-**religar**; o hit-test de `surfaceAt` passou a testar o **recorte**, e não a caixa
-envolvente, usando `pointInPolygon` e `pointInUnitEllipse`; `snapPoint` passou a grudar
-em aresta além de canto, com canto ganhando no empate; `Renderer.render` deixou de
-reemitir textura e blend iguais aos do desenho anterior, sem reordenar nada — a ordem
-continua sendo z, porque reordenar mudaria o que mistura sobre o quê; o status das
-fontes virou estado do Svelte espelhado do pool, em vez de leitura direta que congelava
-em "carregando…"; `frameToPixel` ganhou consumidor (`frameToOutput`, usado pelas alças
-de vértice); e o smoke passou a reprovar `src=`/`href=` externo no `dist/index.html`.
+`crop` e a fonte `canvas` ganharam UI; o hit-test passou a testar o **recorte** e não a
+caixa envolvente; o ímã gruda em aresta além de canto; as alças de canto e de vértice são
+alcançáveis por teclado; o status das fontes virou estado reativo com relógio que só
+existe enquanto algo pode mudar sozinho; `patchSurface` deixou de ser porta aberta e todo
+caminho de escrita passa por `sanitizeSurfacePatch`; id repetido é resolvido na leitura;
+o autosave virou `createSaver`, testado com escritor falso; `renderer.ts` foi de 467 para
+299 linhas, com shader e matemática pura em arquivos próprios; e o loop de render passou
+a acordar quando uma textura chega — antes, uma imagem que carregasse depois de tudo
+parar **nunca aparecia**, que era um bug de verdade e agora tem regressão (AC-39).
