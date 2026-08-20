@@ -7,16 +7,33 @@
  */
 export const VERT = `#version 300 es
 precision highp float;
-in vec2 aUV;              // position in frame space, 0..1
+in vec2 aUV;              // position in frame space, 0..1 (unwarped path)
+in vec3 aWarpPos;         // warped path: x, y already in output pixels, z = w
+in vec2 aWarpUV;          // warped path: undeformed frame coordinate
 uniform mat3 uH;          // frame space -> output pixels
 uniform vec2 uResolution; // drawing buffer size in device pixels
 uniform vec3 uView;       // editor pan/zoom: scale, tx, ty
+uniform int uWarped;      // 1 = read the mesh attributes instead of uH
 out vec2 vUV;
 
 void main() {
-  vec3 p = uH * vec3(aUV, 1.0);
-  float w = p.z;
-  vec2 px = p.xy / w;                       // output pixels
+  vec2 px;
+  float w;
+  vec2 uv;
+  if (uWarped == 1) {
+    // A free mesh has no single homography, so position and w are solved per
+    // cell on the CPU and arrive as attributes. Everything downstream — the
+    // mask, the crop, the fit — still reads the undeformed frame coordinate,
+    // which is why none of it had to change.
+    px = aWarpPos.xy;
+    w = aWarpPos.z;
+    uv = aWarpUV;
+  } else {
+    vec3 p = uH * vec3(aUV, 1.0);
+    w = p.z;
+    px = p.xy / w;                          // output pixels
+    uv = aUV;
+  }
   px = px * uView.x + uView.yz;             // editor pan/zoom
   vec2 clip = vec2(px.x / uResolution.x * 2.0 - 1.0,
                    1.0 - px.y / uResolution.y * 2.0);
@@ -24,7 +41,7 @@ void main() {
   // interpolates vUV projectively. Without this a two-triangle quad shows a
   // diagonal crease straight down the middle of the texture.
   gl_Position = vec4(clip * w, 0.0, w);
-  vUV = aUV;
+  vUV = uv;
 }`;
 
 export const FRAG = `#version 300 es
@@ -33,7 +50,8 @@ in vec2 vUV;
 uniform sampler2D uTex;
 uniform mat3 uUVMat;     // frame space -> texture coords (crop + fit + rotation)
 uniform float uOpacity;
-uniform int uMask;       // 0 = none (quad / polygon geometry), 1 = ellipse
+uniform sampler2D uMaskTex;
+uniform int uMask;       // 0 = none (quad / polygon geometry), 1 = ellipse, 2 = texture
 uniform float uFeather;
 uniform int uMode;       // 0 = texture, 1 = missing media, 2 = no source
 uniform int uPattern;    // TestPattern index, 0 = none
@@ -106,7 +124,12 @@ void main() {
   }
 
   float mask = 1.0;
-  if (uMask == 1) {
+  if (uMask == 2) {
+    // A warped surface draws a mesh, so a polygon cannot be its geometry any
+    // more. The polygon is rasterised once into this mask instead, sampled with
+    // the undeformed frame coordinate — so the cutout bends with the content.
+    mask = texture(uMaskTex, vUV).a;
+  } else if (uMask == 1) {
     // Radial distance in frame space, so the ellipse inherits the frame's
     // perspective for free.
     float d = length((vUV - 0.5) * 2.0);

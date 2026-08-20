@@ -169,6 +169,19 @@ gira no lugar em vez de sair da forma), `isQuarterTurned(rotation)`,
 `frameAspectOf(surface)` (aspecto aproximado de um frame em perspectiva: média das arestas
 opostas), `frameToPixel(h, u, v)` e as constantes `IDENTITY_VIEW` / o tipo `ViewTransform`.
 
+#### [`packages/engine/warp.ts`](../packages/engine/warp.ts)
+
+A malha livre: a camada entre o frame e o recorte. Exporta `identityWarp`, `isIdentity`,
+`evaluateWarp` (a função que define o que a superfície **é** — o render tesselava, a
+reamostragem relê e o hit-test inverte), `unwarp`, `tessellate`, `resampleWarp` e
+`parseWarp`. Ponto de controle é **posição**, em espaço do frame, e não coordenada de
+textura.
+
+Uma armadilha registrada no código: interpolar Catmull-Rom repetindo o ponto de borda faz
+a grade identidade deixar de ser identidade — a spline curva. Extrapolar o vizinho
+(`2·borda − interno`) mantém pontos igualmente espaçados colineares, e spline por pontos
+colineares é a reta. Sem isso, "aplanar" não seria confiável.
+
 #### [`packages/engine/store.ts`](../packages/engine/store.ts)
 
 Fonte única de verdade. A classe `Store` guarda `{ project, view }` em campos privados,
@@ -179,9 +192,12 @@ gesta inteira (arrastar um canto dispara dezenas de mutações) numa única entr
 histórico; `endGesture()` fecha o grupo. Os métodos públicos são a API de controle externo:
 `load`, `toJSON`, `setOutputSize`, `undo`/`redo` (com `canUndo`/`canRedo`),
 `addSurface`, `removeSurface`, `duplicateSurface`, `patchSurface`, `setCorner`,
-`nudgeCorner`, `moveSurface`, `setSurfaceFrame`, `setSurfaceShape`, `setSurfaceSource`,
-`toggleLock`, `toggleVisible`, `toggleSolo`, `setOpacity`, `setRotation`, `reorder`, `addSource`,
-`removeSource`, `patchSource`, `setView` e `setTestPattern`. O guard privado `#editable(id)`
+`nudgeCorner`, `moveSurface`, `setSurfaceFrame`, `setCrop`, `setPolygonPoint`,
+`setSurfaceShape`, `setSurfaceSource`, `toggleLock`, `toggleVisible`, `toggleSolo`,
+`setOpacity`, `setRotation`, `reorder`, `enableWarp`, `disableWarp`, `resetWarp`,
+`setWarpPoint`, `nudgeWarpPoint`, `setWarpGrid`, `setWarpInterpolation`, `addSource`,
+`removeSource`, `patchSource`, `setSourceColor`, `setCameraDevice`, `relinkSource`,
+`setView`, `setTestPattern` e `setSurfacePattern`. O guard privado `#editable(id)`
 faz o *lock* ser real: `setCorner`, `nudgeCorner`, `moveSurface` e `setSurfaceFrame`
 simplesmente não fazem nada numa superfície travada, e `patchSurface` descarta `frame` do
 patch pelo mesmo motivo — o adaptador de controle externo chama esses mesmos métodos e não
@@ -464,10 +480,17 @@ os botões nova / duplicar / apagar. Estado vazio com a instrução do primeiro 
 
 O painel da superfície selecionada (`$derived` sobre `$store`). Troca a forma entre `quad` e
 `ellipse` via `store.setSurfaceShape` (o botão `polígono` fica desabilitado — polígono só
-nasce da ferramenta de traçado), mostra o slider de `feather` quando a forma é elipse,
-o de opacidade (`store.setOpacity` + `endGesture` no `change`), os selects de `fit`
-(esticar/caber/preencher) e `blend` (normal/soma/screen/multiply), e o campo numérico de z
-(`store.reorder`). O texto de ajuda no rodapé documenta o ajuste fino por setas.
+nasce da ferramenta de traçado), mostra o slider de `feather` quando a forma é elipse, e os
+selects de `fit` (esticar/caber/preencher) e `blend` (normal/soma/screen/multiply). O texto
+de ajuda no rodapé documenta o ajuste fino por setas.
+
+Três seções ficam **recolhidas**, num `<details>` cada: *aparência e ordem* (opacidade e z),
+*recorte dentro da fonte* e *malha livre*. A regra é a mesma nas três — controle que se
+ajusta uma vez e não se toca mais não merece espaço permanente, e abertas empurravam
+encaixe, mistura e padrão para fora da tela. Cada uma carrega um distintivo no cabeçalho
+quando está fazendo alguma coisa (a porcentagem, `recorte ativo`, `malha ativa`), porque
+uma superfície apagada por uma opacidade que não se vê é um mistério caro no meio de um
+show. O cabeçalho vem do snippet `fold(label, badge)`, um só para as três.
 
 #### [`packages/editor/SourcePanel.svelte`](../packages/editor/SourcePanel.svelte)
 

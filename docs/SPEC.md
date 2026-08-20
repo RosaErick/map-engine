@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 62 testes de unidade (node:test, sem framework)
+npm test              # 81 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -259,6 +259,88 @@ Seam: `ContextTextures` em `packages/engine/sources/types.ts` e `SourcePool`.
 
 ---
 
+## 3d. Malha livre
+
+Seam: `packages/engine/warp.ts` e o caminho de malha do renderer.
+
+### AC-44 — Ter malha não muda nada até alguém usar
+
+**Dado** uma superfície com malha na grade identidade
+**Quando** ela é desenhada
+**Então** a parede recebe a mesma coisa que receberia sem malha nenhuma — mesmo
+sendo outro caminho de código, outro ramo de shader e outro formato de vértice.
+E um projeto sem malha salva sem a chave, byte a byte como antes.
+
+### AC-46 — A trava vale para a malha
+
+**Dado** uma superfície travada com malha
+**Quando** qualquer edição de malha é tentada — mover ponto, trocar a grade,
+aplanar, remover
+**Então** nada muda. A malha é o que está em cima do objeto físico, pela mesma
+razão que o canto é.
+
+### AC-47 — Trocar a subdivisão não joga trabalho fora
+
+**Dado** uma malha já ajustada
+**Quando** a grade de controle muda de tamanho
+**Então** os pontos novos são lidos da superfície atual, e a forma continua a
+mesma dentro de uma tolerância pequena. Sobrevive a salvar e reabrir.
+
+### AC-48 — Aplanar volta exatamente à identidade
+
+**Dado** uma malha deformada
+**Quando** ela é aplanada
+**Então** volta à grade regular exata; e reamostrar uma grade identidade continua
+identidade — o que só é verdade porque a spline extrapola nas bordas em vez de
+repetir o ponto.
+
+### AC-49 — Correção projetiva por célula, sem costura
+
+**Dado** uma malha, identidade ou deformada
+**Quando** ela é desenhada
+**Então** cada célula carrega a própria homografia e o próprio `w`, e uma
+varredura horizontal pelo meio da superfície encontra **um único trecho aceso** —
+sem linha escura entre células, que numa ferramenta onde preto é transparência
+seria uma faixa de parede aparecendo no meio do conteúdo.
+
+### AC-50 — Curvo e reto são escolhas, não acidentes
+
+**Dado** os mesmos pontos de controle
+**Quando** a interpolação é `curvo` ou `reto`
+**Então** os dois passam exatamente pelos pontos de controle, e divergem entre
+eles: um descreve superfície contínua, o outro vinco duro.
+
+### AC-51 — Malha corrompida é consertada ponto a ponto
+
+**Dado** um `project.json` com grade absurda, ponto faltando, coordenada não
+numérica ou lixo no lugar de um ponto
+**Quando** ele é carregado
+**Então** cada ponto válido é preservado e cada ponto quebrado cai na identidade;
+grade e coordenadas são contidas em faixas sãs. Nenhum NaN chega ao renderer.
+
+### AC-52 — A máscara atravessa a deformação
+
+**Dado** uma superfície deformada com recorte de elipse ou polígono
+**Quando** ela é desenhada
+**Então** o recorte continua valendo e entorta junto com o conteúdo — porque
+máscara, recorte e encaixe operam na coordenada do frame **antes** da malha.
+
+### AC-53 — O clique atravessa a deformação
+
+**Dado** uma superfície deformada
+**Quando** um ponto da tela é convertido para o espaço do frame
+**Então** a malha é desfeita além da perspectiva, e um ponto fora da superfície
+deformada é reportado como erro de clique, não chutado.
+
+### AC-54 — Um arrasto de malha é um desfazer
+
+**Dado** um ponto de controle arrastado com atração de vizinhos
+**Quando** o gesto termina
+**Então** os vizinhos acompanharam com peso que cai com a distância, os pontos
+distantes ficaram parados, e **um** desfazer devolve tudo.
+
+---
+
 ## 4. Saída — o que a parede recebe
 
 Seam: o build real (`dist/index.html`) rodando em chromium headless, com leitura de
@@ -380,6 +462,18 @@ exemplos de código são idênticos, porque código não se traduz.
 > Um guia traduzido que perde um passo em silêncio é pior do que um que falta
 > inteiro: ninguém percebe até precisar daquele passo.
 
+### AC-55 — O guia manda clicar em botões que existem
+
+**Dado** o guia e o catálogo de mensagens da mesma língua
+**Quando** o guia manda o leitor clicar num botão nomeado
+**Então** aquele rótulo aparece no catálogo com o mesmo texto, nas três línguas.
+
+> Este critério nasceu de um defeito real: o redesenho da barra renomeou dois botões e
+> o guia continuou mandando clicar nos nomes antigos. Nada quebrou, nada avisou — só o
+> texto que existe para tirar dúvida passou a criar uma. A checagem cobre os rótulos
+> que o guia usa como instrução, não toda palavra em negrito: "preto é transparência"
+> é conceito, não botão.
+
 ---
 
 ## 5. Não testado automaticamente
@@ -402,7 +496,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 
 ## 6. Estado da verificação
 
-Última execução: `npm test` (62/62) + `npm run smoke` (19/19), build de ~300 KB.
+Última execução: `npm test` (78/78) + `npm run smoke` (23/23), build de ~280 KB.
 
 | Critério | Estado | Prova |
 |---|---|---|
@@ -441,6 +535,17 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-41 | provado | `store.test.ts` |
 | AC-42 | provado | `saver.test.ts` (4 testes) |
 | AC-43 | provado | `saver.test.ts` |
+| AC-44 | provado | `warp.test.ts`, `store.test.ts` + `smoke.mjs` (pixel) |
+| AC-46 | provado | `store.test.ts` |
+| AC-47 | provado | `warp.test.ts`, `store.test.ts` |
+| AC-48 | provado | `warp.test.ts`, `store.test.ts` |
+| AC-49 | provado | `warp.test.ts` + `smoke.mjs` (varredura por costura) |
+| AC-50 | provado | `warp.test.ts` |
+| AC-51 | provado | `warp.test.ts` (2 testes) |
+| AC-52 | provado | `smoke.mjs` (pixel) |
+| AC-53 | provado | `warp.test.ts` (2 testes) |
+| AC-54 | provado | `store.test.ts` |
+| AC-55 | provado | `docs/guide.test.ts` (3 línguas) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o
