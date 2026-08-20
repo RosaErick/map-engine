@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { store } from './state.svelte.ts';
+  import { store, tools } from './state.svelte.ts';
   import { PATTERNS } from './patterns.ts';
   import { t, type MessageKey } from './i18n/index.svelte.ts';
   import type { Blend, Fit, TestPattern } from '../engine/index.ts';
@@ -50,6 +50,11 @@
   const cropped = $derived(
     !!s && (s.crop.x !== 0 || s.crop.y !== 0 || s.crop.w !== 1 || s.crop.h !== 1),
   );
+
+  /** The mesh of the selected surface, or null when it has none. Its own flag
+   *  rather than `cropped`: the two sections warn about different things, and a
+   *  surface can carry either without the other. */
+  const warp = $derived(s?.warp ?? null);
 
   function setShape(kind: 'quad' | 'ellipse'): void {
     if (!s) return;
@@ -178,6 +183,109 @@
             class="btn btn-ghost btn-xs btn-block mt-1 font-normal"
             onclick={() => { store.setCrop(s.id, { x: 0, y: 0, w: 1, h: 1 }); store.endGesture(); }}
           >{t('inspector.cropReset')}</button>
+        {/if}
+      </details>
+
+      <!-- Free mesh: folded away like the crop for the same reason — most
+           surfaces are flat, and the whole panel below would be pushed off
+           screen by controls that only a curved wall ever needs. -->
+      <details class="group">
+        <summary class="flex cursor-pointer list-none items-center gap-1 text-[11px] text-base-content/55 hover:text-base-content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               class="size-3 transition-transform group-open:rotate-90" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+          {t('warp.title')}
+          {#if warp}
+            <span class="ml-auto text-[10px] text-primary">{t('warp.active')}</span>
+          {/if}
+        </summary>
+
+        {#if !warp}
+          <p class="mt-2 text-[11px] leading-relaxed text-base-content/55">{t('warp.blurb')}</p>
+          <button
+            class="btn btn-xs btn-block mt-2 font-normal"
+            onclick={() => store.enableWarp(s.id)}
+          >{t('warp.enable')}</button>
+        {:else}
+          <div class="mt-2 space-y-3">
+            <div>
+              <span id="warp-grid-label" class="mb-1 flex justify-between text-[11px] text-base-content/55">
+                <span>{t('warp.grid')}</span>
+                <span>{warp.cols + 1} × {warp.rows + 1}</span>
+              </span>
+              <div class="flex items-center gap-1.5" role="group" aria-labelledby="warp-grid-label">
+                <input
+                  id="warp-cols" type="number" min="1" max="16" step="1"
+                  class="input input-xs w-full"
+                  aria-label={t('warp.columns')}
+                  value={warp.cols}
+                  onchange={(e) => store.setWarpGrid(s.id, +e.currentTarget.value, warp.rows)}
+                />
+                <span class="text-[11px] text-base-content/45" aria-hidden="true">×</span>
+                <input
+                  id="warp-rows" type="number" min="1" max="16" step="1"
+                  class="input input-xs w-full"
+                  aria-label={t('warp.rows')}
+                  value={warp.rows}
+                  onchange={(e) => store.setWarpGrid(s.id, warp.cols, +e.currentTarget.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <span class="mb-1 block text-[11px] text-base-content/55">{t('warp.interpolation')}</span>
+              <div class="join w-full">
+                <button
+                  class="btn btn-xs join-item flex-1"
+                  class:btn-active={warp.interpolation === 'smooth'}
+                  title={t('warp.smoothHint')}
+                  onclick={() => store.setWarpInterpolation(s.id, 'smooth')}
+                >{t('warp.smooth')}</button>
+                <button
+                  class="btn btn-xs join-item flex-1"
+                  class:btn-active={warp.interpolation === 'linear'}
+                  title={t('warp.linearHint')}
+                  onclick={() => store.setWarpInterpolation(s.id, 'linear')}
+                >{t('warp.linear')}</button>
+              </div>
+            </div>
+
+            <label class="block" for="warp-falloff">
+              <span class="mb-1 flex justify-between text-[11px] text-base-content/55">
+                <span>{t('warp.falloff')}</span><span>{tools.warpFalloff.toFixed(1)}</span>
+              </span>
+              <input
+                id="warp-falloff" type="range" min="0" max="4" step="0.5"
+                class="range range-xs range-primary"
+                title={t('warp.falloffHint')}
+                bind:value={tools.warpFalloff}
+              />
+            </label>
+
+            <label class="flex cursor-pointer items-center gap-2 text-[11px] text-base-content/55" for="warp-show-grid">
+              <input
+                id="warp-show-grid" type="checkbox" class="checkbox checkbox-xs"
+                bind:checked={tools.showWarpGrid}
+              />
+              <span>{t('warp.showGrid')}</span>
+            </label>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                class="btn btn-ghost btn-xs font-normal"
+                onclick={() => store.resetWarp(s.id)}
+              >{t('warp.reset')}</button>
+              <button
+                class="btn btn-ghost btn-xs font-normal"
+                onclick={() => store.disableWarp(s.id)}
+              >{t('warp.disable')}</button>
+            </div>
+
+            <p class="rounded-md bg-base-200 px-3 py-2 text-[11px] leading-relaxed text-base-content/60">
+              {t('warp.hint')}
+            </p>
+          </div>
         {/if}
       </details>
 
