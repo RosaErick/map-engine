@@ -40,9 +40,11 @@ arquivo único anexado.
 - Temas claro e escuro (paleta Carbonfox), com opção de seguir o sistema.
 - Interface em português, espanhol e inglês, detectada pelo navegador.
 
-**Guia dentro do app**
+**Sobre e guia**
 - Página de documentação na barra de cima, com índice fixo que acompanha a leitura,
-  em português, espanhol e inglês. Um teste garante que as três versões têm as mesmas
+  em português, espanhol e inglês.
+- Página "sobre" contando por que a ferramenta existe e o que a licença garante,
+  separada do guia: uma explica o porquê, a outra ensina o como. Um teste garante que as três versões têm as mesmas
   seções, na mesma ordem, com a mesma contagem de passos e atalhos.
 
 **Engine como biblioteca**
@@ -68,6 +70,9 @@ arquivo único anexado.
 - Publicação no GitHub Pages e Release com o `.html` avulso anexado.
 
 ### Corrigido
+- O bloco legível por rastreador piscava na tela antes do editor montar. Agora fica
+  escondido desde antes da primeira pintura, e o `<noscript>` devolve a visibilidade
+  para quem não executa JS — medido: zero frames com ele visível.
 - Uma fonte que terminava de carregar depois de o loop de render dormir **nunca
   aparecia na parede**: nada marcava o frame como sujo. Coberto por AC-39, que lê o
   pixel sem forçar um frame — forçar esconderia exatamente esse bug.

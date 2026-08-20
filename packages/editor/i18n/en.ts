@@ -199,19 +199,19 @@ export const en = {
   'warn.folderUnsupported': 'This browser cannot open folders. Use Chrome or Edge.',
 
   // About
-  'about.close': 'Close',
   'about.kicker': 'Tool · Projection',
   'about.headline': 'Light that dresses',
   'about.headlineEmphasis': 'real objects',
-  'about.lede': 'A projector, a wall with picture frames, a stack of boxes. You draw shapes over the projection that line up with the real things, and put content inside each one.',
-  'about.howItWorks': 'How it works',
-  'about.paragraph1': 'Every surface is a four-corner quadrilateral. They are what carries the perspective: you drag each corner until the projected edge meets the real edge of the object, and the content warps along with it. Inside that quadrilateral goes a cutout — a rectangle, an ellipse with a soft edge, or a polygon you trace around a crooked object.',
-  'about.paragraph2': 'The adjustment that decides everything is the <b>arrow keys</b>: one pixel at a time, ten with Shift. That fine tuning is what separates “almost aligned” from aligned — and it is why a surface can be locked once aligned, so nobody ever bumps it again.',
+  'about.lede': 'A projector, a wall with picture frames, a stack of boxes. You draw shapes over the projection that line up with the real things, and put content inside each one: video, images, GIFs, colour, the capture of any window on the machine, or the live camera.',
   'about.quote': 'Black is transparency.',
-  'about.quoteBody': 'Every black pixel is an absence of light, and the physical surface shows through it. Outside the mapped shapes nothing is drawn — no grey, no border, no pixel of interface.',
-  'about.paragraph3': 'The content can be an image, a video, a GIF, a solid colour, the live camera — or the <b>capture of any window on the machine</b>, which turns a game, a player or another tab into a projected texture.',
-  'about.offline': 'It works with no server and no internet: the whole app is a single file that opens with two clicks and fits on a USB stick.',
-  'about.license': 'Open source under <b>AGPL-3.0</b>. Anyone can use it, study it and contribute; nobody can close it and resell it.',
+  'about.quoteBody': 'Every black pixel is an absence of light, and the physical surface shows through it. Outside the mapped shapes nothing is drawn — no grey, no border, no pixel of interface. It is the one rule that governs all the others.',
+  'about.whyTitle': 'Why it exists',
+  'about.why1': 'I wanted to do projection mapping, and I wanted a tool that was free <b>and</b> that I could open up and change. I looked, I tried what was around, and I did not find one. What was good was paid, or had a free tier limited on purpose, or was closed source — usable, but impossible to understand or to fix.',
+  'about.why2': 'So I built mine. It started as one person solving their own problem, and that is why it is small, direct and asks nothing of anyone: no sign-up, no internet, no permission.',
+  'about.freeTitle': 'Free, today and always',
+  'about.free1': 'No paid tier, no plan, no account, no watermark, no project limit and no cloud. There is no better version of this waiting somewhere for you to pay: this is the version.',
+  'about.free2': 'The <b>AGPL-3.0</b> licence is what guarantees that, not my goodwill. Anyone can use it, study it, modify it and contribute; nobody can close the source and resell it — not even by hosting it as a service. If I stop maintaining it, someone else can carry on.',
+  'about.madeWith': 'Built from scratch with the help of generative AI tools. Everything generated was reviewed, edited and selected by me before it entered the project.',
   'about.viewCode': 'See the code on GitHub',
 } as const;
 
