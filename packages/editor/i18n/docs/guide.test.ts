@@ -4,8 +4,15 @@ import { guideEn } from './en.ts';
 import { guidePt } from './pt.ts';
 import { guideEs } from './es.ts';
 import type { Guide } from './types.ts';
+import { en, type Messages } from '../en.ts';
+import { pt } from '../pt.ts';
+import { es } from '../es.ts';
 
 const TRANSLATIONS: [name: string, guide: Guide][] = [['pt', guidePt], ['es', guideEs]];
+
+const CATALOGUES: [name: string, guide: Guide, catalogue: Messages][] = [
+  ['en', guideEn, en], ['pt', guidePt, pt], ['es', guideEs, es],
+];
 
 /** Every block reduced to its shape, ignoring the words. */
 function shape(guide: Guide): string[] {
@@ -55,3 +62,31 @@ test('AC-34: no guide section is empty', () => {
     }
   }
 });
+
+/** The buttons the guide tells you to click, by message key. The guide names them in
+ *  prose, so a rename in the catalogue silently turns the instruction into a lie —
+ *  which is exactly what happened when the toolbar was redesigned. */
+const CITED = [
+  'project.openFolder',
+  'project.matchScreen',
+  'project.sendToProjector',
+  'toolbar.newSurface',
+  'sources.module',
+  'sources.relink',
+  'warp.title',
+] as const;
+
+/** Every word the guide says, lowercased, with the markup stripped. */
+function prose(guide: Guide): string {
+  return JSON.stringify(guide).replace(/<[^>]+>/g, '').toLowerCase();
+}
+
+for (const [name, guide, catalogue] of CATALOGUES) {
+  test(`AC-55: the ${name} guide names buttons that exist`, () => {
+    const text = prose(guide);
+    for (const key of CITED) {
+      const label = catalogue[key].toLowerCase();
+      assert.ok(text.includes(label), `guide never mentions "${label}" (${key})`);
+    }
+  });
+}

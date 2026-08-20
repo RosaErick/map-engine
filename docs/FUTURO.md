@@ -66,6 +66,22 @@ Ou seja, a calibração é exatamente o que o brief chamou de "adaptador que cha
 métodos do store" — o mesmo ponto de extensão previsto para a ponte OSC. A engine
 continua recebendo um `Project` e desenhando. Zero mudança em `renderer.ts`.
 
+**A malha livre mudou o tamanho desta ideia, para os dois lados.** Para cima: quatro
+cantos são quatro correspondências, e um operador acerta isso na mão em minutos — o
+ganho era modesto. Uma malha 5×5 são 25 pontos, e ninguém alinha 25 pontos na escada com
+prazer. Numa superfície curva a calibração deixa de ser conveniência e vira a única
+maneira prática. Para baixo: o resultado agora tem dois destinos, e não um.
+
+```ts
+store.setSurfaceFrame(id, corners);        // o plano
+store.setWarpPoint(id, index, point, 0);   // cada ponto da malha, falloff zero
+```
+
+O segundo é mais fácil do que parece: `setWarpPoint` já aceita posição em espaço de
+frame e já é o caminho por onde o arrasto passa, então a calibração não precisa de porta
+nova. Falloff zero porque a câmera mede cada ponto de forma independente — arrastar
+vizinhos junto é ergonomia de mão humana, não de solucionador.
+
 ### O que precisa ser verdade antes de começar
 
 - **A webcam precisa estar confiável em todo navegador alvo.** AC-30 ainda é
@@ -98,6 +114,7 @@ continua recebendo um `Project` e desenhando. Zero mudança em `renderer.ts`.
 
 Antes de qualquer visão computacional: um **assistente de alinhamento manual guiado**.
 Projeta a cruz de centro numa superfície por vez, mostra qual canto está selecionado,
-avança com uma tecla. Zero câmera, zero Rust, zero WASM — e resolve boa parte da dor
+avança com uma tecla — e, numa superfície com malha, percorre os pontos dela na mesma
+ordem. Zero câmera, zero Rust, zero WASM — e resolve boa parte da dor
 de "trinta superfícies em cima de uma escada". Se depois disso a auto-calibração ainda
 parecer necessária, ela é necessária de verdade.
