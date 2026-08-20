@@ -1,0 +1,93 @@
+# Testa, constrói e publica — nesta ordem, num pipeline só.
+#
+# Substitui o antigo `deploy.yml`, que publicava no Pages depois de rodar apenas
+# `npm test`. Duas coisas passavam por baixo dele: nada rodava em pull request, e
+# o `smoke` — que abre o build de verdade num navegador e **lê pixels** — ficava
+# de fora, justamente a checagem que prova as garantias mais caras do projeto
+# (AC-20, correção projetiva; AC-44 e AC-49, a malha sem costura).
+#
+# O smoke roda aqui porque `scripts/smoke.mjs` já força SwiftShader: o
+# rasterizador do CI é o mesmo do laptop, então o resultado não depende de haver
+# GPU na máquina.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Um push novo cancela a verificação anterior do mesmo branch — menos em `main`,
+# onde cancelar no meio derrubaria uma publicação já em voo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `prepare` constrói a engine como biblioteca, então `npm ci` já prova que
+      # `dist-lib/` e as declarações continuam saindo.
+      - run: npm ci
+
+      - name: Testes de unidade
+        run: npm test
+
+      - name: Tipos
+        run: npm run check
+
+      - name: Idioma
+        run: npm run i18n
+
+      - name: Build
+        run: npm run build
+
+      # Só o chromium: os outros dois navegadores seriam três minutos de download
+      # para nada. `--with-deps` porque faltar uma lib de sistema num portão de
+      # publicação é uma corrida vermelha por motivo nenhum.
+      - name: Instalar chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke — pixels do build real
+        run: npm run smoke
+
+      # Para revisar um PR sem precisar construir nada: baixa o .html e abre.
+      - name: Anexar o arquivo único
+        uses: actions/upload-artifact@v4
+        with:
+          name: projection-mapping-${{ github.sha }}
+          path: dist/index.html
+          retention-days: 14
+
+      - uses: actions/configure-pages@v5
+        if: github.ref == 'refs/heads/main'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: dist
+
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
