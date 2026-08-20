@@ -1,5 +1,5 @@
 import {
-  DEFAULT_CELLS, identityWarp, resampleWarp, type Warp, type WarpInterpolation,
+  DEFAULT_CELLS, identityWarp, resampleWarp, type WarpInterpolation,
 } from './warp.ts';
 import {
   emptyProject, newSurface, newId, parseProject, sanitizeSurfacePatch,
@@ -274,8 +274,14 @@ export class Store {
     this.patchSurface(id, { warp: identityWarp(cols, rows) });
   }
 
+  /** Remover é a única operação de malha que o patch genérico não expressa —
+   *  `Partial<Surface>` sabe dizer "este valor", não "nenhum valor". */
   disableWarp(id: string): void {
-    this.patchSurface(id, { warp: null as unknown as Warp });
+    if (!this.#editable(id)) return;
+    this.mutate((p) => {
+      const surface = p.surfaces.find((x) => x.id === id);
+      if (surface) delete surface.warp;
+    });
   }
 
   /** Volta à grade identidade sem desligar a malha. */
