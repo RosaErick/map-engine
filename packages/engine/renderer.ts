@@ -1,7 +1,8 @@
-import { solveUnitToQuad } from './homography.ts';
+import { applyH, solveUnitToQuad, type Mat3, type Vec2 } from './homography.ts';
 import { triangulate } from './geometry.ts';
+import { tessellate, type Warp } from './warp.ts';
 import { compile, FRAG, VERT } from './shaders.ts';
-import { surfaceOrder, toColumnMajor, uvMatrix } from './surface-math.ts';
+import { frameToPixel, surfaceOrder, toColumnMajor, uvMatrix } from './surface-math.ts';
 import type { Blend, Project, Surface, TestPattern } from './project.ts';
 import type { SourcePool } from './sources/index.ts';
 import type { TextureSource } from './sources/types.ts';
@@ -13,7 +14,14 @@ interface SurfaceDraw {
   /** Positions in frame space, 0..1. */
   vertices: Float32Array;
   indices: Uint16Array;
+  /** Present only for a warped surface. Interleaved x, y, w, u, v per vertex. */
+  mesh?: { vertices: Float32Array; indices: Uint16Array };
 }
+
+/** Corners of the unit square, in the order every cell uses: TL, TR, BR, BL. */
+const UNIT_CORNERS: readonly Vec2[] = [
+  { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 },
+];
 
 /** Editor pan/zoom. The output window always uses the identity. */
 export interface ViewTransform { scale: number; tx: number; ty: number }
@@ -38,6 +46,11 @@ export class Renderer {
   #vao: WebGLVertexArrayObject;
   #vbo: WebGLBuffer;
   #ibo: WebGLBuffer;
+  /** Separate array object for the mesh path: a different vertex layout, and
+   *  keeping it apart means the quad path is not touched at all. */
+  #meshVao: WebGLVertexArrayObject;
+  #meshVbo: WebGLBuffer;
+  #meshIbo: WebGLBuffer;
   #u: Record<string, WebGLUniformLocation | null>;
   #numberTextures = new Map<number, WebGLTexture>();
   /**
@@ -93,8 +106,23 @@ export class Renderer {
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
 
+    // Mesh path: interleaved (x, y, w, u, v), 20 bytes per vertex.
+    this.#meshVao = gl.createVertexArray()!;
+    this.#meshVbo = gl.createBuffer()!;
+    this.#meshIbo = gl.createBuffer()!;
+    gl.bindVertexArray(this.#meshVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.#meshVbo);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.#meshIbo);
+    const posLoc = gl.getAttribLocation(prog, 'aWarpPos');
+    const uvLoc = gl.getAttribLocation(prog, 'aWarpUV');
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 20, 0);
+    gl.enableVertexAttribArray(uvLoc);
+    gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, 20, 12);
+    gl.bindVertexArray(null);
+
     this.#u = Object.fromEntries(
-      ['uH', 'uResolution', 'uView', 'uTex', 'uUVMat', 'uOpacity', 'uMask', 'uFeather', 'uMode', 'uPattern', 'uTime']
+      ['uH', 'uResolution', 'uView', 'uTex', 'uUVMat', 'uOpacity', 'uMask', 'uFeather', 'uMode', 'uPattern', 'uTime', 'uWarped']
         .map((n) => [n, gl.getUniformLocation(prog, n)]),
     );
 
@@ -133,7 +161,6 @@ export class Renderer {
     gl.viewport(0, 0, width, height);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(this.#program);
-    gl.bindVertexArray(this.#vao);
     gl.uniform2f(this.#u['uResolution']!, width, height);
     gl.uniform3f(this.#u['uView']!, view.scale, view.tx, view.ty);
     gl.uniform1f(this.#u['uTime']!, (performance.now() - this.#t0) / 1000);
@@ -173,10 +200,21 @@ export class Renderer {
       this.#boundTexture = texture;
     }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.#vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, draw.vertices, gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.#ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, draw.indices, gl.DYNAMIC_DRAW);
+    const mesh = draw.mesh;
+    gl.uniform1i(this.#u['uWarped']!, mesh ? 1 : 0);
+    if (mesh) {
+      gl.bindVertexArray(this.#meshVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.#meshVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.#meshIbo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.DYNAMIC_DRAW);
+    } else {
+      gl.bindVertexArray(this.#vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.#vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, draw.vertices, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.#ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, draw.indices, gl.DYNAMIC_DRAW);
+    }
 
     gl.uniformMatrix3fv(this.#u['uH']!, false, draw.homography);
     // The uv matrix is not cached with the rest: it also depends on the source's
@@ -193,7 +231,8 @@ export class Renderer {
       setBlend(gl, surface.blend);
       this.#boundBlend = surface.blend;
     }
-    gl.drawElements(gl.TRIANGLES, draw.indices.length, gl.UNSIGNED_SHORT, 0);
+    const indexCount = mesh ? mesh.indices.length : draw.indices.length;
+    gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_SHORT, 0);
   }
 
   /** 0 = draw the texture, 1 = missing-media hazard, 2 = draw nothing. */
@@ -231,6 +270,7 @@ export class Renderer {
     }
 
     const draw: SurfaceDraw = { homography: toColumnMajor(h), vertices, indices };
+    if (surface.warp) draw.mesh = buildMesh(h, surface.warp);
     this.#draws.set(surface, draw);
     return draw;
   }
@@ -280,6 +320,9 @@ export class Renderer {
 
   dispose(): void {
     const gl = this.gl;
+    gl.deleteBuffer(this.#meshVbo);
+    gl.deleteBuffer(this.#meshIbo);
+    gl.deleteVertexArray(this.#meshVao);
     for (const t of this.#numberTextures.values()) gl.deleteTexture(t);
     this.#numberTextures.clear();
     gl.deleteBuffer(this.#vbo);
@@ -287,6 +330,61 @@ export class Renderer {
     gl.deleteVertexArray(this.#vao);
     gl.deleteProgram(this.#program);
   }
+}
+
+/**
+ * Turns a warp into the interleaved buffer the mesh path draws.
+ *
+ * Each cell gets **its own homography** and its own `w` per vertex, which is
+ * what keeps the texture projectively correct inside the cell. That is also why
+ * vertices are not shared between cells: a corner belongs to up to four cells
+ * and carries a different `w` in each.
+ *
+ * The index buffer is 16-bit, and the control grid is capped at 16x16 with a
+ * fixed tessellation, so the worst case stays well under 65k vertices.
+ */
+function buildMesh(h: Mat3, warp: Warp): { vertices: Float32Array; indices: Uint16Array } {
+  const cells = tessellate(warp);
+  const vertices = new Float32Array(cells.length * 4 * 5);
+  const indices = new Uint16Array(cells.length * 6);
+
+  let v = 0;
+  let i = 0;
+  let base = 0;
+  for (const cell of cells) {
+    const screen = cell.position.map((p) => frameToPixel(h, p.x, p.y));
+    const cellH = solveUnitToQuad(screen as [Vec2, Vec2, Vec2, Vec2]);
+
+    for (let k = 0; k < 4; k++) {
+      let x = screen[k]!.x;
+      let y = screen[k]!.y;
+      let w = 1;
+      if (cellH) {
+        // The cell's own homography at the unit corner returns the same point,
+        // plus the w the rasterizer needs to interpolate the texture correctly.
+        const p = applyH(cellH, UNIT_CORNERS[k]!);
+        if (Math.abs(p.w) > 1e-12) {
+          w = p.w;
+          x = p.x / w;
+          y = p.y / w;
+        }
+      }
+      vertices[v++] = x;
+      vertices[v++] = y;
+      vertices[v++] = w;
+      vertices[v++] = cell.texture[k]!.x;
+      vertices[v++] = cell.texture[k]!.y;
+    }
+
+    indices[i++] = base;
+    indices[i++] = base + 1;
+    indices[i++] = base + 2;
+    indices[i++] = base;
+    indices[i++] = base + 2;
+    indices[i++] = base + 3;
+    base += 4;
+  }
+  return { vertices, indices };
 }
 
 function setBlend(gl: WebGL2RenderingContext, blend: Blend): void {

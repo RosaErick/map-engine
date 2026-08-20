@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Store, visibleSurfaces, patternFor } from './store.ts';
 import { emptyProject } from './project.ts';
 import { surfaceOrder } from './surface-math.ts';
+import { isIdentity, evaluateWarp } from './warp.ts';
 
 test('AC-7: undo restores the previous state and redo reapplies it', () => {
   const store = new Store(emptyProject());
@@ -238,4 +239,90 @@ test('AC-41: duplicate ids in a loaded project are resolved, not carried', () =>
   store.removeSurface(ids[0]!);
   assert.equal(store.project.surfaces.length, 1);
   assert.equal(store.project.surfaces[0]!.name, 'b');
+});
+
+test('AC-46: a locked surface refuses every warp edit', () => {
+  const store = new Store(emptyProject());
+  const s = store.addSurface();
+  store.enableWarp(s.id);
+  store.setWarpPoint(s.id, 4, { x: 0.9, y: 0.1 });
+  const moved = store.project.surfaces[0]!.warp!.points[4]!;
+
+  store.toggleLock(s.id);
+  store.setWarpPoint(s.id, 4, { x: 0.1, y: 0.9 });
+  store.setWarpGrid(s.id, 5, 5);
+  store.resetWarp(s.id);
+  store.disableWarp(s.id);
+
+  const after = store.project.surfaces[0]!.warp;
+  assert.ok(after, 'a malha continua existindo');
+  assert.deepEqual(after.points[4], moved, 'o ponto não se moveu');
+  assert.equal(after.cols, 2, 'a grade não mudou');
+});
+
+test('AC-48: enabling a warp changes nothing, resetting undoes everything', () => {
+  const store = new Store(emptyProject());
+  const s = store.addSurface();
+  store.enableWarp(s.id);
+  assert.ok(isIdentity(store.project.surfaces[0]!.warp!), 'nasce identidade');
+
+  store.setWarpPoint(s.id, 0, { x: -0.2, y: -0.3 });
+  assert.equal(isIdentity(store.project.surfaces[0]!.warp!), false);
+
+  store.resetWarp(s.id);
+  assert.ok(isIdentity(store.project.surfaces[0]!.warp!), 'reset volta à identidade');
+
+  store.disableWarp(s.id);
+  assert.equal(store.project.surfaces[0]!.warp, undefined);
+});
+
+test('AC-54: soft selection pulls the neighbours, and one drag is one undo', () => {
+  const store = new Store(emptyProject());
+  const s = store.addSurface();
+  store.enableWarp(s.id, 4, 4);
+  const before = structuredClone(store.project.surfaces[0]!.warp!.points);
+
+  const centre = 12; // linha 2, coluna 2 de uma grade 5x5
+  for (let i = 1; i <= 10; i++) {
+    store.setWarpPoint(s.id, centre, { x: 0.5, y: 0.5 - i * 0.01 }, 2);
+  }
+  store.endGesture();
+
+  const after = store.project.surfaces[0]!.warp!.points;
+  assert.notDeepEqual(after[centre], before[centre], 'o ponto arrastado moveu');
+  assert.notDeepEqual(after[centre - 1], before[centre - 1], 'o vizinho veio junto');
+  assert.deepEqual(after[0], before[0], 'o canto distante ficou parado');
+
+  store.undo();
+  assert.deepEqual(store.project.surfaces[0]!.warp!.points, before, 'um arrasto, um desfazer');
+});
+
+test('AC-47: changing the grid keeps the shape and survives a round trip', () => {
+  const store = new Store(emptyProject());
+  const s = store.addSurface();
+  store.enableWarp(s.id, 2, 2);
+  store.setWarpPoint(s.id, 4, { x: 0.5, y: 0.2 });
+  const bulge = evaluateWarp(store.project.surfaces[0]!.warp!, 0.5, 0.5);
+
+  store.setWarpGrid(s.id, 4, 4);
+  const resampled = store.project.surfaces[0]!.warp!;
+  assert.equal(resampled.points.length, 25);
+  const after = evaluateWarp(resampled, 0.5, 0.5);
+  assert.ok(Math.abs(after.y - bulge.y) < 0.02, `${after.y} vs ${bulge.y}`);
+
+  // E sobrevive ao disco.
+  const reloaded = new Store(emptyProject());
+  reloaded.load(store.toJSON());
+  assert.deepEqual(reloaded.project.surfaces[0]!.warp, resampled);
+});
+
+test('AC-44: a project without a warp is untouched by the feature existing', () => {
+  const store = new Store(emptyProject());
+  store.addSurface();
+  const json = store.toJSON();
+  assert.equal(json.includes('warp'), false, 'nada de warp no arquivo');
+
+  const reloaded = new Store(emptyProject());
+  reloaded.load(json);
+  assert.equal(reloaded.project.surfaces[0]!.warp, undefined);
 });
