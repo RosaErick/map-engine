@@ -33,6 +33,20 @@
     add({ id: newId('src'), name: t('sources.camera'), kind: 'camera' });
   }
 
+  /**
+   * Módulo JS do usuário: qualquer arquivo que exporte `draw(ctx, t)` vira uma
+   * fonte generativa. O arquivo é copiado para a pasta do projeto como qualquer
+   * mídia, então o projeto continua sendo uma pasta que se carrega inteira.
+   */
+  async function addModule(e: Event): Promise<void> {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const path = await importFile(file);
+    add({ id: newId('src'), name: file.name, kind: 'canvas', moduleId: path });
+  }
+
   async function addFiles(e: Event): Promise<void> {
     const input = e.currentTarget as HTMLInputElement;
     for (const file of Array.from(input.files ?? [])) {
@@ -76,6 +90,10 @@
       title={t('sources.captureHint')}
     >{t('sources.capture')}</button>
     <button class="btn btn-xs" onclick={addCamera}>{t('sources.camera')}</button>
+    <label class="btn btn-xs col-span-2" title={t('sources.moduleHint')}>
+      {t('sources.module')}
+      <input type="file" accept=".js,.mjs,text/javascript" class="hidden" onchange={addModule} />
+    </label>
   </div>
 
   {#if $store.project.sources.length > 0}

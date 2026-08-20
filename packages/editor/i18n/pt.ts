@@ -5,6 +5,11 @@ import type { Messages } from './en.ts';
 export const pt: Messages = {
   'app.name': 'Projection Mapping',
 
+  'docs.title': 'Guia',
+  'docs.subtitle': 'Tudo o que a ferramenta faz, e a ordem de fazer.',
+  'docs.onThisPage': 'Nesta página',
+  'topbar.guide': 'guia',
+  'topbar.backToEditor': 'voltar ao editor',
   'topbar.about': 'sobre',
   'topbar.github': 'Código no GitHub — AGPL-3.0',
   'topbar.githubLabel': 'Repositório no GitHub',
@@ -120,6 +125,8 @@ export const pt: Messages = {
   'sources.color': 'cor',
   'sources.capture': 'captura de tela',
   'sources.captureHint': 'Qualquer janela da máquina vira textura ao vivo: um jogo, um player, outra aba',
+  'sources.module': 'módulo js',
+  'sources.moduleHint': 'Um arquivo .js que exporta draw(ctx, t) — conteúdo generativo seu, desenhado ao vivo',
   'sources.camera': 'câmera',
   'sources.switchCamera': 'Trocar de câmera',
   'sources.remove': 'Remover esta fonte do projeto',

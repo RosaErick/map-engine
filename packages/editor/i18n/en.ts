@@ -14,6 +14,11 @@ export const en = {
   'app.name': 'Projection Mapping',
 
   // Top bar
+  'docs.title': 'Guide',
+  'docs.subtitle': 'Everything the tool does, and the order to do it in.',
+  'docs.onThisPage': 'On this page',
+  'topbar.guide': 'guide',
+  'topbar.backToEditor': 'back to the editor',
   'topbar.about': 'about',
   'topbar.github': 'Code on GitHub — AGPL-3.0',
   'topbar.githubLabel': 'GitHub repository',
@@ -135,6 +140,8 @@ export const en = {
   'sources.color': 'color',
   'sources.capture': 'screen capture',
   'sources.captureHint': 'Any window on the machine becomes a live texture: a game, a player, another tab',
+  'sources.module': 'js module',
+  'sources.moduleHint': 'A .js file exporting draw(ctx, t) — your own generative content, drawn live',
   'sources.camera': 'camera',
   'sources.switchCamera': 'Switch camera',
   'sources.remove': 'Remove this source from the project',
