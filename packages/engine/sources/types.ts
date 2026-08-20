@@ -5,6 +5,35 @@
  * Sources are cached per source id, never per surface: one video feeding ten
  * surfaces decodes once and uploads once per frame.
  */
+/**
+ * Why a source failed, as a stable code.
+ *
+ * The engine has no interface copy: a sentence like "image failed to load" is
+ * a wording chosen by a renderer, in a language it has no business picking.
+ * The host translates the code and owns every word the user reads.
+ */
+export type SourceErrorCode =
+  | 'image-failed'
+  | 'video-failed'
+  | 'gif-failed'
+  | 'capture-unavailable'
+  | 'capture-denied'
+  | 'capture-ended'
+  | 'camera-unavailable'
+  | 'camera-denied'
+  | 'camera-not-found'
+  | 'camera-in-use'
+  | 'camera-gone'
+  | 'camera-failed'
+  | 'module-no-loader'
+  | 'module-failed';
+
+export interface SourceError {
+  code: SourceErrorCode;
+  /** A path, a device, an exception message — context, never a sentence. */
+  detail?: string;
+}
+
 export interface TextureSource {
   /** Natural pixel size of the content. [0,0] until it has loaded. */
   readonly size: [number, number];
@@ -13,7 +42,7 @@ export interface TextureSource {
   /** 'error' makes the renderer draw the missing-media pattern instead of
    *  leaving stale pixels on a physical object. */
   readonly status: 'loading' | 'ready' | 'error';
-  readonly error?: string;
+  readonly error?: SourceError;
   /** True while content changes on its own — the render loop stays awake. */
   readonly animated: boolean;
   getTexture(gl: WebGL2RenderingContext): WebGLTexture | null;

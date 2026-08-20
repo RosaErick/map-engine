@@ -148,7 +148,7 @@ export class Store {
     this.mutate((p) => { p.surfaces = p.surfaces.filter((s) => s.id !== id); });
     const { [id]: _dropped, ...surfacePatterns } = this.#state.view.surfacePatterns;
     const patch: Partial<ViewState> = { surfacePatterns };
-    // Um override órfão reapareceria numa superfície futura que reusasse o id.
+    // An orphan override would resurface on a future surface reusing the id.
     if (this.#state.view.selectedSurfaceId === id) {
       patch.selectedSurfaceId = null;
       patch.selectedCorner = null;
@@ -157,12 +157,14 @@ export class Store {
     this.setView(patch);
   }
 
-  duplicateSurface(id: string): void {
+  /** `name` lets the host localise the copy's name; the default stays English,
+   *  like every other value the engine invents on its own. */
+  duplicateSurface(id: string, name?: string): void {
     const src = this.#state.project.surfaces.find((s) => s.id === id);
     if (!src) return;
     const copy = structuredClone(src);
     copy.id = newId('surf');
-    copy.name = `${src.name} cópia`;
+    copy.name = name ?? `${src.name} copy`;
     copy.z = this.#state.project.surfaces.length + 1;
     // Offset so the copy is grabbable instead of hiding exactly behind the original.
     for (const c of copy.frame) { c.x += 24; c.y += 24; }
@@ -292,12 +294,12 @@ export class Store {
     });
   }
 
-  /** Padrão global, para todas as superfícies sem override. */
+  /** Global pattern, for every surface without an override. */
   setTestPattern(pattern: TestPattern): void {
     this.setView({ testPattern: pattern });
   }
 
-  /** Padrão só desta superfície. `null` devolve o controle ao padrão global. */
+  /** This surface only. `null` hands control back to the global pattern. */
   setSurfacePattern(id: string, pattern: TestPattern | null): void {
     const next = { ...this.#state.view.surfacePatterns };
     if (pattern === null) delete next[id];
@@ -307,11 +309,11 @@ export class Store {
 }
 
 /**
- * O padrão que vale para uma superfície: o dela, se tiver, senão o global.
+ * The pattern in force for a surface: its own if it has one, else the global.
  *
- * Alinhar é uma superfície por vez — grade numa, número em outra, nada nas
- * demais. O global continua existindo porque "grade em tudo" é o caso mais
- * comum, e ter que ligar superfície por superfície seria pior.
+ * Aligning happens one surface at a time — grid on this, number on that, none
+ * elsewhere. The global one stays because "grid on everything" is the common
+ * case, and switching each surface on by hand would be worse.
  */
 export function patternFor(state: StoreState, surfaceId: string): TestPattern {
   return state.view.surfacePatterns[surfaceId] ?? state.view.testPattern;

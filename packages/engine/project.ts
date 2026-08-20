@@ -53,10 +53,10 @@ export interface ViewState {
   soloId: string | null;
   selectedSurfaceId: string | null;
   selectedCorner: number | null;
-  /** Padrão aplicado a todas as superfícies que não têm o seu próprio. */
+  /** Applies to every surface without one of its own. */
   testPattern: TestPattern;
-  /** Override por superfície, por id. Ausência significa "segue o global" —
-   *  e um `'none'` explícito apaga o padrão só naquela superfície. */
+  /** Per-surface override, by id. Absence means "follow the global one", and an
+   *  explicit `'none'` blanks the pattern on that surface alone. */
   surfacePatterns: Record<string, TestPattern>;
   uiHidden: boolean;
 }
@@ -87,7 +87,7 @@ export function newSurface(project: Project, name?: string): Surface {
   const n = project.surfaces.length + 1;
   return {
     id: newId('surf'),
-    name: name ?? `Superfície ${n}`,
+    name: name ?? `Surface ${n}`,
     frame: [
       { x: cx - w / 2, y: cy - h / 2 },
       { x: cx + w / 2, y: cy - h / 2 },
@@ -129,9 +129,9 @@ const DEFAULT_SURFACE = {
  * the projector mid-show.
  */
 export function parseProject(raw: unknown): Project {
-  if (!isRecord(raw)) throw new Error('project.json não é um objeto');
+  if (!isRecord(raw)) throw new Error('project.json is not an object');
   const version = raw['version'];
-  if (version !== 1) throw new Error(`versão de projeto não suportada: ${String(version)}`);
+  if (version !== 1) throw new Error(`unsupported project version: ${String(version)}`);
 
   const out = isRecord(raw['output']) ? raw['output'] : {};
   const project: Project = {

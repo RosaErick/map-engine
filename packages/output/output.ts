@@ -38,6 +38,19 @@ export interface OutputHandle {
   close(): void;
 }
 
+/**
+ * Why the output window could not do what was asked, as a stable code.
+ *
+ * Same rule as the source errors: this module opens a window, it does not write
+ * the sentence the operator reads — that belongs to the host, in the host's
+ * language.
+ */
+export type OutputWarning =
+  | 'popup-blocked'
+  | 'fullscreen-failed'
+  | 'screen-not-found'
+  | 'no-window-management';
+
 export interface OutputOptions {
   /** Pre-fetched screen, from `listScreens()`. Fetching it here would spend the
    *  user activation `window.open` and `requestFullscreen` still need. */
@@ -45,10 +58,12 @@ export interface OutputOptions {
   /** Share the editor's pool: one decode, one capture prompt. */
   pool?: SourcePool;
   resolveUrl?: (path: string) => Promise<string>;
-  onWarn?: (message: string) => void;
+  /** Title of the output window. English default; the host may localise it. */
+  title?: string;
+  onWarn?: (code: OutputWarning) => void;
   /** Fires when the window goes away for any reason — the user closed it, the
    *  editor reloaded, or the popup was killed. The caller needs this to stop
-   *  showing a "fechar saída" button for a window that no longer exists. */
+   *  showing a "close output" button for a window that no longer exists. */
   onClose?: () => void;
 }
 
@@ -71,11 +86,11 @@ export function openOutput(store: Store, opts: OutputOptions = {}): OutputHandle
     : 'popup=yes,width=1280,height=720';
   const win = window.open('', 'map-engine-output', features);
   if (!win) {
-    opts.onWarn?.('O navegador bloqueou a janela de saída. Libere pop-ups para esta página.');
+    opts.onWarn?.('popup-blocked');
     return null;
   }
 
-  win.document.title = 'Saída';
+  win.document.title = opts.title ?? 'Output';
   win.document.body.style.cssText = 'margin:0;background:#000;overflow:hidden;cursor:none';
   win.document.documentElement.style.cssText = 'background:#000';
   // The window name is reused across opens: clear whatever a previous session
@@ -90,12 +105,10 @@ export function openOutput(store: Store, opts: OutputOptions = {}): OutputHandle
   // Nothing may be awaited before this call or the activation is spent.
   const fsOptions = target ? ({ screen: target } as FullscreenOptions) : undefined;
   win.document.documentElement.requestFullscreen(fsOptions).catch(() => {
-    opts.onWarn?.('Não consegui entrar em tela cheia — aperte F11 na janela de saída.');
+    opts.onWarn?.('fullscreen-failed');
   });
   if (!target) {
-    opts.onWarn?.(hasWindowManagement()
-      ? 'Tela não encontrada; a saída abriu na tela atual.'
-      : 'Sem gerenciamento de janelas ou sem segunda tela: arraste a saída para o projetor e aperte F11.');
+    opts.onWarn?.(hasWindowManagement() ? 'screen-not-found' : 'no-window-management');
   }
 
   const engine = new Engine(canvas, store.project, {

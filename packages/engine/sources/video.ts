@@ -1,4 +1,4 @@
-import { ContextTextures, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type SourceContext, type SourceError, type SourceErrorCode, type TextureSource } from './types.ts';
 
 /** `requestVideoFrameCallback` is stable in Chromium but not in every lib.dom. */
 type VideoWithRVFC = HTMLVideoElement & {
@@ -17,7 +17,7 @@ type VideoWithRVFC = HTMLVideoElement & {
 export class VideoTextureSource implements TextureSource {
   size: [number, number] = [0, 0];
   status: 'loading' | 'ready' | 'error' = 'loading';
-  error?: string;
+  error?: SourceError;
   readonly animated = true;
   protected video: VideoWithRVFC;
   protected textures = new ContextTextures();
@@ -54,7 +54,7 @@ export class VideoTextureSource implements TextureSource {
     v.addEventListener('playing', measure);
     v.addEventListener('error', () => {
       this.status = 'error';
-      this.error = 'vídeo não carregou';
+      this.error = { code: 'video-failed' };
     });
     this.#scheduleFrame();
   }
@@ -87,7 +87,7 @@ export class VideoTextureSource implements TextureSource {
     for (const track of stream.getTracks()) {
       track.addEventListener('ended', () => {
         this.status = 'error';
-        this.error = 'a captura foi encerrada';
+        this.error = { code: 'capture-ended' };
       });
     }
     void this.video.play().catch(() => { /* unlocked by the first user gesture */ });
@@ -150,7 +150,7 @@ export class FileVideoSource extends VideoTextureSource {
       (url) => this.setSrcUrl(url),
       () => {
         this.status = 'error';
-        this.error = `vídeo não encontrado: ${path}`;
+        this.error = { code: 'video-failed', detail: path };
       },
     );
   }
@@ -164,14 +164,14 @@ export class CaptureSource extends VideoTextureSource {
     const md = navigator.mediaDevices;
     if (!md?.getDisplayMedia) {
       this.status = 'error';
-      this.error = 'captura de tela indisponível neste navegador';
+      this.error = { code: 'capture-unavailable' };
       return;
     }
     void md.getDisplayMedia({ video: true, audio: false }).then(
       (stream) => this.setSrcObject(stream),
       () => {
         this.status = 'error';
-        this.error = 'captura de tela recusada';
+        this.error = { code: 'capture-denied' };
       },
     );
   }
@@ -184,7 +184,7 @@ export class CameraSource extends VideoTextureSource {
     const md = navigator.mediaDevices;
     if (!md?.getUserMedia) {
       this.status = 'error';
-      this.error = 'câmera indisponível neste navegador';
+      this.error = { code: 'camera-unavailable' };
       return;
     }
     // `exact` fails outright when the camera was unplugged since the project was
@@ -195,28 +195,30 @@ export class CameraSource extends VideoTextureSource {
       (stream) => this.setSrcObject(stream),
       (e: unknown) => {
         this.status = 'error';
-        this.error = cameraError(e);
+        this.error = { code: cameraErrorCode(e) };
       },
     );
   }
 }
 
-/** Turns a getUserMedia rejection into something readable on a wall. */
-function cameraError(e: unknown): string {
-  const name = (e as { name?: string } | null)?.name ?? '';
-  switch (name) {
-    case 'NotAllowedError': return 'permissão de câmera negada';
-    case 'NotFoundError': return 'nenhuma câmera encontrada';
-    case 'NotReadableError': return 'câmera em uso por outro programa';
-    case 'OverconstrainedError': return 'câmera pedida não existe mais';
-    default: return 'câmera não abriu';
+/** Maps a getUserMedia rejection onto a code the host can explain. */
+function cameraErrorCode(e: unknown): SourceErrorCode {
+  switch ((e as { name?: string } | null)?.name ?? '') {
+    case 'NotAllowedError': return 'camera-denied';
+    case 'NotFoundError': return 'camera-not-found';
+    case 'NotReadableError': return 'camera-in-use';
+    case 'OverconstrainedError': return 'camera-gone';
+    default: return 'camera-failed';
   }
 }
 
 /**
- * Cameras available for selection. Labels only exist after permission has been
- * granted at least once — before that browsers return empty strings, so we fill
- * in a positional name rather than showing a list of blanks.
+ * Cameras available for selection.
+ *
+ * Labels only exist after permission has been granted at least once; before
+ * that browsers return an empty string. The empty label is passed through as-is
+ * so the host can put its own wording there — naming a device is interface copy,
+ * and the engine does not write interface copy.
  */
 export async function listCameras(): Promise<{ deviceId: string; label: string }[]> {
   const md = navigator.mediaDevices;
@@ -225,7 +227,7 @@ export async function listCameras(): Promise<{ deviceId: string; label: string }
     const devices = await md.enumerateDevices();
     return devices
       .filter((d) => d.kind === 'videoinput')
-      .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `câmera ${i + 1}` }));
+      .map((d) => ({ deviceId: d.deviceId, label: d.label }));
   } catch {
     return [];
   }

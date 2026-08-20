@@ -14,4 +14,4 @@ export { triangulate, pointInPolygon, bounds, signedArea, UNIT_QUAD } from './ge
 export { Renderer, IDENTITY_VIEW, frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf, surfaceNumber, type ViewTransform } from './renderer.ts';
 export { SourcePool, createSource } from './sources/index.ts';
 export { listCameras } from './sources/video.ts';
-export type { TextureSource, SourceContext, CanvasModule } from './sources/types.ts';
+export type { TextureSource, SourceContext, CanvasModule, SourceError, SourceErrorCode } from './sources/types.ts';
