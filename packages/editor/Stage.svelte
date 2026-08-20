@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import Overlay from './Overlay.svelte';
   import { panZoom } from './actions.ts';
-  import { store, ui, setEngine, getEngine, fitView, toOutput, surfaceAt, flash } from './state.svelte.ts';
-  import { createEngine, newId, newSurface, quadToUnit, apply, type Vec2, type Source } from '../engine/index.ts';
+  import { store, ui, setEngine, getEngine, fitView, toOutput, outputToFrame, surfaceAt, flash } from './state.svelte.ts';
+  import { createEngine, newId, newSurface, type Vec2, type Source } from '../engine/index.ts';
   import { importFile, resolveUrl, loadModule } from './project-folder.ts';
   import { t } from './i18n/index.svelte.ts';
 
@@ -90,9 +90,9 @@
     surface.frame = [
       { x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 },
     ];
-    const inv = quadToUnit(surface.frame);
-    if (!inv) return;
-    const local = pts.map((p) => apply(inv, p)).filter((p): p is Vec2 => p !== null);
+    const local = pts
+      .map((p) => outputToFrame(surface, p))
+      .filter((p): p is Vec2 => p !== null);
     if (local.length < 3) return;
     surface.shape = { kind: 'polygon', points: local };
     store.addSurface(surface);
