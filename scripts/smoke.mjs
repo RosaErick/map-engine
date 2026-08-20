@@ -10,7 +10,8 @@
 import { chromium } from 'playwright';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const build = resolve(root, 'dist/index.html');
@@ -23,6 +24,29 @@ const failures = [];
 function check(name, ok, detail = '') {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`);
   if (!ok) failures.push(name);
+}
+
+// --- checks that need no browser ------------------------------------------
+
+const html = readFileSync(build, 'utf8');
+// Everything the app needs to run must be inside the file. The PWA assets are
+// the only allowed exceptions, and they are optional by design.
+// './index.html' is the app offering itself for download — a self reference.
+const PWA_FILES = ['./manifest.webmanifest', './icon-192.png', './sw.js', './index.html'];
+const external = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+  .map((m) => m[1])
+  .filter((url) => !url.startsWith('data:') && !url.startsWith('#') && !PWA_FILES.includes(url));
+check('AC-14: build não referencia nada fora do arquivo', external.length === 0, external.join(' | '));
+
+// A service worker only updates when its own bytes change. If the version stops
+// tracking the HTML, the PWA serves last month's app forever.
+const swPath = resolve(root, 'dist/sw.js');
+if (existsSync(swPath)) {
+  const sw = readFileSync(swPath, 'utf8');
+  const expected = createHash('sha256').update(readFileSync(build)).digest('hex').slice(0, 12);
+  check('AC-31: service worker versionado pelo hash do build', sw.includes(expected), `esperado ${expected}`);
+} else {
+  check('AC-31: service worker versionado pelo hash do build', false, 'dist/sw.js não existe');
 }
 
 const browser = await chromium.launch({
@@ -209,6 +233,49 @@ check('AC-20: UV com correção de perspectiva — borda reta, sem dobra diagona
   `amostras=${straightness.count} desvio máx=${straightness.maxResidual.toFixed(2)}px`);
 
 await page.selectOption('#pattern', 'none');
+
+// Per-surface test pattern: one surface can override the global one while its
+// neighbour keeps it. Both get the same white colour source, then one is told
+// to draw black — if the override reaches the GPU, only that one goes dark.
+const spots = await page.evaluate(() => {
+  const engine = window.engine;
+  const store = engine.store;
+  const src = store.project.sources[0].id;
+
+  const a = store.project.surfaces[0];
+  store.setSurfaceShape(a.id, { kind: 'quad' });
+  store.setSurfaceFrame(a.id, [
+    { x: 200, y: 200 }, { x: 800, y: 200 }, { x: 800, y: 700 }, { x: 200, y: 700 },
+  ]);
+  store.setSurfaceSource(a.id, src);
+
+  const b = store.addSurface();
+  store.setSurfaceFrame(b.id, [
+    { x: 1000, y: 200 }, { x: 1700, y: 200 }, { x: 1700, y: 700 }, { x: 1000, y: 700 },
+  ]);
+  store.setSurfaceSource(b.id, src);
+
+  store.setTestPattern('none');
+  store.setSurfacePattern(a.id, 'black');
+
+  const v = engine.view;
+  const dpr = window.devicePixelRatio;
+  const toPx = (x, y) => [Math.round((x * v.scale + v.tx) * dpr), Math.round((y * v.scale + v.ty) * dpr)];
+  return { a: toPx(500, 450), b: toPx(1350, 450), ids: [a.id, b.id] };
+});
+await page.waitForTimeout(80);
+const patched = await pixel(...spots.a);
+const untouched = await pixel(...spots.b);
+check('AC-32: padrão próprio de uma superfície vale só nela',
+  patched.slice(0, 3).every((v) => v === 0), `rgb=${patched}`);
+check('AC-32: a vizinha continua seguindo o padrão global',
+  untouched[0] > 200, `rgb=${untouched}`);
+
+await page.evaluate((ids) => {
+  const store = window.engine.store;
+  store.setSurfacePattern(ids[0], null);
+  store.removeSurface(ids[1]);
+}, spots.ids);
 
 // Undo must walk the geometry back.
 const undoOk = await page.evaluate(() => {
