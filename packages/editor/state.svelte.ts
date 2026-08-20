@@ -33,6 +33,9 @@ export const tools = $state({
   /** Tecla segurada desliga o ímã por um instante. */
   snapOff: false,
   pendingPolygon: [] as Vec2[],
+  /** Raio, em passos de grade, com que os vizinhos acompanham o ponto arrastado. */
+  warpFalloff: 1,
+  showWarpGrid: true,
 });
 
 /** Onde o projeto está e o que a saída está fazendo. */
@@ -186,6 +189,21 @@ export function warpPointToScreen(surface: Surface, index: number): Vec2 | null 
 export function screenToFramePoint(surface: Surface, screen: Vec2): Vec2 | null {
   const { inverse } = transformsFor(surface);
   return inverse ? apply(inverse, toOutput(screen)) : null;
+}
+
+/**
+ * Um pixel de saída expresso em unidades do espaço do frame.
+ *
+ * As setas prometem "1 px" — mas um ponto de malha vive em 0..1 dentro do
+ * frame, então o passo depende de quão grande a superfície é na tela. Sem esta
+ * conversão, a mesma tecla moveria muito num quad grande e quase nada num
+ * pequeno.
+ */
+export function framePixelStep(surface: Surface): Vec2 {
+  const [tl, tr, br, bl] = surface.frame;
+  const width = (Math.hypot(tr.x - tl.x, tr.y - tl.y) + Math.hypot(br.x - bl.x, br.y - bl.y)) / 2;
+  const height = (Math.hypot(bl.x - tl.x, bl.y - tl.y) + Math.hypot(br.x - tr.x, br.y - tr.y)) / 2;
+  return { x: width > 0 ? 1 / width : 0, y: height > 0 ? 1 / height : 0 };
 }
 
 /** Onde a linha da malha passa, para desenhar a grade por cima do canvas. */

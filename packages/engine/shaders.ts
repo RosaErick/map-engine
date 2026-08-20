@@ -50,7 +50,8 @@ in vec2 vUV;
 uniform sampler2D uTex;
 uniform mat3 uUVMat;     // frame space -> texture coords (crop + fit + rotation)
 uniform float uOpacity;
-uniform int uMask;       // 0 = none (quad / polygon geometry), 1 = ellipse
+uniform sampler2D uMaskTex;
+uniform int uMask;       // 0 = none (quad / polygon geometry), 1 = ellipse, 2 = texture
 uniform float uFeather;
 uniform int uMode;       // 0 = texture, 1 = missing media, 2 = no source
 uniform int uPattern;    // TestPattern index, 0 = none
@@ -123,7 +124,12 @@ void main() {
   }
 
   float mask = 1.0;
-  if (uMask == 1) {
+  if (uMask == 2) {
+    // A warped surface draws a mesh, so a polygon cannot be its geometry any
+    // more. The polygon is rasterised once into this mask instead, sampled with
+    // the undeformed frame coordinate — so the cutout bends with the content.
+    mask = texture(uMaskTex, vUV).a;
+  } else if (uMask == 1) {
     // Radial distance in frame space, so the ellipse inherits the frame's
     // perspective for free.
     float d = length((vUV - 0.5) * 2.0);

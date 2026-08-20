@@ -285,6 +285,14 @@ export class Store {
     this.patchSurface(id, { warp: identityWarp(warp.cols, warp.rows, warp.interpolation) });
   }
 
+  /** Empurra um ponto de controle em unidades do frame — o equivalente de malha
+   *  ao ajuste de 1 px que as setas fazem num canto. */
+  nudgeWarpPoint(id: string, index: number, dx: number, dy: number, falloff = 0): void {
+    const current = this.#surface(id)?.warp?.points[index];
+    if (!current) return;
+    this.setWarpPoint(id, index, { x: current.x + dx, y: current.y + dy }, falloff);
+  }
+
   /**
    * Move um ponto de controle, em espaço do frame.
    *
