@@ -787,9 +787,13 @@ Coisas que estão no código mas incompletas, ou que o brief pede e não estão 
   `memoryFiles` quando não há handle de diretório; o `project.json` fica no
   `localStorage`, os arquivos não. **Religar** reconstrói o vínculo sem apagar e recriar
   a fonte, mas continua sendo trabalho manual a cada sessão. A cura de verdade é usar
-  uma pasta.
-- **O handle da pasta não é persistido entre sessões.** O brief pede "abrir usa
-  `showDirectoryPicker()` e guarda o handle"; hoje ele só vive na memória do módulo.
+  uma pasta — e desde que o handle passou a ser guardado, essa cura custa um clique em
+  vez de uma travessia do diálogo do sistema.
+- **A permissão da pasta pode não sobreviver, mesmo com o handle guardado.** O handle vai
+  para IndexedDB e volta; a permissão é do navegador, e só volta como `granted` quando o
+  usuário concedeu acesso persistente. O normal é `prompt`, e aí o app espera um clique —
+  `requestPermission` fora de um gesto do usuário é rejeitado de propósito. Não há como
+  fechar essa lacuna do nosso lado.
 - **Polígono: dá para mover vértice, não para acrescentar ou remover.** As alças existem
   e respeitam a trava; errar a *quantidade* de pontos ainda obriga a refazer o traçado.
 - **Feather só na elipse.** Polígono tem borda dura, como o brief define para a v1.
