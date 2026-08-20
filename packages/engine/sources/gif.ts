@@ -1,4 +1,4 @@
-import { ContextTextures, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type SourceContext, type SourceError, type TextureSource } from './types.ts';
 
 /** WebCodecs' ImageDecoder is Chromium-only and absent from some lib.dom builds. */
 type ImageDecoderCtor = new (init: { data: ArrayBuffer; type: string }) => ImageDecoderLike;
@@ -26,7 +26,7 @@ interface VideoFrameLike {
 export class GifSource implements TextureSource {
   size: [number, number] = [0, 0];
   status: 'loading' | 'ready' | 'error' = 'loading';
-  error?: string;
+  error?: SourceError;
   readonly animated = true;
 
   #textures = new ContextTextures();
@@ -61,7 +61,7 @@ export class GifSource implements TextureSource {
       this.status = 'ready';
     } catch {
       this.status = 'error';
-      this.error = `GIF nao carregou: ${path}`;
+      this.error = { code: 'gif-failed', detail: path };
     }
   }
 

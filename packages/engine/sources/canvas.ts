@@ -1,4 +1,4 @@
-import { ContextTextures, uploadTexture, type CanvasModule, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type CanvasModule, type SourceContext, type SourceError, type TextureSource } from './types.ts';
 
 /**
  * Generative content: a user module exporting `draw(ctx, t)`.
@@ -10,7 +10,7 @@ import { ContextTextures, uploadTexture, type CanvasModule, type SourceContext, 
 export class CanvasSource implements TextureSource {
   size: [number, number] = [512, 512];
   status: 'loading' | 'ready' | 'error' = 'loading';
-  error?: string;
+  error?: SourceError;
   readonly animated = true;
 
   #textures = new ContextTextures();
@@ -24,7 +24,7 @@ export class CanvasSource implements TextureSource {
     this.#canvas.height = this.size[1];
     if (!ctx.loadModule) {
       this.status = 'error';
-      this.error = 'nenhum carregador de módulo configurado';
+      this.error = { code: 'module-no-loader' };
       return;
     }
     void ctx.loadModule(moduleId).then(
@@ -39,7 +39,7 @@ export class CanvasSource implements TextureSource {
       },
       () => {
         this.status = 'error';
-        this.error = `módulo não carregou: ${moduleId}`;
+        this.error = { code: 'module-failed', detail: moduleId };
       },
     );
   }
@@ -65,7 +65,7 @@ export class CanvasSource implements TextureSource {
       } catch (e) {
         // A throwing user module must not take the show down with it.
         this.status = 'error';
-        this.error = `módulo falhou: ${String(e)}`;
+        this.error = { code: 'module-failed', detail: String(e) };
         return;
       }
       this.#textures.invalidate();

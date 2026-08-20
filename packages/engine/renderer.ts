@@ -162,7 +162,7 @@ export class Renderer {
       desynchronized: true,
       powerPreference: 'high-performance',
     });
-    if (!gl) throw new Error('WebGL2 indisponível neste navegador');
+    if (!gl) throw new Error('WebGL2 is unavailable in this browser');
     this.gl = gl;
     this.#canvas = canvas;
 
@@ -210,9 +210,9 @@ export class Renderer {
   }
 
   /**
-   * `patternFor` recebe a superfície e devolve o padrão de teste dela. É função
-   * e não um valor único porque cada superfície pode ter o seu — o renderer não
-   * precisa saber de onde vem a decisão.
+   * `patternFor` takes a surface and returns its test pattern. It is a function
+   * rather than a single value because each surface may carry its own — the
+   * renderer has no business knowing where that decision comes from.
    */
   render(
     project: Project,

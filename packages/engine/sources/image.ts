@@ -1,10 +1,10 @@
-import { ContextTextures, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type SourceContext, type SourceError, type TextureSource } from './types.ts';
 
 /** Still image. Decoded once, then uploaded once per GL context and never again. */
 export class ImageSource implements TextureSource {
   size: [number, number] = [0, 0];
   status: 'loading' | 'ready' | 'error' = 'loading';
-  error?: string;
+  error?: SourceError;
   readonly animated = false;
   #textures = new ContextTextures();
   #bitmap: ImageBitmap | null = null;
@@ -28,7 +28,7 @@ export class ImageSource implements TextureSource {
       this.#textures.invalidate();
     } catch {
       this.status = 'error';
-      this.error = `imagem não carregou: ${path}`;
+      this.error = { code: 'image-failed', detail: path };
     }
   }
 
