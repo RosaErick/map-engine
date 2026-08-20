@@ -49,6 +49,10 @@ export const session = $state({
   /** Momento do último autosave, zerado por um timer. A barra de cima usa isso
    *  para responder "meu trabalho está salvo?" sem ninguém precisar perguntar. */
   savedAt: 0,
+  /** Nome da pasta da sessão anterior que só falta permissão para reabrir. A
+   *  permissão não pode ser pedida sozinha na partida, então o nome fica aqui
+   *  esperando o clique que tem direito de pedi-la. */
+  pendingFolder: '' as string,
   outputOpen: false,
   outputScreen: '',
 });

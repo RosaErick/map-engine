@@ -52,6 +52,7 @@ graph TD
     ACT["actions.ts"]
     UIST["state.svelte.ts"]
     PF["project-folder.ts"]
+    HS["handle-store.ts"]
   end
 
   subgraph out["packages/output"]
@@ -66,6 +67,7 @@ graph TD
     PROJ["project.ts"]
     HOM["homography.ts"]
     GEO["geometry.ts"]
+    WARP["warp.ts"]
     SIDX["sources/index.ts"]
     STY["sources/types.ts"]
     SCOL["sources/color.ts"]
@@ -77,6 +79,7 @@ graph TD
 
   IH --> MAIN --> APP
   APP --> STAGE & TOOL & LIST & INSP & SRCP & UIST & PF
+  PF --> HS
   STAGE --> OVER & ACT & PF & IDX
   OVER --> ACT & UIST
   TOOL --> OUT & PF & UIST
@@ -88,8 +91,9 @@ graph TD
 
   IDX --> ENG & STORE & PROJ & HOM & GEO & REN & SIDX
   ENG --> REN & SIDX & STORE & PROJ
-  REN --> HOM & GEO & PROJ & SIDX
-  STORE --> PROJ
+  REN --> HOM & GEO & PROJ & SIDX & WARP
+  STORE --> PROJ & WARP
+  WARP --> GEO
   PROJ --> HOM
   GEO --> HOM
   SIDX --> STY & SCOL & SIMG & SVID & SGIF & SCAN
@@ -391,7 +395,17 @@ em espaço de frame pela homografia inversa. `onDrop` implementa o quarto passo 
 A camada de manipulação, um `<svg>` transparente com `pointer-events: none` no container —
 só as alças e o interior dos frames recebem clique, o resto atravessa até a `Stage`. Desenha
 o retângulo da saída, o contorno e o nome de cada superfície, e as quatro alças circulares
-quando ela está selecionada e destravada. O `path` do frame usa `use:drag` com
+quando ela está selecionada e destravada.
+
+Contorno e área de clique são **duas trilhas separadas**, e essa separação é o conserto de
+um defeito que durou meses: o contorno é o frame, porque é ele o guia de alinhamento, mas
+quem captura o ponteiro é `hitPath(surface)` — a silhueta. Para `quad` as duas coincidem;
+para polígono é o próprio polígono, e para elipse é a inscrita amostrada em espaço de frame,
+para atravessar a perspectiva junto com a superfície em vez de virar um círculo na tela.
+Enquanto a trilha do frame capturava o clique sobre a caixa inteira, o `pointInPolygon` de
+`surfaceAt` estava correto e nunca era alcançado.
+
+O `path` de clique usa `use:drag` com
 `disabled: surface.locked` para mover a superfície inteira via `store.moveSurface`; cada
 alça usa `use:drag` chamando `store.setCorner(id, i, snapPoint(toOutput(p), id))`, com
 `onEnd: () => store.endGesture()`. Também renderiza o polígono em traçado
@@ -470,7 +484,11 @@ que uma palavra — botão de ação continua com texto, que é mais explicativo
 
 #### [`packages/editor/SurfaceList.svelte`](../packages/editor/SurfaceList.svelte)
 
-A lista de superfícies em ordem z decrescente (`$derived`). Cada linha seleciona ao clicar,
+A lista de superfícies em ordem z decrescente (`$derived`). Cada linha abre com o **número
+que o padrão "número" projeta**, vindo de `surfaceOrder` do engine — a mesma função que o
+renderer usa para escolher o glifo. Não é um `index + 1` calculado aqui: número na lista que
+discorda do número na parede é pior do que lista sem número nenhum, e é assim que os dois
+divergiriam. Cada linha seleciona ao clicar,
 renomeia ao duplo clique (`commitRename` → `store.patchSurface(id, { name })` — uma lista de
 "Superfície 7" é inútil, "quadro da esquerda" não é) e traz os três toggles de afordância:
 **S** solo (`toggleSolo`), **M** mudo (`toggleVisible`) e o cadeado (`toggleLock`). No pé,
@@ -503,11 +521,31 @@ estado ao vivo direto do `SourcePool` via `getEngine()`, para que um arquivo fal
 apareça aqui e não só como retângulo magenta na parede. Fontes de cor ganham um
 `<input type="color">` que chama `store.patchSource`.
 
+#### [`packages/editor/handle-store.ts`](../packages/editor/handle-store.ts)
+
+Um banco, um store, uma chave: onde o handle da pasta espera pela próxima sessão.
+`rememberFolder`, `recallFolder`, `forgetFolder`, IndexedDB cru e sem dependência.
+
+IndexedDB e não `localStorage` porque um `FileSystemDirectoryHandle` é serializável pelo
+algoritmo de clone estruturado, e `localStorage` só guarda texto. Toda falha vira `null` em
+silêncio — modo privado pode recusar o banco inteiro, e isso não é erro do usuário nem coisa
+que valha uma mensagem: é uma sessão sem memória de pasta. O que este módulo **não** guarda é
+a permissão, que é do navegador.
+
 #### [`packages/editor/project-folder.ts`](../packages/editor/project-folder.ts)
 
 A persistência: um projeto é uma **pasta**, não um arquivo. `openFolder()` usa
-`showDirectoryPicker({ mode: 'readwrite' })`, guarda o handle em módulo e devolve o texto de
-`project.json` (ou `null` — pasta vazia é projeto novo, não erro). `resolveUrl(path)` anda
+`showDirectoryPicker({ mode: 'readwrite' })`, guarda o handle em módulo **e em IndexedDB**, e
+devolve o texto de `project.json` (ou `null` — pasta vazia é projeto novo, não erro).
+
+`restoreFolder()` é a volta na sessão seguinte, e devolve um de três estados: nada guardado,
+`granted` (pasta readotada, projeto já lido) ou `prompt` (há handle, falta permissão). A
+decisão mora em `restoreFrom(handle)`, exportada de propósito: o seletor de pasta abre um
+diálogo do sistema operacional que nenhum teste automatizado consegue operar, então a única
+forma de cobrir permissão negada, pendente e handle morto é entregar o handle por parâmetro —
+o mesmo motivo pelo qual `saver.ts` recebe um escritor. `grantFolder()` faz o
+`requestPermission`, e só pode ser chamada de dentro de um clique: fora de um gesto do
+usuário o navegador rejeita, de propósito. `resolveUrl(path)` anda
 pelos segmentos do caminho relativo, abre o arquivo e devolve um object URL cacheado; é
 exatamente essa função que é injetada na engine, e é o `throw` dela que faz a superfície
 mostrar o padrão de mídia faltando. `importFile(file)` copia o arquivo solto para dentro da

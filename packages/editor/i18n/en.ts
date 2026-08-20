@@ -71,6 +71,8 @@ export const en = {
   'project.title': 'Project',
   'project.blurb': 'A project is a folder: the project file and the media sit side by side, and everything is saved on its own.',
   'project.openFolder': 'open folder',
+  'project.reopen': 'reopen {name}',
+  'project.reopened': 'folder {name} reopened',
   'project.saveNow': 'save now',
   'project.downloadJson': 'download json',
   'project.projector': 'Projector (output)',

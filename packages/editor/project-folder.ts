@@ -1,5 +1,6 @@
 import type { CanvasModule, Store } from '../engine/index.ts';
 import { createSaver, safeName, type Saver } from './saver.ts';
+import { forgetFolder, recallFolder, rememberFolder } from './handle-store.ts';
 
 /**
  * A project is a folder, not a file: `project.json` with relative paths and the
@@ -19,7 +20,12 @@ const LOCAL_KEY = 'map-engine:project';
 /** Falha que o usuário precisa entender. O texto é escolhido por quem tem o
  *  catálogo — este módulo só diz o que aconteceu. */
 export class FolderError extends Error {
-  constructor(readonly code: 'unsupported') { super(code); }
+  // Campo declarado e atribuído à mão, e não uma parameter property: o projeto
+  // roda os testes com o type-stripping nativo do node, que não suporta a
+  // forma curta. Um módulo que não pode ser importado por um teste é um módulo
+  // sem teste.
+  readonly code: 'unsupported';
+  constructor(code: 'unsupported') { super(code); this.code = code; }
 }
 
 export const hasFileSystemAccess = typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function';
@@ -38,12 +44,106 @@ export async function openFolder(): Promise<string | null> {
   }).showDirectoryPicker;
   dir = await picker({ mode: 'readwrite' });
   urlCache.clear();
+  // Guardar o handle é o que faz a próxima sessão não começar pelo diálogo do
+  // sistema. Falhar aqui não pode derrubar a abertura que já deu certo.
+  void rememberFolder(dir).catch(() => {});
   try {
     const file = await (await dir.getFileHandle('project.json')).getFile();
     return await file.text();
   } catch {
     return null; // an empty folder is a new project, not an error
   }
+}
+
+/**
+ * O que sobrou da sessão anterior:
+ *
+ * - `null` — não há handle guardado, ou o navegador não guarda nada.
+ * - `granted` — a pasta foi readotada e o projeto já vem lido.
+ * - `prompt` — o handle existe mas falta permissão, que só pode ser pedida de
+ *   dentro de um gesto do usuário. A interface mostra um botão com este nome.
+ */
+export type Adopted = { state: 'granted'; name: string; json: string | null };
+export type Restored = Adopted | { state: 'prompt'; name: string };
+
+export type Permissioned = FileSystemDirectoryHandle & {
+  queryPermission(d: { mode: 'readwrite' }): Promise<PermissionState>;
+  requestPermission(d: { mode: 'readwrite' }): Promise<PermissionState>;
+};
+
+/** Adota o handle e lê o `project.json`, ou desiste dele se a pasta sumiu. */
+async function adopt(handle: FileSystemDirectoryHandle): Promise<Adopted | null> {
+  dir = handle;
+  urlCache.clear();
+  try {
+    const file = await (await handle.getFileHandle('project.json')).getFile();
+    return { state: 'granted', name: handle.name, json: await file.text() };
+  } catch (e) {
+    // Pasta vazia é projeto novo. Pasta que não existe mais é outra coisa: o
+    // handle está morto e insistir nele só produziria erro a cada salvamento.
+    if ((e as DOMException | null)?.name === 'NotFoundError') {
+      dir = null;
+      await forgetFolder();
+      return null;
+    }
+    return { state: 'granted', name: handle.name, json: null };
+  }
+}
+
+/**
+ * Tenta voltar para a pasta da sessão anterior. Chamada uma vez, na partida,
+ * com o projeto ainda vazio — nunca depois, para não haver como um handle
+ * recuperado passar por cima de trabalho já em memória.
+ */
+export async function restoreFolder(): Promise<Restored | null> {
+  if (!hasFileSystemAccess) return null;
+  const handle = (await recallFolder()) as Permissioned | null;
+  if (!handle) return null;
+  return await restoreFrom(handle);
+}
+
+/**
+ * A decisão, separada do encanamento: dado um handle, o que fazer com ele.
+ *
+ * Está exportada porque o seletor de pasta abre um diálogo do sistema
+ * operacional, que nenhum teste automatizado consegue operar — a única forma de
+ * cobrir permissão negada, permissão pendente e handle morto é entregar o
+ * handle por parâmetro. Mesmo motivo pelo qual `saver.ts` recebe um escritor.
+ */
+export async function restoreFrom(handle: Permissioned): Promise<Restored | null> {
+  let permission: PermissionState;
+  try {
+    permission = await handle.queryPermission({ mode: 'readwrite' });
+  } catch {
+    await forgetFolder();
+    return null;
+  }
+
+  if (permission === 'granted') return await adopt(handle);
+  // `denied` é uma resposta, não um erro: o usuário disse não a esta pasta e
+  // continuar oferecendo um botão para ela seria insistência.
+  if (permission === 'denied') { await forgetFolder(); return null; }
+  return { state: 'prompt', name: handle.name };
+}
+
+/**
+ * Pede a permissão que faltava. Precisa ser chamada de dentro de um clique: o
+ * navegador rejeita o pedido fora de um gesto do usuário, de propósito.
+ */
+export async function grantFolder(): Promise<Adopted | null> {
+  const handle = (await recallFolder()) as Permissioned | null;
+  if (!handle) return null;
+  let permission: PermissionState;
+  try {
+    permission = await handle.requestPermission({ mode: 'readwrite' });
+  } catch {
+    return null;
+  }
+  if (permission !== 'granted') {
+    if (permission === 'denied') await forgetFolder();
+    return null;
+  }
+  return await adopt(handle);
 }
 
 /** Relative path -> a URL the browser can fetch. Throws when the file is gone,

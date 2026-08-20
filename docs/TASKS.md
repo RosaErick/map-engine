@@ -1,7 +1,7 @@
 # Backlog — Projection Mapping Engine
 
 Base: `prompt-mapping-engine.md`. Este documento descreve o que **está no código hoje**
-(81 testes de unidade + 23 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
+(85 testes de unidade + 28 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
 limpos, `dist/index.html` de ~100 KB gerado como arquivo único) e o que falta. Os ids
 `AC-n` citados aqui são os de [`SPEC.md`](SPEC.md).
 
@@ -129,11 +129,17 @@ projetor apontado para uma parede.
   tela.
   Onde: `packages/editor/project-folder.ts`, `packages/editor/App.svelte`.
 
-- [ ] **Persistir o handle da pasta entre sessões** — `M`
-  O brief diz "abrir usa `showDirectoryPicker()` **e guarda o handle**". Hoje o handle
-  só vive na memória do módulo: toda abertura do app exige re-selecionar a pasta antes
-  de qualquer coisa aparecer. Guardar em IndexedDB e pedir `queryPermission` na volta.
-  Onde: `packages/editor/project-folder.ts:113-133`.
+- [x] ~~**Persistir o handle da pasta entre sessões**~~ — feito
+  O handle vai para IndexedDB (`handle-store.ts`), que aceita clone estruturado —
+  `localStorage` só guarda texto. Verificado que IndexedDB funciona e persiste em
+  `file://`, que é a distribuição principal e uma origem opaca.
+  A promessa é honesta sobre o que o navegador permite: **um clique em vez de navegar o
+  diálogo do sistema**, e nenhum quando a permissão é persistente. `requestPermission`
+  fora de um gesto do usuário é rejeitado de propósito, então a partida nunca escala
+  sozinha — o nome da pasta vira botão e o pedido acontece dentro do clique. Handle
+  morto é esquecido. AC-56 a AC-58.
+  Onde: `packages/editor/handle-store.ts`, `project-folder.ts`, `App.svelte`,
+  `ProjectPanel.svelte`.
 
 ### 4. Editor
 
@@ -143,12 +149,15 @@ projetor apontado para uma parede.
   Coberto por teste (`AC-9`, segundo caso).
   Onde: `packages/engine/store.ts`.
 
-- [ ] **Editar pontos de um polígono já traçado, e acertar o hit-test** — `M`
-  Depois do duplo clique os pontos ficam congelados: um erro de traçado obriga a apagar
-  e refazer. E `surfaceAt` testa o retângulo unitário do frame, não o polígono, então
-  cliques no canto vazio da bbox selecionam a superfície.
-  Onde: `packages/editor/state.svelte.ts:71-81` (usar `pointInPolygon`, já exportado e
-  hoje sem nenhum uso fora dos testes), `packages/editor/Overlay.svelte`.
+- [x] ~~**Editar pontos de um polígono já traçado, e acertar o hit-test**~~ — feito
+  As alças de vértice e o `pointInPolygon` dentro de `surfaceAt` já existiam desde a
+  revisão sênior — e o sintoma continuava, porque o diagnóstico apontava para o lugar
+  errado. Quem capturava o clique era a trilha do frame no overlay, com
+  `pointer-events: fill` sobre a caixa inteira: o ponteiro nunca chegava ao `surfaceAt`.
+  A região que responde ao ponteiro passou a ser a silhueta (polígono, elipse amostrada
+  em espaço de frame, ou o quad quando não há recorte); o contorno do frame continua
+  desenhado como frame, que é o papel dele. AC-59 e AC-60.
+  Onde: `packages/editor/Overlay.svelte`.
 
 - [ ] **`DECISION:` snap só de canto** — `P`
   Decisão registrada em `packages/editor/state.svelte.ts:49-54`: canto a canto, sem
@@ -183,10 +192,11 @@ projetor apontado para uma parede.
   Onde: `packages/engine/warp.ts`, `renderer.ts`, `shaders.ts`, `store.ts`,
   `packages/editor/Inspector.svelte`, `Overlay.svelte`, `docs/specs/0001-mesh-warp.md`.
 
-- [ ] **Contraste do guia de malha sobre conteúdo claro** — `P`
-  As linhas da malha são violeta a 40%. Sobre conteúdo escuro leem bem; sobre uma imagem
-  clara quase somem, e é justamente na imagem que se julga o alinhamento. Vale medir a
-  luminância sob o ponto e inverter, como já se faz em ferramenta de foto.
+- [x] ~~**Contraste do guia de malha sobre conteúdo claro**~~ — feito
+  Contorno escuro sob o traço claro, como a cartografia faz com estrada sobre qualquer
+  fundo. Medir a luminância e inverter, que era a ideia registrada aqui, custaria
+  `readPixels` por ponto e por frame — uma parada sincronizada da GPU dentro do laço de
+  render. Medido: 1,38 → 3,14 de contraste sobre branco. AC-61.
   Onde: `packages/editor/Overlay.svelte`.
 
 - [x] ~~**Engine publicável como biblioteca**~~ — feito
@@ -225,12 +235,11 @@ projetor apontado para uma parede.
   `packages/engine/renderer.ts` (recebe função, não valor),
   `packages/editor/Inspector.svelte`, `packages/editor/Toolbar.svelte`.
 
-- [ ] **Numerar as linhas da lista de superfícies** — `P`
-  O padrão "número" projeta a posição na lista (ordem z decrescente), mas a lista mostra
-  só nomes — então uma superfície chamada "Superfície 2" pode aparecer projetada como
-  "1" e confundir. Mostrar o número na linha da lista fecha a ambiguidade sem mexer no
-  renderer.
-  Onde: `packages/editor/SurfaceList.svelte`.
+- [x] ~~**Numerar as linhas da lista de superfícies**~~ — feito
+  A lista chama `surfaceOrder`, a mesma função do engine que o renderer usa para escolher
+  o glifo — e não um `index + 1` próprio, que é como os dois números passariam a
+  divergir. `surfaceOrder` virou export público por causa disso. AC-62.
+  Onde: `packages/editor/SurfaceList.svelte`, `packages/engine/index.ts`.
 
 - [x] ~~**Redesenho: espaçamento, temas, responsividade, sobre**~~ — feito
   Tailwind v4 + daisyUI no editor (ADR-0017), tema claro/escuro/sistema com persistência,
@@ -248,6 +257,14 @@ projetor apontado para uma parede.
 
 - [ ] **Prints do `sobre` e do tema claro no `docs/install/`** — `P`
   Some com os marcadores `📷 print:` agora que existe uma interface para fotografar.
+
+- [ ] **Comentários do editor em português contra a regra do AGENTS.md** — `P`
+  A regra 4 diz "código, identificadores e comentários em inglês". A engine cumpre (19
+  comentários acentuados em 587); o editor não (179 em 444). Não é defeito de execução,
+  é uma regra que erodiu num pacote só — vale decidir se a regra vale para o editor e
+  então aplicá-la de uma vez, ou registrar a exceção no AGENTS.md. Traduzir 179
+  comentários dentro de uma branch de feature esconderia a feature.
+  Onde: `packages/editor/`, `AGENTS.md`.
 
 ### 5. Testes
 

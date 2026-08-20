@@ -454,6 +454,165 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// O guia da malha só serve se for visível sobre o conteúdo — e é sobre a imagem
+// que se julga o alinhamento. Medido no elemento renderizado de verdade, com o
+// CSS aplicado, e não na folha de estilo.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  if (!store.project.surfaces[0]) store.addSurface();
+  const s = store.project.surfaces[0];
+  store.setView({ selectedSurfaceId: s.id });
+  store.enableWarp(s.id);
+});
+// O overlay é Svelte: as alças só existem no DOM depois que ele pinta.
+await page.waitForSelector('.warp-casing', { state: 'attached', timeout: 5000 });
+
+const contrast = await page.evaluate(() => {
+  const read = (selector) => {
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    const css = getComputedStyle(el);
+    const rgb = css.stroke.match(/[\d.]+/g)?.map(Number) ?? null;
+    return rgb && { rgb: rgb.slice(0, 3), alpha: Number(css.opacity) };
+  };
+  const casing = read('.warp-casing');
+  const line = read('.warp-line');
+  if (!casing || !line) return null;
+
+  // Luminância relativa da WCAG, e a razão de contraste entre duas cores.
+  const lum = ([r, g, b]) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const ratio = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  const over = (fg, alpha, bg) => fg.map((c, i) => c * alpha + bg[i] * (1 - alpha));
+
+  const measure = (bg) => {
+    const cased = over(casing.rgb, casing.alpha, bg);
+    return Math.max(ratio(cased, bg), ratio(over(line.rgb, line.alpha, cased), bg));
+  };
+  return { branco: measure([255, 255, 255]), preto: measure([0, 0, 0]) };
+});
+check('AC-61: o guia da malha se distingue sobre branco e sobre preto',
+  contrast !== null && contrast.branco >= 2 && contrast.preto >= 2,
+  contrast ? `branco=${contrast.branco.toFixed(2)}x preto=${contrast.preto.toFixed(2)}x` : 'elementos do guia não encontrados');
+
+// O clique tem que respeitar a silhueta, e não a caixa. Um polígono ocupa uma
+// fração da própria bbox, então o canto vazio dela é o lugar exato onde
+// selecionar a superfície errada custa caro: acontece em cima de uma escada,
+// mirando outra coisa.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  store.addSurface();
+  const s = store.project.surfaces[0];
+  store.setSurfaceShape(s.id, { kind: 'polygon', points: [{ x: 0.05, y: 0.05 }, { x: 0.75, y: 0.25 }, { x: 0.2, y: 0.8 }] });
+  store.setView({ selectedSurfaceId: null });
+  window.__xy = (u, v) => {
+    const rect = document.querySelector('canvas').getBoundingClientRect();
+    const { width: W, height: H } = window.mapEngine.store.project.output;
+    const scale = Math.min(rect.width / W, rect.height / H) * 0.9;
+    const f = window.mapEngine.store.project.surfaces[0].frame;
+    const ox = f[0].x + (f[1].x - f[0].x) * u + (f[3].x - f[0].x) * v;
+    const oy = f[0].y + (f[1].y - f[0].y) * u + (f[3].y - f[0].y) * v;
+    return { x: rect.left + ox * scale + (rect.width - W * scale) / 2,
+             y: rect.top + oy * scale + (rect.height - H * scale) / 2 };
+  };
+});
+const at = (u, v) => page.evaluate(([u, v]) => window.__xy(u, v), [u, v]);
+const selected = () => page.evaluate(() => window.mapEngine.store.view.selectedSurfaceId);
+
+let spot = await at(0.9, 0.9);
+await page.mouse.click(spot.x, spot.y);
+const emptyCorner = await selected();
+spot = await at(0.3, 0.3);
+await page.mouse.click(spot.x, spot.y);
+const insideShape = await selected();
+check('AC-59: o clique respeita o polígono, não a caixa dele',
+  emptyCorner === null && insideShape !== null,
+  `cantoVazio=${emptyCorner} dentro=${insideShape}`);
+
+// Vértice interno de propósito: num canto do frame a alça do canto fica por cima.
+const vertex = () => page.evaluate(() => {
+  const p = window.mapEngine.store.project.surfaces[0].shape.points[1];
+  return { x: p.x, y: p.y };
+});
+const vBefore = await vertex();
+const grab = await at(vBefore.x, vBefore.y);
+await page.mouse.move(grab.x, grab.y);
+await page.mouse.down();
+await page.mouse.move(grab.x - 150, grab.y + 60, { steps: 12 });
+await page.mouse.up();
+const vAfter = await vertex();
+await page.evaluate(() => window.mapEngine.store.undo());
+const vUndone = await vertex();
+check('AC-60: vértice de polígono se move e volta num só desfazer',
+  Math.abs(vAfter.x - vBefore.x) > 0.005 && Math.abs(vUndone.x - vBefore.x) < 1e-9,
+  `${vBefore.x.toFixed(3)} -> ${vAfter.x.toFixed(3)} -> ${vUndone.x.toFixed(3)}`);
+
+// O número da lista tem que ser o mesmo que o projetor desenha. Quem está na
+// escada lê os dois ao mesmo tempo; divergir seria pior do que não numerar.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  store.addSurface(); store.addSurface(); store.addSurface();
+  // A última superfície vai para o topo da pilha: se a lista numerasse por
+  // ordem de criação em vez de por z, esta é a linha que denunciaria.
+  const [a, , c] = store.project.surfaces;
+  store.reorder(c.id, 10);
+  store.reorder(a.id, -5);
+});
+await page.waitForFunction(() => document.querySelectorAll('aside li, .surface-row').length > 0
+  || document.querySelectorAll('li').length > 0, null, { timeout: 5000 });
+
+const numbering = await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  // O que o renderer projeta: z decrescente, começando em 1.
+  const projected = [...store.project.surfaces].sort((a, b) => b.z - a.z).map((s) => s.name);
+  // O que a lista mostra, lido do DOM.
+  const rows = [...document.querySelectorAll('li')]
+    .map((li) => ({ badge: li.querySelector('span'), label: li.querySelector('button') }))
+    .filter((r) => r.badge && r.label && /^\d+$/.test(r.badge.textContent.trim()))
+    .map((r) => ({ number: Number(r.badge.textContent.trim()), name: r.label.textContent.trim() }));
+  return { projected, rows };
+});
+const listOk = numbering.rows.length === numbering.projected.length
+  && numbering.rows.every((row, i) => row.number === i + 1 && row.name === numbering.projected[i]);
+check('AC-62: o número da lista é o número que o projetor desenha', listOk,
+  `lista=${numbering.rows.map((r) => `${r.number}:${r.name}`).join(' ')} | projetado=${numbering.projected.join(' ')}`);
+
+// A pasta guardada entre sessões depende de IndexedDB funcionar numa página
+// `file://`, que é uma origem opaca — vale provar no artefato construído, e não
+// no laptop de quem escreveu. Um handle de verdade não cabe aqui: ele só sai de
+// um diálogo do sistema. O que se prova é a camada de baixo.
+const idb = await page.evaluate(async () => {
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('map-engine', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('handles');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').put({ name: 'palco' }, 'project-folder');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    return await new Promise((resolve) => {
+      const get = db.transaction('handles').objectStore('handles').get('project-folder');
+      get.onsuccess = () => resolve(get.result?.name ?? null);
+      get.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return `erro: ${e}`;
+  }
+});
+check('AC-56: file:// guarda e devolve o handle da pasta', idb === 'palco', `leu=${idb}`);
+
 check('AC-14: console sem erros', consoleErrors.length === 0, consoleErrors.join(' | '));
 
 await browser.close();
