@@ -431,3 +431,16 @@ test('AC-69: id que não existe nunca entra na seleção', () => {
   store.setSelection([a, 'surf_fantasma', a]);
   assert.deepEqual(store.view.selectedIds, [a], 'sem órfão e sem repetido');
 });
+
+test('AC-66: o âncora é a superfície clicada, não a que o vínculo trouxe', () => {
+  const { store, ids: [a, b, c] } = threeSurfaces();
+  store.setSelection([a, b]);
+  store.linkSelected();
+
+  store.setSelection([a, c]);
+  assert.equal(anchorId(store.view), c, 'o último pedido continua sendo o âncora');
+  assert.equal(store.view.selectedIds.length, 3, 'e o vínculo entrou junto');
+
+  store.setSelection([a]);
+  assert.equal(anchorId(store.view), a, 'clicar numa ligada mostra ela no painel, não a irmã');
+});

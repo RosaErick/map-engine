@@ -102,7 +102,17 @@
       return;
     }
     if (e.key.toLowerCase() === 'h') { store.setView({ uiHidden: !$store.view.uiHidden }); return; }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && s) { store.removeSurface(s.id); return; }
+    // Ctrl+A escolhe tudo que está visível: o atalho que ninguém procura no
+    // manual, e a forma mais rápida de mover uma parede inteira de uma vez.
+    if (mod && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      store.setSelection($store.project.surfaces.filter((x) => x.visible).map((x) => x.id));
+      return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && s) {
+      for (const id of [...$store.view.selectedIds]) store.removeSurface(id);
+      return;
+    }
 
     const step = e.shiftKey ? 10 : 1;
     const delta: Record<string, [number, number]> = {
@@ -121,7 +131,9 @@
       } else if (corner !== null) {
         store.nudgeCorner(s.id, corner, d[0], d[1]);
       } else {
-        store.moveSurface(s.id, d[0], d[1]);
+        // Sem canto nem ponto escolhido, as setas movem a seleção inteira —
+        // o mesmo que o arrasto faz. Uma só selecionada é o caso de sempre.
+        store.moveSelection(d[0], d[1]);
       }
     }
   }
