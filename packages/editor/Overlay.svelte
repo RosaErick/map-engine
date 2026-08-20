@@ -5,7 +5,7 @@
     store, viewport, tools, frameToOutput, outputToFrame, snapPoint, toOutput, toScreen,
     warpGridPath, warpPointToScreen, screenToFramePoint,
   } from './state.svelte.ts';
-  import type { Surface, Vec2 } from '../engine/index.ts';
+  import { anchorId, type Surface, type Vec2 } from '../engine/index.ts';
 
   const HANDLE = 7;
   // A mesh can carry up to 289 control points at once, so its handles are the
@@ -51,23 +51,44 @@
     return d ? `${d} Z` : '';
   }
 
-  function isSelected(s: Surface): boolean { return $store.view.selectedSurfaceId === s.id; }
+  /** Está na seleção — pode ser uma de várias. */
+  function isSelected(s: Surface): boolean { return $store.view.selectedIds.includes(s.id); }
+
+  /**
+   * É o âncora: o único que mostra alças.
+   *
+   * Alça é para ajuste fino, e ajuste fino é sempre de uma superfície por vez.
+   * Dez selecionadas dariam quarenta alças de canto em cima do conteúdo, e
+   * nenhuma delas seria clicável com confiança.
+   */
+  function isAnchor(s: Surface): boolean { return anchorId($store.view) === s.id; }
 
   function pickCorner(s: Surface, i: number): void {
-    store.setView({ selectedSurfaceId: s.id, selectedCorner: i });
+    store.setSelection([s.id]);
+    store.setView({ selectedCorner: i });
   }
 
   // Selecting the surface without a corner: the arrow keys then move the whole
   // surface. Shared by the pointer gestures and by keyboard focus, so reaching a
   // handle with Tab selects exactly what grabbing it with the mouse selects.
-  function pickSurface(s: Surface): void {
-    store.setView({ selectedSurfaceId: s.id, selectedCorner: null });
+  /**
+   * O que um ponteiro sobre a superfície faz com a seleção.
+   *
+   * Com modificador, acrescenta ou tira. Sem modificador, troca a seleção — mas
+   * só quando a superfície ainda não estava selecionada: pegar uma de cinco
+   * superfícies já escolhidas para arrastar as cinco não pode desfazer a
+   * escolha das outras quatro.
+   */
+  function pickSurface(s: Surface, e?: PointerEvent): void {
+    if (e && (e.shiftKey || e.metaKey)) { store.toggleSelection(s.id); return; }
+    if (!isSelected(s)) store.setSelection([s.id]);
   }
 
   // Same deal for a mesh point: the arrow keys nudge whatever is selected, so
   // pointer and keyboard have to agree on what grabbing a handle means.
   function pickWarpPoint(s: Surface, i: number): void {
-    store.setView({ selectedSurfaceId: s.id, selectedCorner: null, selectedWarpPoint: i });
+    store.setSelection([s.id]);
+    store.setView({ selectedWarpPoint: i });
   }
 
   const outline = $derived($store.project.output);
@@ -84,8 +105,8 @@
   />
 
   {#each $store.project.surfaces as surface (surface.id)}
-    <g class:selected={isSelected(surface)} class:locked={surface.locked}>
-      <path d={screenPath(surface.frame)} class="frame" />
+    <g class:selected={isSelected(surface)} class:anchor={isAnchor(surface)} class:locked={surface.locked}>
+      <path d={screenPath(surface.frame)} class="frame" class:linked={!!surface.link} />
       <path
         d={hitPath(surface)}
         class="hit"
@@ -94,8 +115,9 @@
         aria-label={surface.name}
         use:drag={{
           disabled: surface.locked,
-          onStart: () => pickSurface(surface),
-          onMove: (_p, d) => store.moveSurface(surface.id, d.x / viewport.scale, d.y / viewport.scale),
+          reframable: true,
+          onStart: (_p, e) => pickSurface(surface, e),
+          onMove: (_p, d) => store.moveSelection(d.x / viewport.scale, d.y / viewport.scale),
           onEnd: () => store.endGesture(),
         }}
       />
@@ -109,7 +131,7 @@
            purpose: SVG hit-testing takes the topmost shape, so a control point
            landing under a corner never steals the pointer from that corner. The
            grid lines come first inside the block, under every handle. -->
-      {#if isSelected(surface) && !surface.locked && surface.warp}
+      {#if isAnchor(surface) && !surface.locked && surface.warp}
         {@const warp = surface.warp}
         {#if tools.showWarpGrid}
           {@const lines = warpGridPath(surface)}
@@ -151,7 +173,7 @@
       <!-- Vértices do polígono: vivem no espaço do frame, então passam pela
            homografia para virar pixels de saída e só então para a tela. Sem
            alças aqui, um traçado errado obriga a refazer o polígono inteiro. -->
-      {#if isSelected(surface) && !surface.locked && surface.shape.kind === 'polygon'}
+      {#if isAnchor(surface) && !surface.locked && surface.shape.kind === 'polygon'}
         {#each surface.shape.points as point, i (i)}
           {@const output = frameToOutput(surface, point.x, point.y)}
           {#if output}
@@ -178,7 +200,7 @@
         {/each}
       {/if}
 
-      {#if isSelected(surface) && !surface.locked}
+      {#if isAnchor(surface) && !surface.locked}
         {#each surface.frame as corner, i (i)}
           <circle
             cx={toScreen(corner).x}
@@ -229,7 +251,14 @@
   .hit { fill: transparent; stroke: none; cursor: move; pointer-events: fill; }
   g.locked .hit { cursor: not-allowed; }
   g:hover .frame { stroke: #52bdff; }
-  g.selected .frame { stroke: #52bdff; stroke-width: 1.5; }
+  /* Selecionada é ciano; o âncora leva o traço mais grosso, porque é ele que as
+     setas movem e cujas propriedades o painel mostra. Sem essa diferença, uma
+     seleção de cinco não diz qual das cinco o inspetor está editando. */
+  g.selected .frame { stroke: #52bdff; stroke-width: 1.25; }
+  g.anchor .frame { stroke-width: 2; }
+  /* Vínculo: tracejado longo, que não se confunde com o tracejado curto da
+     superfície travada nem com o pontilhado do retângulo de saída. */
+  .frame.linked { stroke-dasharray: 10 4; }
   g.locked .frame { stroke: #55556a; stroke-dasharray: 6 3; cursor: not-allowed; }
   .label {
     fill: #8b8b9c; font-size: 11px; pointer-events: none; user-select: none;

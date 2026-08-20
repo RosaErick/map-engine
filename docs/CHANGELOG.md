@@ -47,6 +47,35 @@ coisa aparecer.
 - Permissão negada não vira botão para insistir, e handle cuja pasta sumiu é esquecido
   em vez de ficar meio adotado falhando a cada salvamento.
 
+### Controle de várias superfícies
+
+Selecionar uma de cada vez é o que se faz numa parede de três quadros. Numa de trinta,
+não é.
+
+- **Laço** arrastando no vazio, e **Shift + clique** para acrescentar ou tirar.
+  **Ctrl+A** pega todas as visíveis.
+- Arrastar uma das escolhidas move todas, e o arrasto inteiro volta num **só** desfazer —
+  um por superfície transformaria "desfazer o que acabei de fazer" em apertar Ctrl+Z
+  tantas vezes quantas superfícies havia, sem saber quantas eram.
+- **Ligar** superfícies faz um grupo que sobrevive a salvar e reabrir. Vínculo é do
+  projeto, seleção é do momento — confundir os dois é o erro clássico aqui, e por isso
+  são coisas separadas no modelo.
+- O **âncora** é a última escolhida: é ela que o painel edita e cujo canto as setas
+  movem. Editar vale para uma, mover vale para todas.
+- Superfície travada não anda e também não segura o grupo. Travar fala sobre ela.
+
+### A vista não se perde mais
+
+O zoom era preso entre 0,05 e 8 e o pan não era preso em nada: bastava arrastar longe o
+bastante para a saída sair inteira da tela, e aí a roda do mouse ampliava o vazio. Medido:
+a mesma sequência deixava **zero** pixel da saída visível.
+
+- A saída fica sempre alcançável — um limite no resultado, não uma trava no gesto, então o
+  arrasto continua fluido e só para de andar quando encosta.
+- **Ctrl + arrastar** reenquadra, o gesto que se tenta primeiro quando a vista se perdeu.
+  Ctrl durante um arrasto de **canto** continua desligando o ímã: a passagem vale só para
+  o corpo da superfície, nunca para a alça de 1 px.
+
 ### Adicionado
 
 **Engine**
@@ -112,6 +141,10 @@ coisa aparecer.
 - Publicação no GitHub Pages e Release com o `.html` avulso anexado.
 
 ### Mudado
+- **Seletor de cor próprio**, no lugar do campo nativo que abria o diálogo do sistema:
+  quadro de saturação e brilho, trilha de matiz, campo hex, três campos RGB, e as amostras
+  que esta ferramenta usa o tempo todo — branco, cinza 50%, preto e as três primárias
+  puras, que é o que se projeta para conferir foco, ponto de preto e canal.
 - **O clique numa superfície passou a respeitar a forma, não a caixa dela.** Um polígono
   ocupa uma fração da própria bbox, e o canto vazio dela selecionava a superfície — em
   cima de uma escada, mirando outra coisa. A área que responde ao ponteiro virou a
@@ -134,6 +167,10 @@ coisa aparecer.
   é configurada: **Projetor (saída)**.
 
 ### Corrigido
+- **Toda fonte de cor se chamava "branco"**, qualquer que fosse a cor: o nome era fixado na
+  criação e trocar a cor só mexia no `rgb`. Cinco fontes "branco" de cores diferentes é o
+  que sobrava de uma sessão de calibração. O nome passou a ser derivado — o tom mais o hex,
+  com a palavra vindo do catálogo e o código vindo da engine.
 - Editar o vértice de um polígono traçado nunca funcionou pelo motivo que o backlog
   registrava. As alças e o `pointInPolygon` dentro de `surfaceAt` já existiam; o ponteiro
   é que não chegava lá, porque a trilha do frame no overlay capturava o clique sobre a
@@ -177,7 +214,7 @@ coisa aparecer.
 - Integração contínua num pipeline só: `testes → tipos → idioma → build → smoke →
   deploy`, com a publicação no Pages dependente de tudo que vem antes. Antes o deploy
   saía depois de apenas `npm test`, e pull request nenhum era verificado.
-- 85 testes de unidade sem framework (`node:test`).
-- 28 checagens de integração em chromium headless, lendo pixels do build real.
+- 100 testes de unidade sem framework (`node:test`).
+- 33 checagens de integração em chromium headless, lendo pixels do build real.
 - `npm run i18n` reprova string fixa no editor e tradução que perdeu placeholder ou
   marcação.

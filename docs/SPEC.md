@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 85 testes de unidade (node:test, sem framework)
+npm test              # 100 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -527,6 +527,82 @@ guardado — nunca uma pasta meio adotada que falha a cada salvamento.
 > A lista chama `surfaceOrder`, a mesma função que o renderer usa para escolher
 > o glifo. Recalcular a ordenação na interface é como os dois divergem.
 
+### AC-63 — O nome de uma fonte de cor é a cor dela
+
+**Dado** uma fonte de cor
+**Quando** a cor muda
+**Então** o nome muda junto, e um nome escrito à mão sobrevive à troca.
+
+> Toda fonte nascia "branco" e continuava assim: cinco fontes "branco" de cores
+> diferentes é o que sobra de uma sessão de calibração. Preto quase puro não vira
+> um matiz de ruído — o último bit de um canal daria um matiz qualquer, e chamar
+> isso de "verde" seria pior do que não nomear.
+
+### AC-64 — O seletor devolve a cor escolhida
+
+**Dado** um hex digitado no seletor
+**Quando** a superfície é desenhada
+**Então** o pixel aceso é exatamente aquele valor, e hex inválido é recusado em
+vez de virar preto no meio da digitação.
+
+### AC-65 — Várias se escolhem e se movem juntas
+
+**Dado** um laço no vazio, ou Shift + clique
+**Quando** uma das escolhidas é arrastada
+**Então** todas andam o mesmo tanto, quem ficou de fora não se mexe, e o arrasto
+inteiro volta num **só** desfazer.
+
+> Um por superfície transformaria "desfazer o que acabei de fazer" em apertar
+> Ctrl+Z tantas vezes quantas superfícies havia — sem saber quantas eram.
+
+### AC-66 — O âncora é o último escolhido
+
+**Dado** uma seleção de várias
+**Quando** o painel e as setas de canto operam
+**Então** operam a última superfície escolhida — e continua sendo ela mesmo
+quando um vínculo trouxe outras junto.
+
+> Editar vale para uma, mover vale para todas. Quem clica numa superfície espera
+> ver aquela no painel, não uma irmã que o vínculo arrastou.
+
+### AC-67 — Vínculo é do projeto, seleção é do momento
+
+**Dado** superfícies ligadas
+**Quando** uma é escolhida, movida, salva e recarregada
+**Então** o grupo inteiro vem junto nas três, e projeto sem vínculo continua sem
+a chave no JSON.
+
+### AC-68 — Travar fala sobre uma superfície, não sobre o grupo
+
+**Dado** uma seleção com uma superfície travada
+**Quando** o grupo se move
+**Então** as destravadas andam e a travada fica onde está.
+
+### AC-69 — A seleção não guarda id órfão
+
+**Dado** uma superfície selecionada
+**Quando** ela é apagada, ou um id inexistente é oferecido
+**Então** a seleção fica só com o que existe, sem repetido.
+
+### AC-70 — A vista não perde a saída
+
+**Dado** qualquer sequência de rolagem e arrasto
+**Quando** a área de trabalho para
+**Então** a saída continua alcançável na tela.
+
+> Medido: sem o limite, a mesma sequência deixa **zero** pixel da saída visível —
+> e aí a roda do mouse amplia o vazio, sem nada na tela para orientar a volta.
+
+### AC-71 — Ctrl reenquadra sem mover nada
+
+**Dado** o ponteiro sobre uma superfície
+**Quando** Ctrl é segurado e o ponteiro arrasta
+**Então** a vista se move e a superfície fica onde está.
+
+> Ctrl segurado durante um arrasto de **canto** continua desligando o ímã: a
+> passagem vale só para o corpo da superfície, que é gesto grosso, nunca para a
+> alça de 1 px.
+
 ### AC-55 — O guia manda clicar em botões que existem
 
 **Dado** o guia e o catálogo de mensagens da mesma língua
@@ -618,6 +694,15 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-60 | provado | `smoke.mjs` (arrasto real) |
 | AC-61 | provado | `smoke.mjs` (contraste medido) |
 | AC-62 | provado | `smoke.mjs` (DOM contra ordem do engine) |
+| AC-63 | provado | `color.test.ts` (2 testes) + `smoke.mjs` |
+| AC-64 | provado | `color.test.ts` (3 testes) + `smoke.mjs` (pixel) |
+| AC-65 | provado | `store.test.ts` (2 testes) + `smoke.mjs` (laço e arrasto reais) |
+| AC-66 | provado | `store.test.ts` (2 testes) |
+| AC-67 | provado | `store.test.ts` (3 testes) |
+| AC-68 | provado | `store.test.ts` |
+| AC-69 | provado | `store.test.ts` (2 testes) |
+| AC-70 | provado | `smoke.mjs` (pixels da saída depois de afastar e arrastar) |
+| AC-71 | provado | `smoke.mjs` (ponteiro real) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o

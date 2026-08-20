@@ -127,6 +127,16 @@ ao renderer apagaria o projetor no meio do show. `ViewState` (solo, seleção, p
 teste, `uiHidden`) mora fora de `Project` de propósito: é auxílio de ensaio, não parte do
 espetáculo, e não deve voltar ao reabrir a pasta.
 
+**Seleção e vínculo são coisas diferentes, e o modelo mantém as duas separadas.** Seleção
+é do momento e mora em `ViewState.selectedIds` — uma lista, e não um id mais um conjunto,
+porque dois campos exigiriam manter um invariante entre eles. O **âncora**, a superfície
+que o painel edita e cujo canto as setas movem, é o **último** da lista: `anchorId(view)`.
+Vínculo é do projeto e mora em `Surface.link`, opcional pelo mesmo motivo de `warp` —
+projeto sem vínculo continua byte a byte idêntico. `expandSelection(project, ids)` é o
+único lugar onde os dois se encontram: ela puxa o grupo para dentro da seleção, e coloca a
+superfície **pedida** por último, para que clicar numa ligada mostre aquela no painel e não
+uma irmã que o vínculo trouxe junto.
+
 #### [`packages/engine/homography.ts`](../packages/engine/homography.ts)
 
 A matemática projetiva, sem nada mais. Define `Mat3` (row-major, 9 números), `Vec2` e
@@ -172,6 +182,17 @@ column-major — a rotação é aplicada em torno do centro do frame, então o c
 gira no lugar em vez de sair da forma), `isQuarterTurned(rotation)`,
 `frameAspectOf(surface)` (aspecto aproximado de um frame em perspectiva: média das arestas
 opostas), `frameToPixel(h, u, v)` e as constantes `IDENTITY_VIEW` / o tipo `ViewTransform`.
+
+#### [`packages/engine/color.ts`](../packages/engine/color.ts)
+
+Conversões de cor e o nome de um tom: `hexOf`, `parseHex`, `rgbToHsv`, `hsvToRgb` e
+`colorKey`. Está na engine porque é matemática pura.
+
+O que **não** está aqui é a palavra: `colorKey` devolve um código (`'red'`), e quem sabe
+se ele se chama "vermelho", "red" ou "rojo" é quem tem o catálogo — a mesma regra que vale
+para todo o resto da engine. Preto e branco são decididos antes do matiz, porque um preto
+quase puro ainda tem um matiz vindo do ruído do último bit, e chamá-lo de "verde" seria
+pior do que não nomear.
 
 #### [`packages/engine/warp.ts`](../packages/engine/warp.ts)
 
@@ -389,6 +410,18 @@ o traçado livre em superfície normal: a caixa envolvente vira o `frame` e os p
 em espaço de frame pela homografia inversa. `onDrop` implementa o quarto passo do fluxo de
 60 segundos — arrastar um arquivo em cima de uma superfície importa a mídia, cria a `Source`
 (`kindOf`/`describe`) e a atribui.
+
+#### [`packages/editor/ColorPicker.svelte`](../packages/editor/ColorPicker.svelte)
+
+Quadro de saturação e brilho, trilha de matiz, campo hex, três campos RGB e seis amostras.
+Não guarda estado de cor: a verdade é a prop e toda mudança sobe por `onpick`.
+
+O único estado local é o matiz. Cinza e preto não têm matiz para lembrar, e sem essa
+memória a trilha pularia para zero enquanto a pessoa arrasta pelo fundo do quadro — o
+tipo de defeito que só aparece usando.
+
+As amostras são do domínio, não decoração: branco, cinza 50% e preto conferem foco e ponto
+de preto; as três primárias puras conferem canal do projetor.
 
 #### [`packages/editor/Overlay.svelte`](../packages/editor/Overlay.svelte)
 
@@ -787,9 +820,13 @@ Coisas que estão no código mas incompletas, ou que o brief pede e não estão 
   `memoryFiles` quando não há handle de diretório; o `project.json` fica no
   `localStorage`, os arquivos não. **Religar** reconstrói o vínculo sem apagar e recriar
   a fonte, mas continua sendo trabalho manual a cada sessão. A cura de verdade é usar
-  uma pasta.
-- **O handle da pasta não é persistido entre sessões.** O brief pede "abrir usa
-  `showDirectoryPicker()` e guarda o handle"; hoje ele só vive na memória do módulo.
+  uma pasta — e desde que o handle passou a ser guardado, essa cura custa um clique em
+  vez de uma travessia do diálogo do sistema.
+- **A permissão da pasta pode não sobreviver, mesmo com o handle guardado.** O handle vai
+  para IndexedDB e volta; a permissão é do navegador, e só volta como `granted` quando o
+  usuário concedeu acesso persistente. O normal é `prompt`, e aí o app espera um clique —
+  `requestPermission` fora de um gesto do usuário é rejeitado de propósito. Não há como
+  fechar essa lacuna do nosso lado.
 - **Polígono: dá para mover vértice, não para acrescentar ou remover.** As alças existem
   e respeitam a trava; errar a *quantidade* de pontos ainda obriga a refazer o traçado.
 - **Feather só na elipse.** Polígono tem borda dura, como o brief define para a v1.

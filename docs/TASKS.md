@@ -1,7 +1,7 @@
 # Backlog — Projection Mapping Engine
 
 Base: `prompt-mapping-engine.md`. Este documento descreve o que **está no código hoje**
-(85 testes de unidade + 28 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
+(100 testes de unidade + 33 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
 limpos, `dist/index.html` de ~100 KB gerado como arquivo único) e o que falta. Os ids
 `AC-n` citados aqui são os de [`SPEC.md`](SPEC.md).
 
@@ -265,6 +265,24 @@ projetor apontado para uma parede.
   então aplicá-la de uma vez, ou registrar a exceção no AGENTS.md. Traduzir 179
   comentários dentro de uma branch de feature esconderia a feature.
   Onde: `packages/editor/`, `AGENTS.md`.
+
+- [x] ~~**Controle de várias superfícies ao mesmo tempo**~~ — feito
+  Laço no vazio, Shift + clique, Ctrl+A, arrasto de grupo num só desfazer, e vínculo
+  persistente entre superfícies. Seleção e vínculo ficaram separados no modelo de
+  propósito: uma é do momento, o outro é do projeto. AC-65 a AC-69, `docs/specs/0003`.
+  Onde: `packages/engine/project.ts`, `store.ts`, `packages/editor/Stage.svelte`,
+  `Overlay.svelte`, `SurfaceList.svelte`, `App.svelte`.
+
+- [x] ~~**Seletor de cor próprio, e o nome que não acompanhava a cor**~~ — feito
+  Toda fonte de cor se chamava "branco" para sempre. O nome passou a ser derivado do tom,
+  e o campo nativo deu lugar a um seletor que cabe no painel e traz as amostras de
+  conferir projetor. AC-63 e AC-64.
+  Onde: `packages/engine/color.ts`, `packages/editor/ColorPicker.svelte`, `SourcePanel.svelte`.
+
+- [x] ~~**A vista que não voltava de um zoom perdido**~~ — feito
+  A saída continua sempre alcançável, e Ctrl + arrastar reenquadra. Medido: sem o limite,
+  a mesma sequência de rolagem e arrasto deixava zero pixel da saída visível. AC-70, AC-71.
+  Onde: `packages/editor/state.svelte.ts` (`clampView`), `Stage.svelte`, `actions.ts`.
 
 ### 5. Testes
 
