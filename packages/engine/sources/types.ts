@@ -8,8 +8,8 @@
 export interface TextureSource {
   /** Natural pixel size of the content. [0,0] until it has loaded. */
   readonly size: [number, number];
-  /** True when the GPU copy is stale and `update()` should re-upload. */
-  isDirty: boolean;
+  /** True when at least one GL context still holds a stale copy. */
+  readonly isDirty: boolean;
   /** 'error' makes the renderer draw the missing-media pattern instead of
    *  leaving stale pixels on a physical object. */
   readonly status: 'loading' | 'ready' | 'error';
@@ -18,6 +18,10 @@ export interface TextureSource {
   readonly animated: boolean;
   getTexture(gl: WebGL2RenderingContext): WebGLTexture | null;
   update(gl: WebGL2RenderingContext): void;
+  /** Drops this context's texture. The content itself survives, because another
+   *  window may still be drawing it. */
+  release(gl: WebGL2RenderingContext): void;
+  /** Drops the content for good. Stops streams, closes decoders. */
   dispose(gl: WebGL2RenderingContext): void;
 }
 
@@ -33,6 +37,63 @@ export interface SourceContext {
 export interface CanvasModule {
   draw(ctx: CanvasRenderingContext2D, t: number): void;
   size?: [number, number];
+}
+
+/**
+ * One texture per GL context, plus the bookkeeping to know which contexts are
+ * behind.
+ *
+ * A single dirty flag was enough while one source fed one canvas. It stops
+ * being enough the moment the editor and the output window draw the same clip:
+ * a GL texture cannot cross a window, so each context needs its own copy, and
+ * whoever uploads first must not clear the flag for the other. Content changes
+ * bump a version; each context remembers the version it last uploaded.
+ */
+export class ContextTextures {
+  #textures = new Map<WebGL2RenderingContext, WebGLTexture>();
+  #uploaded = new Map<WebGL2RenderingContext, number>();
+  #version = 1;
+
+  /** Call whenever the pixels changed. Every context re-uploads once. */
+  invalidate(): void { this.#version++; }
+
+  texture(gl: WebGL2RenderingContext): WebGLTexture {
+    let tex = this.#textures.get(gl);
+    if (!tex) {
+      tex = createTexture(gl);
+      this.#textures.set(gl, tex);
+    }
+    return tex;
+  }
+
+  isStale(gl: WebGL2RenderingContext): boolean {
+    return this.#uploaded.get(gl) !== this.#version;
+  }
+
+  markUploaded(gl: WebGL2RenderingContext): void {
+    this.#uploaded.set(gl, this.#version);
+  }
+
+  /** True while any context that has drawn this source is behind. */
+  get anyStale(): boolean {
+    if (this.#textures.size === 0) return true;
+    for (const gl of this.#textures.keys()) if (this.isStale(gl)) return true;
+    return false;
+  }
+
+  release(gl: WebGL2RenderingContext): void {
+    const tex = this.#textures.get(gl);
+    if (tex) gl.deleteTexture(tex);
+    this.#textures.delete(gl);
+    this.#uploaded.delete(gl);
+  }
+
+  /** Deletes every texture. Contexts already lost are skipped by the browser. */
+  disposeAll(): void {
+    for (const [gl, tex] of this.#textures) gl.deleteTexture(tex);
+    this.#textures.clear();
+    this.#uploaded.clear();
+  }
 }
 
 /** Creates a texture with the sampling setup every source wants: clamped,

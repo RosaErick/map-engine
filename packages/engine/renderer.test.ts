@@ -13,7 +13,7 @@ function surfaceOfSize(w: number, h: number): Surface {
 function fakeSource(w: number, h: number): TextureSource {
   return {
     size: [w, h], isDirty: false, status: 'ready', animated: false,
-    getTexture: () => null, update: () => {}, dispose: () => {},
+    getTexture: () => null, update: () => {}, release: () => {}, dispose: () => {},
   };
 }
 

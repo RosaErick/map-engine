@@ -1,18 +1,19 @@
-import { createTexture, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
 
-/** Still image. Decoded once, uploaded once, then it never touches the GPU again. */
+/** Still image. Decoded once, then uploaded once per GL context and never again. */
 export class ImageSource implements TextureSource {
   size: [number, number] = [0, 0];
   status: 'loading' | 'ready' | 'error' = 'loading';
   error?: string;
   readonly animated = false;
-  isDirty = false;
-  #tex: WebGLTexture | null = null;
+  #textures = new ContextTextures();
   #bitmap: ImageBitmap | null = null;
 
   constructor(path: string, ctx: SourceContext) {
     void this.#load(path, ctx);
   }
+
+  get isDirty(): boolean { return this.#textures.anyStale; }
 
   async #load(path: string, ctx: SourceContext): Promise<void> {
     try {
@@ -24,31 +25,27 @@ export class ImageSource implements TextureSource {
       this.#bitmap = await createImageBitmap(await res.blob(), { premultiplyAlpha: 'premultiply' });
       this.size = [this.#bitmap.width, this.#bitmap.height];
       this.status = 'ready';
-      this.isDirty = true;
-    } catch (e) {
+      this.#textures.invalidate();
+    } catch {
       this.status = 'error';
       this.error = `imagem não carregou: ${path}`;
-      void e;
     }
   }
 
   getTexture(gl: WebGL2RenderingContext): WebGLTexture | null {
-    if (this.status !== 'ready') return null;
-    if (!this.#tex) this.#tex = createTexture(gl);
-    return this.#tex;
+    return this.status === 'ready' ? this.#textures.texture(gl) : null;
   }
 
   update(gl: WebGL2RenderingContext): void {
-    if (!this.isDirty || !this.#bitmap) return;
-    const tex = this.getTexture(gl);
-    if (!tex) return;
-    uploadTexture(gl, tex, this.#bitmap);
-    this.isDirty = false;
+    if (!this.#bitmap || !this.#textures.isStale(gl)) return;
+    uploadTexture(gl, this.#textures.texture(gl), this.#bitmap);
+    this.#textures.markUploaded(gl);
   }
 
-  dispose(gl: WebGL2RenderingContext): void {
-    if (this.#tex) gl.deleteTexture(this.#tex);
-    this.#tex = null;
+  release(gl: WebGL2RenderingContext): void { this.#textures.release(gl); }
+
+  dispose(_gl: WebGL2RenderingContext): void {
+    this.#textures.disposeAll();
     this.#bitmap?.close();
     this.#bitmap = null;
   }

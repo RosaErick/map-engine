@@ -100,6 +100,17 @@ export class SourcePool {
     }
   }
 
+  /**
+   * Drops this context's textures and keeps the content alive.
+   *
+   * Closing the output window must not stop the clip the editor is still
+   * showing — and, more to the point, must not make a screen capture ask for
+   * permission all over again.
+   */
+  releaseContext(gl: WebGL2RenderingContext): void {
+    for (const { source } of this.#entries.values()) source.release(gl);
+  }
+
   disposeAll(gl: WebGL2RenderingContext): void {
     for (const { source } of this.#entries.values()) source.dispose(gl);
     this.#entries.clear();
