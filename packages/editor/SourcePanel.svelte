@@ -1,11 +1,21 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   import { store, flash, getEngine } from './state.svelte.ts';
-  import { newId, type Source } from '../engine/index.ts';
+  import { newId, listCameras, type Source } from '../engine/index.ts';
   import { importFile } from './project-folder.ts';
 
   const s = $derived(
     $store.project.surfaces.find((x) => x.id === $store.view.selectedSurfaceId) ?? null,
   );
+
+  let cameras = $state<{ deviceId: string; label: string }[]>([]);
+
+  /** Só faz sentido buscar quando existe câmera em uso: os rótulos ficam vazios
+   *  até a permissão ser concedida uma vez. */
+  $effect(() => {
+    if (!$store.project.sources.some((src) => src.kind === 'camera')) return;
+    void listCameras().then((list) => { cameras = list; });
+  });
 
   function add(source: Source): void {
     store.addSource(source);
@@ -34,82 +44,104 @@
     input.value = '';
   }
 
-  /** Live status straight from the pool, so a missing file is visible here and
-   *  not only as a magenta rectangle on the wall. */
-  function statusOf(id: string): string {
+  /** Status vindo direto do pool: arquivo faltando aparece aqui e não só como
+   *  retângulo magenta na parede. */
+  function statusOf(id: string): { text: string; bad: boolean } {
     const src = getEngine()?.pool.get(id);
-    if (!src) return '';
-    if (src.status === 'error') return src.error ?? 'erro';
-    if (src.status === 'loading') return 'carregando…';
-    return `${src.size[0]}x${src.size[1]}`;
-  }
-
-  function colorOf(source: Source): string {
-    return source.kind === 'color' ? `rgb(${source.rgb.join(',')})` : 'transparent';
+    if (!src) return { text: '', bad: false };
+    if (src.status === 'error') return { text: src.error ?? 'erro', bad: true };
+    if (src.status === 'loading') return { text: 'carregando…', bad: false };
+    return { text: `${src.size[0]}×${src.size[1]}`, bad: false };
   }
 </script>
 
-<section>
-  <h2>Fontes</h2>
-  <div class="row wrap">
-    <button onclick={addColor}>cor</button>
-    <button onclick={addCapture} title="getDisplayMedia: qualquer janela da máquina vira textura">captura</button>
-    <button onclick={addCamera}>câmera</button>
-    <label class="file">
+<section class="px-4 py-3">
+  <h2 class="text-[10px] font-semibold uppercase tracking-[0.14em] text-base-content/45">Conteúdo</h2>
+  <p class="mt-1 text-[11px] leading-relaxed text-base-content/55">
+    Solte um arquivo direto em cima de uma superfície, ou escolha uma fonte aqui.
+  </p>
+
+  <div class="mt-2.5 grid grid-cols-2 gap-1.5">
+    <label class="btn btn-xs">
       arquivo
-      <input type="file" accept="image/*,video/*" multiple onchange={addFiles} />
+      <input type="file" accept="image/*,video/*" multiple class="hidden" onchange={addFiles} />
     </label>
+    <button class="btn btn-xs" onclick={addColor}>cor</button>
+    <button
+      class="btn btn-xs"
+      onclick={addCapture}
+      title="Qualquer janela da máquina vira textura ao vivo: um jogo, um player, outra aba"
+    >captura de tela</button>
+    <button class="btn btn-xs" onclick={addCamera}>câmera</button>
   </div>
 
-  <ul>
-    {#each $store.project.sources as source (source.id)}
-      <li class:sel={s?.sourceId === source.id}>
-        <span class="swatch" style:background={colorOf(source)}></span>
-        <button
-          class="name"
-          onclick={() => s ? store.setSurfaceSource(s.id, source.id) : flash('Selecione uma superfície primeiro.')}
-          title={statusOf(source.id)}
+  {#if $store.project.sources.length > 0}
+    <ul class="mt-2 flex flex-col gap-0.5">
+      {#each $store.project.sources as source (source.id)}
+        {@const status = statusOf(source.id)}
+        <li
+          class="flex items-center gap-1 rounded-md border px-1 py-0.5 transition-colors {s?.sourceId === source.id
+            ? 'border-primary bg-primary/10'
+            : 'border-transparent hover:bg-base-200'}"
         >
-          <span class="kind">{source.kind}</span>{source.name}
-        </button>
-        {#if source.kind === 'color'}
-          <input
-            type="color"
-            value={`#${source.rgb.map((v) => v.toString(16).padStart(2, '0')).join('')}`}
-            oninput={(e) => {
-              const hex = e.currentTarget.value;
-              store.patchSource(source.id, { rgb: [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) } as Partial<Source>);
-            }}
-          />
-        {/if}
-        <button class="x" title="remover" onclick={() => store.removeSource(source.id)}>×</button>
-      </li>
-    {/each}
-  </ul>
+          {#if source.kind === 'color'}
+            <span
+              class="ml-1 size-3 shrink-0 rounded border border-base-content/20"
+              style:background={`rgb(${source.rgb.join(',')})`}
+            ></span>
+          {/if}
 
-  {#if s}
-    <button class="clear" onclick={() => store.setSurfaceSource(s.id, null)}>
-      tirar fonte de “{s.name}”
+          <button
+            class="min-w-0 flex-1 px-1 py-0.5 text-left"
+            onclick={() => s ? store.setSurfaceSource(s.id, source.id) : flash('Selecione uma superfície primeiro.')}
+          >
+            <span class="block truncate text-[13px] leading-tight">{source.name}</span>
+            <span class="block truncate text-[10px] leading-tight {status.bad ? 'text-error' : 'text-base-content/45'}">
+              {source.kind}{status.text ? ` · ${status.text}` : ''}
+            </span>
+          </button>
+
+          {#if source.kind === 'camera' && cameras.length > 1}
+            <select
+              class="select select-xs w-24"
+              value={source.deviceId ?? ''}
+              title="Trocar de câmera"
+              onchange={(e) => store.patchSource(source.id, { deviceId: e.currentTarget.value } as Partial<Source>)}
+            >
+              {#each cameras as cam (cam.deviceId)}
+                <option value={cam.deviceId}>{cam.label}</option>
+              {/each}
+            </select>
+          {/if}
+
+          {#if source.kind === 'color'}
+            <input
+              type="color"
+              class="h-6 w-7 shrink-0 cursor-pointer rounded border border-base-300 bg-base-100"
+              value={`#${source.rgb.map((v) => v.toString(16).padStart(2, '0')).join('')}`}
+              oninput={(e) => {
+                const hex = e.currentTarget.value;
+                store.patchSource(source.id, { rgb: [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) } as Partial<Source>);
+              }}
+            />
+          {/if}
+
+          <button
+            class="btn btn-xs btn-ghost btn-square text-base-content/40 hover:text-error"
+            aria-label="Remover fonte"
+            title="Remover esta fonte do projeto"
+            onclick={() => store.removeSource(source.id)}
+          >
+            <Icon name="trash" class="size-3.5" />
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  {#if s?.sourceId}
+    <button class="btn btn-xs btn-ghost btn-block mt-2" onclick={() => store.setSurfaceSource(s.id, null)}>
+      apagar o conteúdo de “{s.name}”
     </button>
   {/if}
-  <p class="hint">Arraste um arquivo direto para cima de uma superfície para atribuir.</p>
 </section>
-
-<style>
-  section { padding: 10px; }
-  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
-  .row { display: flex; gap: 4px; }
-  .row.wrap { flex-wrap: wrap; }
-  ul { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-  li { display: flex; gap: 3px; align-items: center; }
-  li.sel .name { border-color: var(--accent); }
-  .name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kind { color: var(--muted); margin-right: 6px; }
-  .swatch { width: 10px; height: 10px; border-radius: 2px; border: 1px solid var(--line); flex: none; }
-  .file { display: inline-block; margin: 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); color: var(--text); cursor: pointer; }
-  .file input { display: none; }
-  input[type='color'] { width: 28px; padding: 0; height: 24px; }
-  .x:hover { border-color: var(--danger); color: var(--danger); }
-  .clear { width: 100%; }
-  .hint { color: var(--muted); line-height: 1.5; }
-</style>

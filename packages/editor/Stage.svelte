@@ -130,7 +130,7 @@
 </script>
 
 <div
-  class="stage"
+  class="stage-surface relative min-w-0 flex-1 overflow-hidden"
   class:drop={dragOver}
   data-stage
   bind:this={host}
@@ -148,17 +148,17 @@
     <Overlay />
   {/if}
   {#if ui.tool === 'polygon'}
-    <div class="hint">Clique para traçar o polígono · duplo clique para fechar · Esc cancela</div>
+    <div class="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
+      <div class="rounded-full border border-base-300 bg-base-100/90 px-4 py-1.5 text-xs text-base-content/70 shadow-lg backdrop-blur">
+        Clique para traçar o polígono · duplo clique para fechar · <kbd class="kbd kbd-xs">Esc</kbd> cancela
+      </div>
+    </div>
   {/if}
 </div>
 
 <style>
-  .stage { position: relative; flex: 1; min-width: 0; background: #000; overflow: hidden; }
-  .stage.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
+  /* O fundo preto vem de .stage-surface (app.css): é pré-visualização do que sai
+     do projetor, então não muda com o tema. */
+  .drop { outline: 2px dashed #52bdff; outline-offset: -6px; }
   canvas { display: block; width: 100%; height: 100%; }
-  .hint {
-    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-    background: var(--panel-2); border: 1px solid var(--line);
-    padding: 6px 10px; border-radius: 999px; color: var(--muted);
-  }
 </style>

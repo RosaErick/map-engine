@@ -84,18 +84,33 @@
 </svg>
 
 <style>
-  /* The svg is a see-through layer: only handles and frame interiors take clicks,
-     so empty space still reaches the stage below for deselect and tracing. */
+  /*
+   * Paleta fixa, de propósito: estas alças vivem por cima do canvas preto, que é
+   * a pré-visualização do projetor e não muda com o tema. Seguir o tema claro
+   * aqui deixaria as alças invisíveis contra o preto.
+   */
   .overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .canvas-bounds { fill: none; stroke: #333; stroke-width: 1; stroke-dasharray: 4 4; }
-  .frame { fill: transparent; stroke: #6e6e85; stroke-width: 1; cursor: move; pointer-events: fill; }
-  .frame:hover { stroke: var(--accent); }
-  g.selected .frame { stroke: var(--accent); stroke-width: 1.5; }
+  .frame {
+    fill: transparent; stroke: #6e6e85; stroke-width: 1;
+    cursor: move; pointer-events: fill;
+    transition: stroke 120ms ease;
+  }
+  .frame:hover { stroke: #52bdff; }
+  g.selected .frame { stroke: #52bdff; stroke-width: 1.5; }
   g.locked .frame { stroke: #55556a; stroke-dasharray: 6 3; cursor: not-allowed; }
-  .label { fill: var(--muted); font-size: 11px; pointer-events: none; user-select: none; }
-  g.selected .label { fill: var(--accent); }
-  .handle { fill: #0b0b10; stroke: var(--accent); stroke-width: 2; cursor: grab; pointer-events: auto; }
-  .handle.active { fill: var(--accent); }
-  .pending { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 3; }
-  .pending-dot { fill: var(--accent); }
+  .label {
+    fill: #8b8b9c; font-size: 11px; pointer-events: none; user-select: none;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  g.selected .label { fill: #52bdff; }
+  .handle {
+    fill: #0b0b10; stroke: #52bdff; stroke-width: 2;
+    cursor: grab; pointer-events: auto;
+    transition: r 100ms ease, fill 100ms ease;
+  }
+  .handle:hover { fill: #10222e; }
+  .handle.active { fill: #52bdff; }
+  .pending { fill: none; stroke: #52bdff; stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .pending-dot { fill: #52bdff; }
 </style>

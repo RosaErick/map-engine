@@ -1,31 +1,43 @@
 <script lang="ts">
   import Stage from './Stage.svelte';
+  import TopBar from './TopBar.svelte';
   import Toolbar from './Toolbar.svelte';
+  import ProjectPanel from './ProjectPanel.svelte';
   import SurfaceList from './SurfaceList.svelte';
   import Inspector from './Inspector.svelte';
   import SourcePanel from './SourcePanel.svelte';
+  import About from './About.svelte';
   import { store, ui, selected, flash } from './state.svelte.ts';
   import { scheduleSave, localProject, hasFileSystemAccess } from './project-folder.ts';
+  import { initTheme } from './theme.svelte.ts';
 
-  // Autosave on every change. Half an hour of alignment must never depend on
-  // the user remembering ctrl+S while standing on a ladder.
+  let aboutOpen = $state(false);
+
+  initTheme();
+
+  // Autosave a cada mudança. Meia hora de alinhamento não pode depender de
+  // alguém lembrar de Ctrl+S em cima de uma escada.
   let firstRun = true;
   $effect(() => {
     void $store.project;
     if (firstRun) { firstRun = false; return; }
-    scheduleSave(store, (where) => { ui.folderName = where; }, flash);
+    scheduleSave(store, (where) => {
+      ui.folderName = where;
+      ui.savedAt = Date.now();
+      setTimeout(() => { ui.savedAt = 0; }, 2200);
+    }, flash);
   });
 
   $effect(() => {
     if (!hasFileSystemAccess) {
       flash('Sem File System Access: o projeto fica na memória do navegador. Use Chrome ou Edge para salvar em pasta.');
       const saved = localProject();
-      if (saved) { try { store.load(saved); } catch { /* corrupt autosave, start clean */ } }
+      if (saved) { try { store.load(saved); } catch { /* autosave corrompido, começa limpo */ } }
     }
   });
 
-  /** Nudging is what separates "almost aligned" from aligned. Arrows move the
-   *  selected corner by 1px, or the whole surface when no corner is picked. */
+  /** O acerto de 1 px é o que separa "quase encaixado" de encaixado. As setas
+   *  movem o canto selecionado, ou a superfície toda quando não há canto. */
   function onKeyDown(e: KeyboardEvent): void {
     const target = e.target as HTMLElement | null;
     if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
@@ -44,6 +56,7 @@
     if (mod && e.key.toLowerCase() === 'd' && s) { e.preventDefault(); store.duplicateSurface(s.id); return; }
 
     if (e.key === 'Escape') {
+      if (aboutOpen) return;
       ui.pendingPolygon = [];
       ui.tool = 'select';
       store.setView({ selectedCorner: null });
@@ -73,41 +86,33 @@
 
 <svelte:window onkeydown={onKeyDown} onkeyup={onKeyUp} />
 
-<div class="app" class:clean={$store.view.uiHidden}>
+<div class="flex h-full flex-col bg-base-100">
   {#if !$store.view.uiHidden}
+    <TopBar onAbout={() => (aboutOpen = true)} />
     <Toolbar />
   {/if}
-  <div class="body">
+
+  <!-- Em tela estreita o painel desce para baixo da área de trabalho em vez de
+       espremer os dois: alinhar precisa de largura, configurar não. -->
+  <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
     <Stage />
     {#if !$store.view.uiHidden}
-      <aside class="sidebar">
+      <aside class="max-h-[45vh] w-full shrink-0 overflow-y-auto border-t border-base-300 bg-base-100 lg:max-h-none lg:w-[320px] lg:border-t-0 lg:border-l">
+        <ProjectPanel />
         <SurfaceList />
         <Inspector />
         <SourcePanel />
       </aside>
     {/if}
   </div>
-  {#if ui.status && !$store.view.uiHidden}
-    <div class="status">{ui.status}</div>
-  {/if}
 </div>
 
-<style>
-  .app { display: flex; flex-direction: column; height: 100%; }
-  .body { display: flex; flex: 1; min-height: 0; }
-  .sidebar {
-    width: 300px;
-    border-left: 1px solid var(--line);
-    background: var(--panel);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
-  .status {
-    position: fixed; bottom: 12px; left: 12px;
-    background: var(--panel-2); border: 1px solid var(--accent);
-    padding: 8px 12px; border-radius: 8px; max-width: 60ch;
-  }
-  /* Clean output mode: no UI pixels exist at all. */
-  .app.clean { background: #000; }
-</style>
+{#if ui.status && !$store.view.uiHidden}
+  <div class="toast toast-start z-50">
+    <div class="alert alert-info max-w-lg text-sm shadow-lg">
+      <span>{ui.status}</span>
+    </div>
+  </div>
+{/if}
+
+<About bind:open={aboutOpen} />

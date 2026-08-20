@@ -1,31 +1,101 @@
-/* Dark only. A light theme in a blacked-out room is a hazard, not a feature. */
-:root {
-  --bg: #101014;
-  --panel: #17171d;
-  --panel-2: #1e1e26;
-  --line: #2c2c38;
-  --text: #e8e8ef;
-  --muted: #8b8b9c;
-  --accent: #5ac8fa;
-  --danger: #ff5a7a;
+@import 'tailwindcss';
+@source '../../packages';
+
+/* Só dois temas. Um terceiro seria decoração num app que passa a vida em modo
+   escuro, dentro de uma sala escura. */
+@plugin 'daisyui' {
+  themes: light --default;
+}
+
+/*
+ * Tema escuro próprio, na paleta Carbonfox (a variante IBM Carbon do nightfox).
+ *
+ * O escuro padrão do daisyUI fica perto de #1d232a, que numa sala apagada ainda
+ * é cinza aceso ao lado da área de trabalho, que é preto absoluto. Carbonfox
+ * baixa a base para #161616 e a camada de fundo para #0f1013, então a interface
+ * encosta no preto do canvas em vez de brigar com ele — que é o que a vista
+ * precisa quando o olho está calibrando borda projetada contra objeto real.
+ */
+@plugin 'daisyui/theme' {
+  name: 'dark';
+  default: false;
+  prefersdark: true;
   color-scheme: dark;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 13px;
+
+  /* Carbon empilha clareando: a superfície é o fundo, e controle e borda sobem
+     a partir dela. Inverter isso (camadas mais escuras que o fundo, como faz o
+     escuro padrão do daisyUI) afunda todo botão no painel. */
+  --color-base-100: #161616;   /* superfície: barras e painéis */
+  --color-base-200: #262626;   /* controles: botões, campos, hover */
+  --color-base-300: #393939;   /* fios e bordas */
+  --color-base-content: #f4f4f4;
+
+  --color-primary: #52bdff;    /* a mesma ciano das alças do overlay */
+  --color-primary-content: #0f1013;
+  --color-secondary: #be95ff;
+  --color-secondary-content: #0f1013;
+  --color-accent: #08bdba;
+  --color-accent-content: #0f1013;
+  --color-neutral: #252525;
+  --color-neutral-content: #dfdfe0;
+
+  --color-info: #78a9ff;
+  --color-info-content: #0f1013;
+  --color-success: #25be6a;
+  --color-success-content: #0f1013;
+  --color-warning: #ff832b;
+  --color-warning-content: #0f1013;
+  --color-error: #ee5396;
+  --color-error-content: #0f1013;
+
+  /* Carbon é plano: sem relevo, sem ruído. */
+  --depth: 0;
+  --noise: 0;
 }
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
-#app { height: 100%; }
-button, select, input {
-  font: inherit;
-  color: var(--text);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 4px 8px;
+
+@theme {
+  --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
 }
-button { cursor: pointer; }
-button:hover { border-color: var(--accent); }
-button.on { background: var(--accent); color: #06121a; border-color: var(--accent); }
-button:disabled { opacity: .4; cursor: default; }
-input[type='range'] { padding: 0; background: none; border: none; width: 100%; }
-label { display: block; color: var(--muted); margin: 6px 0 2px; }
+
+@layer base {
+  html, body { height: 100%; }
+  body { overscroll-behavior: none; }
+  #app { height: 100%; }
+
+  /* Ferramenta, não site: nada de seleção acidental de texto ao arrastar um
+     canto, e nada de zoom por pinça brigando com o zoom do canvas. */
+  body { user-select: none; touch-action: none; }
+  input, textarea, [contenteditable] { user-select: text; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * A área de trabalho é sempre preta, nos dois temas.
+   *
+   * Ela não é "fundo da interface": é uma pré-visualização do que sai do
+   * projetor, e no projetor preto é ausência de luz. Clarear isso no tema claro
+   * faria a ferramenta mentir sobre o que vai aparecer na parede.
+   */
+  .stage-surface { background: #000; }
+}
+
+/*
+ * A cor primária da interface é a mesma das alças do overlay, também no claro.
+ *
+ * O editor e a área de trabalho são a mesma ferramenta: se o botão é roxo e a
+ * alça que ele cria é ciano, o olho lê duas coisas diferentes. Fica fora de
+ * @layer de propósito, para vencer as variáveis de tema do daisyUI sem depender
+ * de ordem de importação. O escuro já define a sua no bloco do tema.
+ */
+:root,
+[data-theme='light'] {
+  --color-primary: #52bdff;
+  --color-primary-content: #0f1013;
+}
