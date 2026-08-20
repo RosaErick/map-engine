@@ -1,8 +1,8 @@
-import { Renderer, IDENTITY_VIEW, type ViewTransform } from './renderer.ts';
+import { Renderer, IDENTITY_VIEW, type ViewTransform } from './render/renderer.ts';
 import { SourcePool } from './sources/index.ts';
 import type { CanvasModule } from './sources/types.ts';
-import { Store, visibleSurfaces, patternFor, type StoreState } from './store.ts';
-import { emptyProject, type Project, type Source, type TestPattern, type Vec2 } from './project.ts';
+import { Store, visibleSurfaces, patternFor, type StoreState } from './model/store.ts';
+import { emptyProject, type Project, type Source, type TestPattern, type Vec2 } from './model/project.ts';
 
 export interface EngineOptions {
   /** Share a store between the editor window and the output window. */

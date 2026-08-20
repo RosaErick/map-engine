@@ -12,9 +12,9 @@
    * matiz para lembrar e a trilha ficaria pulando para zero enquanto a pessoa
    * arrasta pelo fundo do quadro.
    */
-  import { colorKey, hexOf, hsvToRgb, parseHex, rgbToHsv, type Rgb, type Vec2 } from '../engine/index.ts';
+  import { colorKey, hexOf, hsvToRgb, parseHex, rgbToHsv, type Rgb, type Vec2 } from '../../engine/index.ts';
   import { drag } from './actions.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import { t } from '../i18n/index.svelte.ts';
 
   interface Props {
     rgb: Rgb;

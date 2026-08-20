@@ -5,7 +5,7 @@
  * is a grid mid-throw, drawn with `solveUnitToQuad`, the same function the
  * renderer uses on every surface. Not a picture of the idea: the idea, run once.
  */
-import { solveUnitToQuad, apply } from '../packages/engine/homography.ts';
+import { solveUnitToQuad, apply } from '../packages/engine/math/homography.ts';
 
 export const RED = '#ff3b30';
 

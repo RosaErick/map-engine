@@ -1,4 +1,4 @@
-import type { Vec2 } from './homography.ts';
+import type { Vec2 } from '../math/homography.ts';
 import { parseWarp, type Warp } from './warp.ts';
 
 export type { Vec2 };

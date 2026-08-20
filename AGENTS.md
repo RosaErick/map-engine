@@ -49,7 +49,7 @@ engine sem cerimônia. A saída óbvia seria uma biblioteca de estado no meio, o
 adaptador que traduz o estado da engine para o formato do framework — e aí a engine
 passa a ter opinião sobre o framework, ou o editor passa a ter uma cópia do estado.
 
-**Decisão.** O store mora na engine (`packages/engine/store.ts`) como um objeto
+**Decisão.** O store mora na engine (`packages/engine/model/store.ts`) como um objeto
 serializável que expõe `subscribe(fn)`: chama `fn` imediatamente e devolve a função de
 cancelamento. Essa assinatura **é** o contrato de store do Svelte.
 
@@ -253,7 +253,7 @@ da biblioteca para conseguir escrever o `w` que precisa em `gl_Position`.
 **Decisão.** WebGL2 direto, zero dependência gráfica. Sem WebGPU: para 2D texturizado
 não há ganho que justifique o risco.
 
-**Consequências.** `packages/engine/renderer.ts` carrega o boilerplate de shader,
+**Consequências.** `packages/engine/render/renderer.ts` carrega o boilerplate de shader,
 programa e VAO à mão — cerca de 130 linhas que uma biblioteca teria escondido. Em
 troca, o truque de correção de perspectiva (ADR-0004) cabe em uma linha. Zero
 dependências em produção; o bundle inteiro do app tem ~100 KB.
@@ -513,6 +513,43 @@ mock — inclusive medindo em pixels a retidão de uma borda num quadrilátero d
 que é a forma objetiva de dizer que a armadilha nº 1 não voltou. O custo é uma
 dependência de desenvolvimento pesada (Playwright) e um teste que leva segundos, não
 milissegundos.
+
+---
+
+### ADR-0021 — Estrutura de pastas por camada na engine, por região no editor
+
+**Status:** aceita
+
+**Contexto.** O editor chegou a 25 arquivos numa pasta só, e a engine a 17. A tentação
+óbvia era espelhar a mesma estrutura nos dois — `domain / application / adapters`, que é
+o que se faz.
+
+**Decisão.** Estruturas **diferentes**, porque são coisas diferentes.
+
+A **engine** é dividida pela direção das dependências, que já era obedecida sem estar
+escrita em lugar nenhum: `math/` (funções puras que não sabem o que é um projeto) ←
+`model/` (o domínio, os invariantes e o único caminho de mutação) ← `render/` (o que fala
+WebGL) ← `engine.ts` ← `index.ts`.
+
+O **editor** é dividido pelas regiões da tela — `stage/`, `panels/`, `pages/` — mais
+`platform/` (o que fala com API do navegador) e `ui/` (primitivas sem nenhum conhecimento
+de domínio).
+
+**Por que não a mesma estrutura nos dois.** O editor **não tem domínio próprio**: o
+agregado mora na engine, e o editor lê `$store`, chama métodos e desenha. Criar um
+`domain/` aqui deixaria uma pasta genuinamente vazia e transformaria as outras duas em
+nomes bonitos para "componentes". Seria aplicar um padrão por ser um padrão — e a
+pergunta que a estrutura precisa responder no editor não é "que camada é esta" e sim
+"onde fica a barra de cima", "onde fica o painel da direita", "onde fica o salvamento".
+
+**Consequências.** Os nomes tornam a regra visível: um arquivo em `math/` que importe de
+`render/` está errado e dá para ver de relance, sem entender o que ele faz.
+`scripts/check-layers.mjs` (AC-73, `npm run layers`) reprova a direção errada e roda no
+`verify` — estrutura sem guarda volta ao estado anterior em poucas semanas, um `import`
+de cada vez. Duas decisões ficaram registradas por serem contraintuitivas: `warp.ts` mora
+em `model/` apesar de ser quase toda matemática, porque pelo ADR-0019 a malha é um objeto
+de valor do domínio; e `surface-math.ts` também, porque lê `Surface` — foi ele que provou
+que uma pasta `math/` ingênua estaria mentindo.
 
 ---
 

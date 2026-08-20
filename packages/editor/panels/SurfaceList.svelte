@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Icon from './Icon.svelte';
-  import { store, addSurface, duplicateSelected } from './state.svelte.ts';
-  import { anchorId, surfaceOrder } from '../engine/index.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import Icon from '../ui/Icon.svelte';
+  import { store, addSurface, duplicateSelected } from '../state.svelte.ts';
+  import { anchorId, surfaceOrder } from '../../engine/index.ts';
+  import { t } from '../i18n/index.svelte.ts';
 
   let renaming = $state<string | null>(null);
 

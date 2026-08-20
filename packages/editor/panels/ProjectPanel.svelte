@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { store, session, flash, getEngine } from './state.svelte.ts';
-  import { openFolder, save, downloadProject, grantFolder, hasFileSystemAccess, invalidateUrls, resolveUrl, FolderError } from './project-folder.ts';
-  import { openOutput, listScreens, type OutputScreen, type OutputWarning } from '../output/output.ts';
-  import { t, type MessageKey } from './i18n/index.svelte.ts';
+  import { store, session, flash, getEngine } from '../state.svelte.ts';
+  import { openFolder, save, downloadProject, grantFolder, hasFileSystemAccess, invalidateUrls, resolveUrl, FolderError } from '../platform/project-folder.ts';
+  import { openOutput, listScreens, type OutputScreen, type OutputWarning } from '../../output/output.ts';
+  import { t, type MessageKey } from '../i18n/index.svelte.ts';
 
   // As telas são enumeradas na montagem, e não no clique: pedir a lista dentro
   // do handler gastaria a ativação de usuário que window.open e

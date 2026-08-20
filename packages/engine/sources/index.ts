@@ -1,4 +1,4 @@
-import type { Source } from '../project.ts';
+import type { Source } from '../model/project.ts';
 import { ColorSource } from './color.ts';
 import { ImageSource } from './image.ts';
 import { GifSource } from './gif.ts';

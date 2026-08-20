@@ -1,16 +1,16 @@
 <script lang="ts">
-  import Stage from './Stage.svelte';
+  import Stage from './stage/Stage.svelte';
   import TopBar from './TopBar.svelte';
-  import Toolbar from './Toolbar.svelte';
-  import ProjectPanel from './ProjectPanel.svelte';
-  import SurfaceList from './SurfaceList.svelte';
-  import Inspector from './Inspector.svelte';
-  import SourcePanel from './SourcePanel.svelte';
-  import AboutPage from './AboutPage.svelte';
-  import DocsPage from './DocsPage.svelte';
+  import Toolbar from './stage/Toolbar.svelte';
+  import ProjectPanel from './panels/ProjectPanel.svelte';
+  import SurfaceList from './panels/SurfaceList.svelte';
+  import Inspector from './panels/Inspector.svelte';
+  import SourcePanel from './panels/SourcePanel.svelte';
+  import AboutPage from './pages/AboutPage.svelte';
+  import DocsPage from './pages/DocsPage.svelte';
   import { store, tools, session, duplicateSelected, flash, getEngine, selected, framePixelStep } from './state.svelte.ts';
-  import { scheduleSave, localProject, hasFileSystemAccess, restoreFolder, setMemoryLabel } from './project-folder.ts';
-  import { initTheme } from './theme.svelte.ts';
+  import { scheduleSave, localProject, hasFileSystemAccess, restoreFolder, setMemoryLabel } from './platform/project-folder.ts';
+  import { initTheme } from './platform/theme.svelte.ts';
   import { initLocale, i18n, t } from './i18n/index.svelte.ts';
 
   initTheme();
