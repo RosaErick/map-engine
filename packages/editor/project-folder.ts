@@ -1,5 +1,5 @@
-import type { Store } from '../engine/index.ts';
-import type { CanvasModule } from '../engine/index.ts';
+import type { CanvasModule, Store } from '../engine/index.ts';
+import { createSaver, safeName, type Saver } from './saver.ts';
 
 /**
  * A project is a folder, not a file: `project.json` with relative paths and the
@@ -15,7 +15,6 @@ import type { CanvasModule } from '../engine/index.ts';
 type DirHandle = FileSystemDirectoryHandle;
 
 const LOCAL_KEY = 'map-engine:project';
-const AUTOSAVE_MS = 400;
 
 /** Falha que o usuário precisa entender. O texto é escolhido por quem tem o
  *  catálogo — este módulo só diz o que aconteceu. */
@@ -92,10 +91,6 @@ export async function importFile(file: File): Promise<string> {
   return path;
 }
 
-function safeName(name: string): string {
-  return name.replace(/[^\w.\-]+/g, '_');
-}
-
 /** Loads a user canvas module from the folder. */
 export async function loadModule(moduleId: string): Promise<CanvasModule> {
   const url = await resolveUrl(moduleId.endsWith('.js') ? moduleId : `${moduleId}.js`);
@@ -104,49 +99,66 @@ export async function loadModule(moduleId: string): Promise<CanvasModule> {
   return mod as CanvasModule;
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-let saving = false;
-let saveAgain = false;
-
 /**
- * Debounced autosave. Losing half an hour of alignment to a crash is not an
- * acceptable outcome for a tool people use standing on a ladder.
+ * Autosave. A lógica de espera e de escrita concorrente mora em `saver.ts`,
+ * testada com um escritor falso; aqui fica só a parte que precisa de navegador.
+ *
+ * Perder meia hora de alinhamento por causa de um crash é inaceitável numa
+ * ferramenta de montagem — por isso o salvamento não depende de ninguém lembrar
+ * de apertar nada.
  */
+const AUTOSAVE_MS = 400;
+
+let saver: Saver | null = null;
+let saverStore: Store | null = null;
+
 /** Rótulo usado quando não há pasta. Injetado porque a palavra é do catálogo. */
 let memoryLabel = 'browser memory';
 export function setMemoryLabel(label: string): void { memoryLabel = label; }
 
-export function scheduleSave(store: Store, onSaved?: (where: string) => void, onError?: (message: string) => void): void {
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { void save(store, onSaved, onError); }, AUTOSAVE_MS);
+function saverFor(
+  store: Store,
+  onSaved?: (where: string) => void,
+  onError?: (message: string) => void,
+): Saver {
+  // Um saver por store: trocar de projeto não pode arrastar uma escrita pendente
+  // do projeto anterior.
+  if (saver && saverStore === store) return saver;
+  saver?.cancel();
+  saverStore = store;
+  saver = createSaver({
+    delay: AUTOSAVE_MS,
+    read: () => store.toJSON(),
+    write: async (contents) => {
+      if (dir) {
+        const handle = await dir.getFileHandle('project.json', { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(contents);
+        await writable.close();
+      } else {
+        localStorage.setItem(LOCAL_KEY, contents);
+      }
+    },
+    onSaved: () => onSaved?.(dir ? dir.name : memoryLabel),
+    onError: (error) => onError?.(`Não consegui salvar: ${String((error as Error).message ?? error)}`),
+  });
+  return saver;
 }
 
-export async function save(store: Store, onSaved?: (where: string) => void, onError?: (message: string) => void): Promise<void> {
-  // A write already in flight must not silently swallow the newer state: queue
-  // one more pass instead of dropping the change on the floor.
-  if (saving) { saveAgain = true; return; }
-  saving = true;
-  const json = store.toJSON();
-  try {
-    if (dir) {
-      const handle = await dir.getFileHandle('project.json', { create: true });
-      const writable = await handle.createWritable();
-      await writable.write(json);
-      await writable.close();
-      onSaved?.(dir.name);
-    } else {
-      localStorage.setItem(LOCAL_KEY, json);
-      onSaved?.(memoryLabel);
-    }
-  } catch (e) {
-    onError?.(`Não consegui salvar: ${String((e as Error).message ?? e)}`);
-  } finally {
-    saving = false;
-    if (saveAgain) {
-      saveAgain = false;
-      void save(store, onSaved, onError);
-    }
-  }
+export function scheduleSave(
+  store: Store,
+  onSaved?: (where: string) => void,
+  onError?: (message: string) => void,
+): void {
+  saverFor(store, onSaved, onError).schedule();
+}
+
+export async function save(
+  store: Store,
+  onSaved?: (where: string) => void,
+  onError?: (message: string) => void,
+): Promise<void> {
+  await saverFor(store, onSaved, onError).flush();
 }
 
 /** Project JSON kept in localStorage by the fallback path, if any. */
