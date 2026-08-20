@@ -717,46 +717,45 @@ HTTP significa mexer só ali — está escrito no comentário `DECISION:` do arq
 
 ## 6. Lacunas conhecidas
 
-Coisas que estão no código mas incompletas, ou que o brief pede e não estão exercidas:
+Coisas que estão no código mas incompletas, ou que o brief pede e não estão exercidas.
+A lista é curta de propósito: o que saiu dela saiu porque foi feito, não porque foi
+esquecido.
 
-- **`crop` não tem UI.** O campo existe em `Surface`, é validado por `parseCrop`, é
-  implementado em `uvTransform` e tem teste em
-  [`renderer.test.ts`](../packages/engine/renderer.test.ts) — mas nenhum controle do
-  [`Inspector`](../packages/editor/Inspector.svelte) o edita. Na prática todo projeto salvo
-  usa `{x:0, y:0, w:1, h:1}`.
-- **Fonte `canvas` não é criável pela interface.** `CanvasSource` e `loadModule` estão
-  prontos, mas o [`SourcePanel`](../packages/editor/SourcePanel.svelte) só oferece cor,
-  captura, câmera e arquivo. Criar uma fonte `{ kind: 'canvas' }` hoje exige editar o
-  `project.json` à mão.
-- **Câmera sem seletor de dispositivo.** `Source` de kind `camera` aceita `deviceId`, e
-  `CameraSource` o respeita, mas o painel sempre adiciona sem `deviceId` — pega a câmera
-  padrão.
-- **Polígono não é editável depois de traçado.** `Overlay` só desenha alças para os 4 cantos
-  do `frame`; os pontos de `Shape.polygon` não têm manipuladores. Mover o frame carrega o
-  polígono junto (que era o objetivo do design), mas ajustar um vértice exige refazer.
-- **Hit-test ignora a `shape`.** `surfaceAt` em
-  [`state.svelte.ts`](../packages/editor/state.svelte.ts) testa apenas se o ponto cai em
-  `0..1` no espaço do frame. Uma elipse ou polígono é selecionável clicando nos cantos
-  vazios do quadrilátero envolvente. `pointInPolygon` e `bounds` existem em
-  [`geometry.ts`](../packages/engine/geometry.ts), são exportados e testados, mas **não são
-  usados** por nenhum caminho de aplicação — só pelos testes.
-- **Export sem consumidor.** `frameToPixel` (renderer) está exportado e nunca chamado; o
-  editor faz a mesma conversão por `toScreen` em
-  [`state.svelte.ts`](../packages/editor/state.svelte.ts).
-- **Snap só em cantos.** O brief pede "cantos e arestas"; `snapPoint` implementa só
-  canto-a-canto, com o motivo registrado num comentário `DECISION:` no arquivo.
-- **Sem agrupamento por textura.** O brief pede ordenar por z "agrupando por textura quando
-  possível". `Renderer.render` ordena por z e nada mais; cada superfície faz seu próprio
-  `bufferData` e `bindTexture`.
-- **`statusOf` não é reativo.** Em [`SourcePanel`](../packages/editor/SourcePanel.svelte) ele
-  lê `getEngine()?.pool.get(id)` durante a renderização; como o pool não é estado do Svelte,
-  o texto de status (`carregando…`, dimensões, erro) só se atualiza quando outra coisa força
-  a re-renderização do componente.
-- **Fallback sem pasta perde a mídia.** `importFile` guarda o arquivo em `memoryFiles`
-  quando não há handle de diretório; o `project.json` sobrevive no `localStorage`, os
-  arquivos não sobrevivem ao fechar a aba. O usuário é avisado por `flash`, mas não há
-  religamento de mídia — o brief pede oferecer "religar" quando um arquivo sumiu, e hoje só
-  existe o padrão magenta de mídia faltando.
-- **Autocontenção do build não é verificada.** [`scripts/smoke.mjs`](../scripts/smoke.mjs)
-  prova que `dist/index.html` abre por `file://` e renderiza, mas não grepa o arquivo atrás
-  de um `src=`/`href=` externo que teria escapado do `viteSingleFile`.
+- **Mídia sem pasta não sobrevive ao reinício.** `importFile` guarda o arquivo em
+  `memoryFiles` quando não há handle de diretório; o `project.json` fica no
+  `localStorage`, os arquivos não. O usuário é avisado, e **religar** reconstrói o
+  vínculo sem apagar e recriar a fonte — mas continua sendo trabalho manual a cada
+  sessão. A cura de verdade é usar uma pasta.
+- **O handle da pasta não é persistido entre sessões.** O brief pede "abrir usa
+  `showDirectoryPicker()` e guarda o handle"; hoje ele só vive na memória do módulo, e
+  toda abertura do app exige re-selecionar a pasta. Guardar em IndexedDB e pedir
+  `queryPermission` na volta resolveria.
+- **Polígono: dá para mover vértice, não para acrescentar ou remover.** As alças existem
+  em [`Overlay`](../packages/editor/Overlay.svelte) e passam por
+  `Store.setPolygonPoint`, que respeita a trava. Errar a *quantidade* de pontos ainda
+  obriga a refazer o traçado.
+- **Feather só na elipse.** Polígono tem borda dura, como o brief define para a v1: a
+  máscara dele é geometria, não campo de distância.
+- **Triangulação O(n²), só polígono simples.** Anotado com `ponytail:` em
+  [`geometry.ts`](../packages/engine/geometry.ts). Correto para um contorno traçado à
+  mão com uma dúzia de pontos; só vira problema se alguém importar SVG.
+- **A meta de performance nunca foi medida.** 30 superfícies com 4 vídeos 1080p a 60fps
+  é afirmação do brief, não número observado.
+- **A matriz de navegadores não foi verificada.** O caminho sem
+  `requestVideoFrameCallback` — Firefox e Safari mais antigo — só se prova naqueles
+  navegadores, e é onde vivia um congelamento silencioso.
+
+### Resolvido depois desta lista
+
+Ficam registrados porque a lista anterior os descrevia como pendências, e quem leu a
+versão antiga precisa saber que mudou: `crop` ganhou controles no
+[`Inspector`](../packages/editor/Inspector.svelte); a fonte `canvas` e o seletor de
+câmera ganharam UI no [`SourcePanel`](../packages/editor/SourcePanel.svelte), junto com
+**religar**; o hit-test de `surfaceAt` passou a testar o **recorte**, e não a caixa
+envolvente, usando `pointInPolygon` e `pointInUnitEllipse`; `snapPoint` passou a grudar
+em aresta além de canto, com canto ganhando no empate; `Renderer.render` deixou de
+reemitir textura e blend iguais aos do desenho anterior, sem reordenar nada — a ordem
+continua sendo z, porque reordenar mudaria o que mistura sobre o quê; o status das
+fontes virou estado do Svelte espelhado do pool, em vez de leitura direta que congelava
+em "carregando…"; `frameToPixel` ganhou consumidor (`frameToOutput`, usado pelas alças
+de vértice); e o smoke passou a reprovar `src=`/`href=` externo no `dist/index.html`.
