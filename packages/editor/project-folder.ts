@@ -17,6 +17,12 @@ type DirHandle = FileSystemDirectoryHandle;
 const LOCAL_KEY = 'map-engine:project';
 const AUTOSAVE_MS = 400;
 
+/** Falha que o usuário precisa entender. O texto é escolhido por quem tem o
+ *  catálogo — este módulo só diz o que aconteceu. */
+export class FolderError extends Error {
+  constructor(readonly code: 'unsupported') { super(code); }
+}
+
 export const hasFileSystemAccess = typeof (globalThis as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function';
 
 let dir: DirHandle | null = null;
@@ -27,7 +33,7 @@ const memoryFiles = new Map<string, File>();
 export function folderName(): string { return dir?.name ?? ''; }
 
 export async function openFolder(): Promise<string | null> {
-  if (!hasFileSystemAccess) throw new Error('Este navegador não permite abrir pastas. Use Chrome ou Edge.');
+  if (!hasFileSystemAccess) throw new FolderError('unsupported');
   const picker = (globalThis as unknown as {
     showDirectoryPicker(opts: { mode: 'readwrite' }): Promise<DirHandle>;
   }).showDirectoryPicker;
@@ -53,7 +59,7 @@ export async function resolveUrl(path: string): Promise<string> {
     urlCache.set(path, url);
     return url;
   }
-  if (!dir) throw new Error(`sem pasta de projeto: ${path}`);
+  if (!dir) throw new Error(`no project folder: ${path}`);
 
   // Paths are relative and may contain folders: walk the segments.
   const parts = path.split('/').filter(Boolean);
@@ -89,7 +95,7 @@ function safeName(name: string): string {
 export async function loadModule(moduleId: string): Promise<CanvasModule> {
   const url = await resolveUrl(moduleId.endsWith('.js') ? moduleId : `${moduleId}.js`);
   const mod = (await import(/* @vite-ignore */ url)) as Partial<CanvasModule>;
-  if (typeof mod.draw !== 'function') throw new Error('módulo sem draw(ctx, t)');
+  if (typeof mod.draw !== 'function') throw new Error('module has no draw(ctx, t)');
   return mod as CanvasModule;
 }
 
@@ -101,6 +107,10 @@ let saveAgain = false;
  * Debounced autosave. Losing half an hour of alignment to a crash is not an
  * acceptable outcome for a tool people use standing on a ladder.
  */
+/** Rótulo usado quando não há pasta. Injetado porque a palavra é do catálogo. */
+let memoryLabel = 'browser memory';
+export function setMemoryLabel(label: string): void { memoryLabel = label; }
+
 export function scheduleSave(store: Store, onSaved?: (where: string) => void, onError?: (message: string) => void): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { void save(store, onSaved, onError); }, AUTOSAVE_MS);
@@ -121,7 +131,7 @@ export async function save(store: Store, onSaved?: (where: string) => void, onEr
       onSaved?.(dir.name);
     } else {
       localStorage.setItem(LOCAL_KEY, json);
-      onSaved?.('memória do navegador');
+      onSaved?.(memoryLabel);
     }
   } catch (e) {
     onError?.(`Não consegui salvar: ${String((e as Error).message ?? e)}`);

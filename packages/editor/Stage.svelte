@@ -5,6 +5,7 @@
   import { store, ui, setEngine, getEngine, fitView, toOutput, surfaceAt, flash } from './state.svelte.ts';
   import { createEngine, newId, newSurface, quadToUnit, apply, type Vec2, type Source } from '../engine/index.ts';
   import { importFile, resolveUrl, loadModule } from './project-folder.ts';
+  import { t } from './i18n/index.svelte.ts';
 
   let host: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -105,10 +106,10 @@
     if (!file) return;
     const r = host.getBoundingClientRect();
     const target = surfaceAt(toOutput({ x: e.clientX - r.left, y: e.clientY - r.top }));
-    if (!target) { flash('Solte o arquivo em cima de uma superfície.'); return; }
+    if (!target) { flash(t('stage.dropOnSurface')); return; }
 
     const kind = kindOf(file);
-    if (!kind) { flash(`Tipo de arquivo não suportado: ${file.name}`); return; }
+    if (!kind) { flash(t('stage.unsupportedFile', { name: file.name })); return; }
     const path = await importFile(file);
     const source = describe(kind, path, file.name);
     store.addSource(source);
@@ -141,7 +142,7 @@
   ondragleave={() => (dragOver = false)}
   ondrop={onDrop}
   role="application"
-  aria-label="Área de mapeamento"
+  aria-label={t('stage.label')}
 >
   <canvas bind:this={canvas}></canvas>
   {#if !$store.view.uiHidden}
@@ -150,7 +151,7 @@
   {#if ui.tool === 'polygon'}
     <div class="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
       <div class="rounded-full border border-base-300 bg-base-100/90 px-4 py-1.5 text-xs text-base-content/70 shadow-lg backdrop-blur">
-        Clique para traçar o polígono · duplo clique para fechar · <kbd class="kbd kbd-xs">Esc</kbd> cancela
+        {t('stage.polygonHint')} <kbd class="kbd kbd-xs">{t('stage.polygonHintEsc')}</kbd> {t('stage.polygonHintCancel')}
       </div>
     </div>
   {/if}

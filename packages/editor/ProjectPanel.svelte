@@ -1,7 +1,8 @@
 <script lang="ts">
   import { store, ui, flash, getEngine } from './state.svelte.ts';
-  import { openFolder, save, downloadProject, hasFileSystemAccess, invalidateUrls, resolveUrl } from './project-folder.ts';
-  import { openOutput, listScreens, type OutputScreen } from '../output/output.ts';
+  import { openFolder, save, downloadProject, hasFileSystemAccess, invalidateUrls, resolveUrl, FolderError } from './project-folder.ts';
+  import { openOutput, listScreens, type OutputScreen, type OutputWarning } from '../output/output.ts';
+  import { t, type MessageKey } from './i18n/index.svelte.ts';
 
   // As telas são enumeradas na montagem, e não no clique: pedir a lista dentro
   // do handler gastaria a ativação de usuário que window.open e
@@ -21,7 +22,7 @@
   });
 
   function screenLabel(s: OutputScreen, i: number): string {
-    return `${i + 1}. ${s.label || (s.isInternal ? 'notebook' : 'externa')} — ${s.width}×${s.height}`;
+    return `${i + 1}. ${s.label || t(s.isInternal ? 'project.screenInternal' : 'project.screenExternal')} — ${s.width}×${s.height}`;
   }
 
   /** A saída tem que ser a resolução nativa do projetor: escalonar duas vezes
@@ -30,7 +31,7 @@
     const s = screens[screenIndex];
     if (!s) return;
     store.setOutputSize(Math.round(s.width * s.devicePixelRatio), Math.round(s.height * s.devicePixelRatio));
-    flash(`Saída em ${store.project.output.width}×${store.project.output.height}.`);
+    flash(t('project.resolutionSet', { width: store.project.output.width, height: store.project.output.height }));
   }
 
   async function onOpenFolder(): Promise<void> {
@@ -39,12 +40,23 @@
       invalidateUrls();
       if (json) store.load(json);
       ui.hasFolder = true;
-      ui.folderName = 'pasta aberta';
-      flash(json ? 'Projeto carregado.' : 'Pasta vazia: projeto novo.');
+      ui.folderName = t('project.folderOpen');
+      flash(json ? t('project.loaded') : t('project.emptyFolder'));
     } catch (e) {
-      flash(String((e as Error).message ?? e));
+      // Cancelar o seletor não é erro: só um "deixa pra lá".
+      if ((e as DOMException | null)?.name === 'AbortError') return;
+      flash(e instanceof FolderError ? t('warn.folderUnsupported') : t('warn.folderFailed'));
     }
   }
+
+  /** Códigos da janela de saída viram frase aqui: quem abre a janela não escolhe
+   *  as palavras que o operador lê. */
+  const WARNINGS: Record<OutputWarning, MessageKey> = {
+    'popup-blocked': 'warn.popupBlocked',
+    'fullscreen-failed': 'warn.fullscreenFailed',
+    'screen-not-found': 'warn.screenNotFound',
+    'no-window-management': 'warn.noWindowManagement',
+  };
 
   function onOutput(): void {
     if (output) { output.close(); return; }
@@ -56,7 +68,8 @@
       // as fontes do editor em vez de montar as suas.
       ...(pool ? { pool } : {}),
       resolveUrl,
-      onWarn: flash,
+      title: t('output.windowTitle'),
+      onWarn: (code) => flash(t(WARNINGS[code])),
       onClose: () => {
         output = null;
         ui.outputOpen = false;
@@ -64,7 +77,7 @@
       },
     });
     ui.outputOpen = !!output;
-    ui.outputScreen = output && screen ? (screen.label || `tela ${screenIndex + 1}`) : '';
+    ui.outputScreen = output && screen ? (screen.label || t('project.screenFallback', { number: screenIndex + 1 })) : '';
   }
 </script>
 
@@ -73,23 +86,22 @@
      superfícies para fora da tela durante o alinhamento, que é o trabalho real. -->
 <details class="collapse-arrow collapse border-b border-base-300 rounded-none" open={!ui.hasFolder}>
   <summary class="collapse-title min-h-0 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-base-content/45">
-    Projeto e saída
+    {t('project.title')}
   </summary>
   <div class="collapse-content px-4 pb-4">
   <p class="text-[11px] leading-relaxed text-base-content/55">
-    Um projeto é uma pasta: o arquivo do projeto e a mídia ficam lado a lado, e tudo é
-    salvo sozinho.
+    {t('project.blurb')}
   </p>
 
   <div class="mt-3 flex flex-wrap gap-2">
     <button class="btn btn-xs" onclick={onOpenFolder} disabled={!hasFileSystemAccess}>
-      abrir pasta
+      {t('project.openFolder')}
     </button>
-    <button class="btn btn-xs btn-ghost" onclick={() => save(store, (w) => flash(`Salvo em ${w}.`), flash)}>
-      salvar agora
+    <button class="btn btn-xs btn-ghost" onclick={() => save(store, (w) => flash(t('project.savedTo', { where: w })), flash)}>
+      {t('project.saveNow')}
     </button>
     {#if !hasFileSystemAccess}
-      <button class="btn btn-xs btn-ghost" onclick={() => downloadProject(store)}>baixar json</button>
+      <button class="btn btn-xs btn-ghost" onclick={() => downloadProject(store)}>{t('project.downloadJson')}</button>
     {/if}
   </div>
   {#if ui.folderName}
@@ -98,9 +110,9 @@
 
   <div class="divider my-4"></div>
 
-  <h3 class="text-[10px] font-semibold uppercase tracking-[0.14em] text-base-content/45">Projetor</h3>
+  <h3 class="text-[10px] font-semibold uppercase tracking-[0.14em] text-base-content/45">{t('project.projector')}</h3>
   <p class="mt-1 text-[11px] leading-relaxed text-base-content/55">
-    A resolução precisa ser a nativa do projetor.
+    {t('project.resolutionBlurb')}
   </p>
 
   {#if screens.length > 1}
@@ -108,7 +120,7 @@
       {#each screens as s, i (i)}<option value={i}>{screenLabel(s, i)}</option>{/each}
     </select>
     <button class="btn btn-xs btn-block mt-2" onclick={matchScreen}>
-      casar resolução com esta tela
+      {t('project.matchScreen')}
     </button>
   {/if}
 
@@ -116,7 +128,7 @@
     <input
       type="number"
       class="input input-xs w-full"
-      aria-label="Largura da saída"
+      aria-label={t('project.widthLabel')}
       value={$store.project.output.width}
       onchange={(e) => store.setOutputSize(+e.currentTarget.value, $store.project.output.height)}
     />
@@ -124,7 +136,7 @@
     <input
       type="number"
       class="input input-xs w-full"
-      aria-label="Altura da saída"
+      aria-label={t('project.heightLabel')}
       value={$store.project.output.height}
       onchange={(e) => store.setOutputSize($store.project.output.width, +e.currentTarget.value)}
     />
@@ -136,7 +148,7 @@
     class:btn-outline={!!output}
     onclick={onOutput}
   >
-    {output ? 'fechar saída' : 'enviar para o projetor'}
+    {output ? t('project.closeOutput') : t('project.sendToProjector')}
   </button>
 
   {#if servedOverHttp}
@@ -144,9 +156,9 @@
       class="btn btn-xs btn-ghost btn-block mt-2 font-normal"
       href="./index.html"
       download="projection-mapping.html"
-      title="Um arquivo só: abre sem servidor e sem internet"
+      title={t('project.downloadOfflineHint')}
     >
-      baixar para uso offline
+      {t('project.downloadOffline')}
     </a>
   {/if}
   </div>
