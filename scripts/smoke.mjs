@@ -64,14 +64,14 @@ page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text(
 page.on('pageerror', (e) => consoleErrors.push(String(e)));
 
 await page.goto(pathToFileURL(build).href);
-await page.waitForFunction(() => Boolean(window.engine), null, { timeout: 10_000 });
+await page.waitForFunction(() => Boolean(window.mapEngine), null, { timeout: 10_000 });
 
 check('AC-14: build abre por file:// e monta a engine', true);
 
 /** Reads a pixel straight out of the GL buffer, right after a forced frame. */
 async function pixel(x, y) {
   return page.evaluate(([px, py]) => {
-    const engine = window.engine;
+    const engine = window.mapEngine;
     engine.renderFrame();
     const gl = engine.renderer.gl;
     const out = new Uint8Array(4);
@@ -82,7 +82,7 @@ async function pixel(x, y) {
 }
 
 const size = await page.evaluate(() => {
-  const gl = window.engine.renderer.gl;
+  const gl = window.mapEngine.renderer.gl;
   return [gl.drawingBufferWidth, gl.drawingBufferHeight];
 });
 const [W, H] = size;
@@ -109,7 +109,7 @@ for (const [name, x, y] of [['canto sup-esq', 4, 4], ['canto inf-dir', W - 5, H 
 
 // Ellipse mask: the corners of the frame must be cut away.
 const frameCorner = await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   const s = engine.store.project.surfaces[0];
   engine.store.setSurfaceShape(s.id, { kind: 'ellipse', feather: 0 });
   const view = engine.view;
@@ -127,7 +127,7 @@ check('AC-18: centro da elipse continua aceso', stillLit[0] > 200, `rgb=${stillL
 await page.selectOption('#pattern', 'grid');
 await page.waitForTimeout(100);
 const gridSample = await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   engine.renderFrame();
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
@@ -149,7 +149,7 @@ await page.selectOption('#pattern', 'none'); // a test pattern would bypass the 
 // outside the source, get discarded, and the lit area becomes a diamond
 // inscribed in the frame. Corners dark, centre and edge midpoints lit.
 const rotated = await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   const s = engine.store.project.surfaces[0];
   engine.store.setSurfaceShape(s.id, { kind: 'quad' });
   engine.store.setSurfaceFrame(s.id, [
@@ -175,7 +175,7 @@ check('AC-28: meio da aresta e centro continuam acesos',
   rotEdge[0] > 200 && rotCentre[0] > 200, `aresta=${rotEdge} centro=${rotCentre}`);
 
 await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   engine.store.setRotation(engine.store.project.surfaces[0].id, 0);
   engine.store.endGesture();
 });
@@ -185,7 +185,7 @@ await page.evaluate(() => {
 // the loop is asleep — so the only thing that can wake it is the upload itself.
 // Read WITHOUT forcing a frame: forcing one would hide exactly this bug.
 const lateLoad = await page.evaluate(async () => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   const store = engine.store;
   // 1x1 opaque red PNG, so the source is a real async fetch + decode.
   const red = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
@@ -214,7 +214,7 @@ check('AC-39: fonte que carrega depois do loop dormir chega na parede sozinha',
   lateLoad[0] > 200 && lateLoad[1] < 60 && lateLoad[2] < 60, `rgb=${lateLoad}`);
 
 await page.evaluate(() => {
-  const store = window.engine.store;
+  const store = window.mapEngine.store;
   store.removeSource('late');
 });
 
@@ -223,7 +223,7 @@ await page.evaluate(() => {
 // stay straight. The classic linearly-interpolated-UV bug kinks it exactly at
 // the diagonal where the two triangles meet.
 await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   const s = engine.store.project.surfaces[0];
   engine.store.setSurfaceShape(s.id, { kind: 'quad' });
   engine.store.setSurfaceFrame(s.id, [
@@ -233,7 +233,7 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(100);
 const straightness = await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   engine.renderFrame();
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
@@ -279,7 +279,7 @@ await page.selectOption('#pattern', 'none');
 // neighbour keeps it. Both get the same white colour source, then one is told
 // to draw black — if the override reaches the GPU, only that one goes dark.
 const spots = await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   const store = engine.store;
   const src = store.project.sources[0].id;
 
@@ -313,14 +313,14 @@ check('AC-32: a vizinha continua seguindo o padrão global',
   untouched[0] > 200, `rgb=${untouched}`);
 
 await page.evaluate((ids) => {
-  const store = window.engine.store;
+  const store = window.mapEngine.store;
   store.setSurfacePattern(ids[0], null);
   store.removeSurface(ids[1]);
 }, spots.ids);
 
 // Undo must walk the geometry back.
 const undoOk = await page.evaluate(() => {
-  const engine = window.engine;
+  const engine = window.mapEngine;
   const s = engine.store.project.surfaces[0];
   const before = s.frame[0].x;
   engine.store.setCorner(s.id, 0, { x: before - 100, y: s.frame[0].y });
