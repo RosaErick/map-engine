@@ -5,6 +5,17 @@
    escuro, dentro de uma sala escura. */
 @plugin 'daisyui' {
   themes: light --default;
+
+  /*
+   * Só os componentes que a interface realmente usa.
+   *
+   * Medido: daisyUI inteiro é 83 dos 105 KB de CSS do build, para 43 classes
+   * usadas de 122 componentes disponíveis. `include` é uma lista fechada de
+   * propósito — com `exclude`, cada componente novo da biblioteca entraria
+   * sozinho no bundle.
+   */
+  include: alert, badge, button, collapse, divider, dropdown, input, join,
+    kbd, menu, modal, range, select, toast;
 }
 
 /*
