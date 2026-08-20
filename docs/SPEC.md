@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 78 testes de unidade (node:test, sem framework)
+npm test              # 81 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -462,6 +462,18 @@ exemplos de código são idênticos, porque código não se traduz.
 > Um guia traduzido que perde um passo em silêncio é pior do que um que falta
 > inteiro: ninguém percebe até precisar daquele passo.
 
+### AC-55 — O guia manda clicar em botões que existem
+
+**Dado** o guia e o catálogo de mensagens da mesma língua
+**Quando** o guia manda o leitor clicar num botão nomeado
+**Então** aquele rótulo aparece no catálogo com o mesmo texto, nas três línguas.
+
+> Este critério nasceu de um defeito real: o redesenho da barra renomeou dois botões e
+> o guia continuou mandando clicar nos nomes antigos. Nada quebrou, nada avisou — só o
+> texto que existe para tirar dúvida passou a criar uma. A checagem cobre os rótulos
+> que o guia usa como instrução, não toda palavra em negrito: "preto é transparência"
+> é conceito, não botão.
+
 ---
 
 ## 5. Não testado automaticamente
@@ -533,6 +545,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-52 | provado | `smoke.mjs` (pixel) |
 | AC-53 | provado | `warp.test.ts` (2 testes) |
 | AC-54 | provado | `store.test.ts` |
+| AC-55 | provado | `docs/guide.test.ts` (3 línguas) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o

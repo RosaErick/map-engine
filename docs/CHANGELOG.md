@@ -10,6 +10,9 @@ migrado na leitura.
 
 ## [Não lançado]
 
+Ainda sem tag. `git tag v0.1.0 && git push origin v0.1.0` publica o Release com o
+arquivo único anexado.
+
 ### Malha livre
 
 Superfície que não é plana — coluna, arco, parede abaulada — passa a ter uma camada de
@@ -27,10 +30,6 @@ idêntico, byte a byte.
   projetivamente exata dentro dela e a malha não mostra costura.
 - Máscara de elipse e de polígono continuam recortando numa superfície deformada.
 - Superfície travada recusa edição de malha, pela mesma razão que recusa canto.
-
-
-Ainda sem tag. `git tag v0.1.0 && git push origin v0.1.0` publica o Release com o
-arquivo único anexado.
 
 ### Adicionado
 
@@ -96,7 +95,23 @@ arquivo único anexado.
 - Instalação como aplicativo (PWA) com service worker versionado pelo hash do build.
 - Publicação no GitHub Pages e Release com o `.html` avulso anexado.
 
+### Mudado
+- **Opacidade** e **ordem de desenho** passaram a ficar recolhidas numa seção só, como
+  já acontecia com o recorte: são ajustes que se faz uma vez e não se toca mais, e
+  abertas empurravam encaixe, mistura e padrão para fora da tela. O cabeçalho recolhido
+  mostra a porcentagem quando a opacidade não está cheia — senão uma superfície apagada
+  vira mistério.
+- O painel **Projeto e saída** virou só **Projeto**, e a saída foi para onde ela de fato
+  é configurada: **Projetor (saída)**.
+
 ### Corrigido
+- O guia mandava clicar em botões com nomes que não existiam mais depois do redesenho da
+  barra (`Igualar esta tela`, `+ superfície`). Os rótulos citados agora batem com os
+  reais nos três idiomas.
+- O guia não mencionava **religar**, então quem perdesse um arquivo via listras magenta
+  sem saber que havia conserto sem refazer o alinhamento.
+- O guia não dizia que zoom e pan são só do editor, nem que **enquadrar** devolve a saída
+  inteira à tela — a saída de quem se perde no zoom.
 - O bloco legível por rastreador piscava na tela antes do editor montar. Agora fica
   escondido desde antes da primeira pintura, e o `<noscript>` devolve a visibilidade
   para quem não executa JS — medido: zero frames com ele visível.
@@ -116,7 +131,7 @@ arquivo único anexado.
 - CSS de 105 KB para 80 KB restringindo daisyUI aos componentes realmente usados.
 
 ### Verificação
-- 62 testes de unidade sem framework (`node:test`).
-- 19 checagens de integração em chromium headless, lendo pixels do build real.
+- 81 testes de unidade sem framework (`node:test`).
+- 23 checagens de integração em chromium headless, lendo pixels do build real.
 - `npm run i18n` reprova string fixa no editor e tradução que perdeu placeholder ou
   marcação.

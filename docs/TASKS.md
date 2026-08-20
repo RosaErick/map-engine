@@ -1,7 +1,7 @@
 # Backlog — Projection Mapping Engine
 
 Base: `prompt-mapping-engine.md`. Este documento descreve o que **está no código hoje**
-(34 testes de unidade + 14 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
+(81 testes de unidade + 23 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
 limpos, `dist/index.html` de ~100 KB gerado como arquivo único) e o que falta. Os ids
 `AC-n` citados aqui são os de [`SPEC.md`](SPEC.md).
 
@@ -28,6 +28,9 @@ deixado no código.
 | 10 | Saída na segunda tela, editor no laptop | 🟡 parcial | `openOutput` posiciona a janela pelos bounds da tela e chama `requestFullscreen({ screen })`. Agora é totalmente síncrona: as telas são enumeradas na montagem da toolbar, não no clique, então nada é `await`-ado antes de `window.open` e a ativação transitória sobrevive (Fullscreen Companion Window). `hasWindowManagement()` checa `screen.isExtended` e escolhe a mensagem de degradação. Falta a verificação com duas telas físicas. |
 | 11 | Saída limpa: só as superfícies acesas, resto preto absoluto | ✅ implementado | Janela de saída sem UI, `cursor:none`, body `#000` (`output.ts:245-248`); `clearColor(0,0,0,1)`, `alpha:false`, sem gama nem tone mapping (`renderer.ts:157-198`); superfície sem fonte faz `discard` em vez de pintar preto (`renderer.ts:99-102`). Falta a verificação física da mão em frente ao projetor. |
 | 12 | Fechar, reabrir a pasta e tudo voltar | 🟡 parcial | `showDirectoryPicker` + `project.json` com caminhos relativos + autosave com debounce de 400 ms, e `parseProject` derruba lixo em vez de deixar NaN chegar no renderer. Os dois furos do autosave foram fechados: escrita concorrente agora enfileira uma passada extra em vez de descartar o estado novo, e falha de escrita avisa na tela. Continua pendente: o handle da pasta não é persistido entre sessões. |
+
+A malha livre não está na tabela porque não é um dos doze critérios do brief: é escopo
+que entrou depois, com critérios próprios (AC-44 a AC-54 em `docs/SPEC.md`).
 
 Legenda: ✅ implementado · 🟡 parcial · ⬜ não feito.
 Nenhum critério está em ⬜. O que falta agora é quase todo **precisão física**: o que
@@ -169,6 +172,23 @@ projetor apontado para uma parede.
 
 ### 4b. Interface
 
+- [x] ~~**Malha livre para superfície curva**~~ — feito
+  Camada de deformação opcional entre o frame e o recorte, com pontos de controle
+  arrastáveis, atração de vizinhos, interpolação curva (Catmull-Rom) ou reta, e grade de
+  controle separada da tesselação. Uma homografia por célula com `w` próprio, então a
+  textura fica projetivamente exata dentro da célula e a malha não mostra costura —
+  em vez de subdividir até o erro não aparecer, que é o que o brief proíbe. Projeto sem
+  malha continua idêntico byte a byte, e o caminho de render sem malha não foi tocado
+  para não arriscar o AC-20. AC-44 a AC-54, ADR-0019 e ADR-0020.
+  Onde: `packages/engine/warp.ts`, `renderer.ts`, `shaders.ts`, `store.ts`,
+  `packages/editor/Inspector.svelte`, `Overlay.svelte`, `docs/specs/0001-mesh-warp.md`.
+
+- [ ] **Contraste do guia de malha sobre conteúdo claro** — `P`
+  As linhas da malha são violeta a 40%. Sobre conteúdo escuro leem bem; sobre uma imagem
+  clara quase somem, e é justamente na imagem que se julga o alinhamento. Vale medir a
+  luminância sob o ponto e inverter, como já se faz em ferramenta de foto.
+  Onde: `packages/editor/Overlay.svelte`.
+
 - [x] ~~**Engine publicável como biblioteca**~~ — feito
   `vite.lib.config.ts` + `tsconfig.lib.json` geram `dist-lib/map-engine.js` com
   declarações; `package.json` ganhou `exports`, `types`, `files` e um `prepare`, então
@@ -220,11 +240,10 @@ projetor apontado para uma parede.
   Onde: `packages/editor/*.svelte`, `packages/editor/app.css`,
   `packages/editor/theme.svelte.ts`.
 
-- [ ] **Enxugar o CSS do daisyUI** — `P`
-  O build dobrou de ~104 KB para ~208 KB (gzip 37 → 57 KB) ao adotar o sistema de UI.
-  Não é urgente — 208 KB continuam cabendo num pendrive — mas o arquivo pequeno é
-  diferencial declarado. Vale medir quanto é tema, quanto é componente não usado, e se
-  a opção `exclude:` do daisyUI corta algo relevante.
+- [x] ~~**Enxugar o CSS do daisyUI**~~ — feito
+  A lista `include:` no `app.css` restringe o daisyUI aos componentes realmente usados:
+  CSS de 105 KB para 80 KB. O arquivo pequeno é diferencial declarado, e o build inteiro
+  cabe em 304 KB com a malha dentro.
   Onde: `packages/editor/app.css`.
 
 - [ ] **Prints do `sobre` e do tema claro no `docs/install/`** — `P`
@@ -328,12 +347,13 @@ nem virarem escopo por acidente — hoje: auto-calibração por câmera com Rust
 
 ## Explicitamente fora de escopo (v1)
 
-Copiado do brief. Não implementar, mesmo parecendo natural:
+Copiado do brief. Não implementar, mesmo parecendo natural — com uma saída
+deliberada: **warp por malha** estava nesta lista e foi construído depois, quando ficou
+claro que quatro cantos não cobrem coluna nem arco. Ver `docs/specs/0001-mesh-warp.md`.
 
 - edge blending
 - múltiplos projetores
 - mapping 3D com modelo e câmera virtual
-- warp por malha/bezier para superfície curva
 - timeline e cues
 - cadeia de efeitos
 - reatividade a áudio
@@ -352,6 +372,6 @@ Existem e devem continuar limpos — não implementar, não sujar.
 
 | Ponto de extensão | Onde vive o gancho |
 |---|---|
-| **Controle externo** (uma ponte OSC via WebSocket vira só um adaptador) | `packages/engine/store.ts` — toda mutação passa por `Store.mutate` e pelos métodos públicos da classe; nenhum componente do editor escreve no projeto por fora. Ressalva no backlog: `patchSurface` ainda fura o lock. |
-| **Warp por malha** (`{ kind: 'mesh' }` sem mexer no renderer além de gerar vértices) | `packages/engine/project.ts:16-19` — `Shape` é união discriminada; o único ponto que precisa de um novo caso é `Renderer.#geometry` em `packages/engine/renderer.ts:285`. |
+| **Controle externo** (uma ponte OSC via WebSocket vira só um adaptador) | `packages/engine/store.ts` — toda mutação passa por `Store.mutate` e pelos métodos públicos da classe; nenhum componente do editor escreve no projeto por fora. |
+| ~~**Warp por malha**~~ — **construído**, e não como este gancho previa | O gancho apostava num `Shape` `{ kind: 'mesh' }`. Isso teria custado a máscara: forma é o recorte, e uma malha que ocupasse esse lugar tornaria "elipse deformada" irrepresentável. Virou camada própria (`Surface.warp`), ortogonal ao recorte. ADR-0019. |
 | **Múltiplas saídas** (`output` vira array depois) | `packages/engine/project.ts:39-44` — `output` é um objeto (`{ width, height }`), não campos soltos em `Project`. |
