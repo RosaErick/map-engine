@@ -89,8 +89,22 @@ export class SourcePool {
     return false;
   }
 
-  update(gl: WebGL2RenderingContext): void {
-    for (const { source } of this.#entries.values()) source.update(gl);
+  /**
+   * Sobe o que estiver pendente e diz se subiu algo.
+   *
+   * É esse retorno que acorda o loop quando uma imagem termina de carregar
+   * depois que tudo já estava parado: ela não é animada, ninguém mutou o
+   * projeto, e sem este sinal a textura subiria para uma GPU que ninguém mandou
+   * desenhar — ficando invisível até o próximo clique.
+   */
+  update(gl: WebGL2RenderingContext): boolean {
+    let uploaded = false;
+    for (const { source } of this.#entries.values()) {
+      const before = source.isDirty;
+      source.update(gl);
+      if (before) uploaded = true;
+    }
+    return uploaded;
   }
 
   /** Called on the first user gesture — browsers block autoplay until then. */

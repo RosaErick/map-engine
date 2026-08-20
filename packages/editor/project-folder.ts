@@ -50,6 +50,11 @@ export async function openFolder(): Promise<string | null> {
 /** Relative path -> a URL the browser can fetch. Throws when the file is gone,
  *  which is what makes the surface show the missing-media pattern. */
 export async function resolveUrl(path: string): Promise<string> {
+  // Um caminho que já é URL não é um caminho relativo à pasta: `data:`, `blob:`
+  // e `http(s):` passam direto, senão o resolvedor procuraria um arquivo com
+  // aquele nome e a superfície acenderia o padrão de mídia faltando.
+  if (/^(data|blob|https?):/.test(path)) return path;
+
   const cached = urlCache.get(path);
   if (cached) return cached;
 

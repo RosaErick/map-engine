@@ -2,7 +2,7 @@ import { Renderer, IDENTITY_VIEW, type ViewTransform } from './renderer.ts';
 import { SourcePool } from './sources/index.ts';
 import type { CanvasModule } from './sources/types.ts';
 import { Store, visibleSurfaces, patternFor, type StoreState } from './store.ts';
-import { emptyProject, type Project, type TestPattern, type Vec2 } from './project.ts';
+import { emptyProject, type Project, type Source, type TestPattern, type Vec2 } from './project.ts';
 
 export interface EngineOptions {
   /** Share a store between the editor window and the output window. */
@@ -44,6 +44,8 @@ export class Engine {
   #unsubscribe: () => void;
   #dpr: number;
   #ownsPool: boolean;
+  /** Source list the pool was last reconciled against, by identity. */
+  #syncedSources: readonly Source[] | null = null;
   #unlockBound: () => void;
 
   constructor(canvas: HTMLCanvasElement, project: Project = emptyProject(), opts: EngineOptions = {}) {
@@ -100,10 +102,22 @@ export class Engine {
   #frame(): void {
     const gl = this.renderer.gl;
     const state = this.store.state;
-    this.pool.sync(gl, state.project.sources);
-    this.pool.update(gl);
+
+    // Reconciling the pool means walking every source and building a set. It
+    // only has anything to do when the source list itself changed — and when it
+    // does, the store's notification has already marked the frame dirty.
+    if (state.project.sources !== this.#syncedSources) {
+      this.pool.sync(gl, state.project.sources);
+      this.#syncedSources = state.project.sources;
+    }
+
+    // Uploading is cheap when nothing is stale — one map lookup per source —
+    // and it has to happen before the decision, because "a texture just
+    // arrived" is one of the three reasons to draw a frame at all.
+    const uploaded = this.pool.update(gl);
+
     // An idle installation must not hold the GPU at 60fps for nothing.
-    if (!this.#dirty && !this.pool.hasAnimated) return;
+    if (!this.#dirty && !uploaded && !this.pool.hasAnimated) return;
     this.#dirty = false;
     this.renderFrame(state);
   }
