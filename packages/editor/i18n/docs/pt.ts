@@ -19,8 +19,8 @@ export const guidePt: Guide = [
         kind: 'steps',
         items: [
           '<b>Abrir pasta</b> — escolha uma pasta vazia. O arquivo do projeto e a sua mídia ficam ali, e tudo é salvo sozinho.',
-          '<b>Igualar esta tela</b> — escolha o projetor na lista e clique. Isso faz o app trabalhar na resolução nativa dele.',
-          '<b>+ superfície</b> — aparece um retângulo. Arraste os quatro cantos até cobrirem o objeto real.',
+          '<b>Casar resolução com esta tela</b> — escolha o projetor na lista e clique. Isso faz o app trabalhar na resolução nativa dele.',
+          '<b>Superfície</b> — aparece um retângulo. Arraste os quatro cantos até cobrirem o objeto real.',
           'Arraste um vídeo ou uma imagem <b>para cima da superfície</b> para preenchê-la.',
           '<b>Enviar para o projetor</b> — a projeção vai para a segunda tela e os controles ficam no seu notebook.',
           'Aperte <b>H</b> para esconder a interface. Aperte H de novo para trazê-la de volta.',
@@ -97,7 +97,7 @@ export const guidePt: Guide = [
           '<b>Módulo JS</b> — o seu próprio desenho generativo. Veja abaixo.',
         ],
       },
-      { kind: 'p', text: 'Com conteúdo na superfície, quatro controles o moldam: <b>encaixe</b> (esticar ignora a proporção, caber mostra tudo e deixa preto na sobra, preencher cobre e corta), <b>rotação</b>, <b>opacidade</b> e <b>mistura</b>.' },
+      { kind: 'p', text: 'Com conteúdo na superfície, quatro controles o moldam: <b>encaixe</b> (esticar ignora a proporção, caber mostra tudo e deixa preto na sobra, preencher cobre e corta), <b>rotação</b>, <b>opacidade</b> e <b>mistura</b>. Em <b>recorte dentro da fonte</b> você usa só um pedaço do arquivo, e <b>ordem de desenho</b> decide quem fica por cima quando duas superfícies se sobrepõem — as duas ficam recolhidas até você precisar delas.' },
       { kind: 'note', text: 'A rotação gira o conteúdo, nunca o frame — então é segura numa superfície que você já alinhou e travou.' },
     ],
   },
@@ -169,7 +169,7 @@ export function draw(ctx, t) {
         items: [
           'O salvamento é automático, instantes depois de cada mudança.',
           'Os arquivos que você solta são copiados para a pasta, então o projeto carrega a própria mídia.',
-          'Se um arquivo sumir, a superfície mostra listras magenta bem visíveis — nunca silêncio, e nunca luz em cima de um objeto físico sem nada por trás.',
+          'Se um arquivo sumir, a superfície mostra listras magenta bem visíveis — nunca silêncio, e nunca luz em cima de um objeto físico sem nada por trás. Use <b>religar</b> no painel Conteúdo para apontar a fonte ao arquivo no novo lugar, sem refazer o alinhamento.',
           'Sem acesso à pasta, o projeto fica na memória do navegador e a mídia não sobrevive a um reinício. O app avisa quando isso acontece.',
         ],
       },
@@ -182,7 +182,7 @@ export function draw(ctx, t) {
       {
         kind: 'keys',
         rows: [
-          ['↑ ↓ ← →', 'Move o canto selecionado 1 px — ou a superfície inteira, sem canto selecionado'],
+          ['↑ ↓ ← →', 'Move 1 px o canto ou o ponto de malha selecionado — ou a superfície inteira, sem nada selecionado'],
           ['Shift + setas', 'O mesmo, 10 px'],
           ['Ctrl (segurar)', 'Desliga o ímã enquanto estiver pressionado'],
           ['Ctrl+Z / Ctrl+Shift+Z', 'Desfazer / refazer'],
@@ -194,6 +194,7 @@ export function draw(ctx, t) {
           ['Botão do meio, ou Alt + arrastar', 'Pan'],
         ],
       },
+      { kind: 'note', text: 'O zoom e o pan movem só a vista do editor, nunca a projeção. Se você se perder, <b>enquadrar</b> na barra de cima devolve a saída inteira à tela.' },
     ],
   },
 ];
