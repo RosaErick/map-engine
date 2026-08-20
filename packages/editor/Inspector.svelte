@@ -99,6 +99,39 @@
         />
       </label>
 
+      <!-- Recorte: a janela amostrada dentro da fonte, em porcentagem. Existia
+           no modelo desde o começo e não tinha controle nenhum. -->
+      <div>
+        <span class="mb-1 flex items-center justify-between text-[11px] text-base-content/55">
+          {t('inspector.crop')}
+          <button
+            class="btn btn-ghost btn-xs h-auto min-h-0 px-1 py-0 font-normal text-[10px]"
+            onclick={() => { store.setCrop(s.id, { x: 0, y: 0, w: 1, h: 1 }); store.endGesture(); }}
+          >{t('inspector.cropReset')}</button>
+        </span>
+        <div class="grid grid-cols-2 gap-2">
+          {#each [
+            { key: 'x', label: 'X', value: s.crop.x },
+            { key: 'y', label: 'Y', value: s.crop.y },
+            { key: 'w', label: t('inspector.cropWidth'), value: s.crop.w },
+            { key: 'h', label: t('inspector.cropHeight'), value: s.crop.h },
+          ] as field (field.key)}
+            <label class="flex items-center gap-1.5 text-[11px] text-base-content/55">
+              <span class="w-12 shrink-0 truncate">{field.label}</span>
+              <input
+                type="number" min="0" max="100" step="1"
+                class="input input-xs w-full"
+                value={Math.round(field.value * 100)}
+                onchange={(e) => {
+                  store.setCrop(s.id, { [field.key]: +e.currentTarget.value / 100 });
+                  store.endGesture();
+                }}
+              />
+            </label>
+          {/each}
+        </div>
+      </div>
+
       <div class="grid grid-cols-2 gap-2">
         <label class="block" for="fit">
           <span class="mb-1 block text-[11px] text-base-content/55">{t('inspector.fit')}</span>
