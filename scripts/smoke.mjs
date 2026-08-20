@@ -29,14 +29,17 @@ function check(name, ok, detail = '') {
 // --- checks that need no browser ------------------------------------------
 
 const html = readFileSync(build, 'utf8');
-// Everything the app needs to run must be inside the file. The PWA assets are
-// the only allowed exceptions, and they are optional by design.
-// './index.html' is the app offering itself for download — a self reference.
+// Everything the app NEEDS TO RUN must be inside the file. Three things are
+// allowed out: the PWA assets (optional by design), the app offering itself for
+// download, and metadata — a canonical URL or a link a person clicks is not a
+// resource the page loads, and SEO needs both to be absolute.
 const PWA_FILES = ['./manifest.webmanifest', './icon-192.png', './sw.js', './index.html'];
-const external = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+const metadataOnly = /<(?:link[^>]*rel="canonical"|a\s)[^>]*>/g;
+const loadable = html.replace(metadataOnly, ' ');
+const external = [...loadable.matchAll(/(?:src|href)="([^"]+)"/g)]
   .map((m) => m[1])
   .filter((url) => !url.startsWith('data:') && !url.startsWith('#') && !PWA_FILES.includes(url));
-check('AC-14: build não referencia nada fora do arquivo', external.length === 0, external.join(' | '));
+check('AC-14: build não carrega nada de fora do arquivo', external.length === 0, external.join(' | '));
 
 // A service worker only updates when its own bytes change. If the version stops
 // tracking the HTML, the PWA serves last month's app forever.
