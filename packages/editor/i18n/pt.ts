@@ -59,6 +59,8 @@ export const pt: Messages = {
   'project.title': 'Projeto',
   'project.blurb': 'Um projeto é uma pasta: o arquivo do projeto e a mídia ficam lado a lado, e tudo é salvo sozinho.',
   'project.openFolder': 'abrir pasta',
+  'project.reopen': 'reabrir {name}',
+  'project.reopened': 'pasta {name} reaberta',
   'project.saveNow': 'salvar agora',
   'project.downloadJson': 'baixar json',
   'project.projector': 'Projetor (saída)',

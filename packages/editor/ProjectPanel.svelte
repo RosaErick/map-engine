@@ -1,6 +1,6 @@
 <script lang="ts">
   import { store, session, flash, getEngine } from './state.svelte.ts';
-  import { openFolder, save, downloadProject, hasFileSystemAccess, invalidateUrls, resolveUrl, FolderError } from './project-folder.ts';
+  import { openFolder, save, downloadProject, grantFolder, hasFileSystemAccess, invalidateUrls, resolveUrl, FolderError } from './project-folder.ts';
   import { openOutput, listScreens, type OutputScreen, type OutputWarning } from '../output/output.ts';
   import { t, type MessageKey } from './i18n/index.svelte.ts';
 
@@ -49,6 +49,25 @@
     }
   }
 
+  /** Reabre a pasta da sessão anterior. Precisa estar dentro do clique: é o
+   *  gesto do usuário que dá ao app o direito de pedir a permissão. */
+  async function onReopen(): Promise<void> {
+    const restored = await grantFolder();
+    if (!restored) {
+      // Negar é uma resposta legítima. O botão some porque insistir com ele a
+      // cada abertura seria pior do que aceitar o não.
+      session.pendingFolder = '';
+      flash(t('warn.folderFailed'));
+      return;
+    }
+    invalidateUrls();
+    if (restored.json) store.load(restored.json);
+    session.pendingFolder = '';
+    session.hasFolder = true;
+    session.folderName = restored.name;
+    flash(restored.json ? t('project.loaded') : t('project.emptyFolder'));
+  }
+
   /** Códigos da janela de saída viram frase aqui: quem abre a janela não escolhe
    *  as palavras que o operador lê. */
   const WARNINGS: Record<OutputWarning, MessageKey> = {
@@ -94,6 +113,13 @@
   </p>
 
   <div class="mt-3 flex flex-wrap gap-2">
+    {#if session.pendingFolder}
+      <!-- Um clique em vez de navegar o diálogo do sistema: o handle da sessão
+           anterior está guardado, só a permissão não sobreviveu. -->
+      <button class="btn btn-xs btn-primary" onclick={onReopen}>
+        {t('project.reopen', { name: session.pendingFolder })}
+      </button>
+    {/if}
     <button class="btn btn-xs" onclick={onOpenFolder} disabled={!hasFileSystemAccess}>
       {t('project.openFolder')}
     </button>

@@ -31,6 +31,22 @@ idêntico, byte a byte.
 - Máscara de elipse e de polígono continuam recortando numa superfície deformada.
 - Superfície travada recusa edição de malha, pela mesma razão que recusa canto.
 
+### A pasta do projeto sobrevive à sessão
+
+O brief pede "abrir usa `showDirectoryPicker()` **e guarda o handle**", e o handle só
+vivia na memória do módulo: toda abertura exigia re-selecionar a pasta antes de qualquer
+coisa aparecer.
+
+- O handle vai para IndexedDB, que aceita clone estruturado — `localStorage` só guarda
+  texto. Verificado que IndexedDB funciona e persiste em `file://`, uma origem opaca e a
+  distribuição principal deste app.
+- A promessa é do tamanho do que o navegador permite: **um clique em vez de navegar o
+  diálogo do sistema**, e nenhum quando a permissão é persistente. Pedir permissão fora
+  de um gesto do usuário é rejeitado de propósito, então a partida nunca escala sozinha:
+  o nome da pasta vira botão e o pedido acontece dentro do clique.
+- Permissão negada não vira botão para insistir, e handle cuja pasta sumiu é esquecido
+  em vez de ficar meio adotado falhando a cada salvamento.
+
 ### Adicionado
 
 **Engine**
@@ -96,6 +112,19 @@ idêntico, byte a byte.
 - Publicação no GitHub Pages e Release com o `.html` avulso anexado.
 
 ### Mudado
+- **O clique numa superfície passou a respeitar a forma, não a caixa dela.** Um polígono
+  ocupa uma fração da própria bbox, e o canto vazio dela selecionava a superfície — em
+  cima de uma escada, mirando outra coisa. A área que responde ao ponteiro virou a
+  silhueta; o contorno do frame continua desenhado como frame, que é o papel dele.
+- **O guia da malha ganhou contorno escuro sob o traço claro**, a técnica que a
+  cartografia usa para estrada sobre qualquer fundo. Contraste sobre branco medido:
+  1,38 → 3,14. A alternativa registrada no backlog, medir a luminância e inverter,
+  custaria `readPixels` por ponto e por frame — uma parada sincronizada da GPU dentro do
+  laço de render.
+- **As linhas da lista de superfícies mostram o número que o projetor desenha**, vindo de
+  `surfaceOrder` — a mesma função do renderer, e não um `index + 1` próprio que
+  divergiria dela. Uma superfície chamada "Superfície 2" podia aparecer projetada como
+  "1".
 - **Opacidade** e **ordem de desenho** passaram a ficar recolhidas numa seção só, como
   já acontecia com o recorte: são ajustes que se faz uma vez e não se toca mais, e
   abertas empurravam encaixe, mistura e padrão para fora da tela. O cabeçalho recolhido
@@ -105,6 +134,15 @@ idêntico, byte a byte.
   é configurada: **Projetor (saída)**.
 
 ### Corrigido
+- Editar o vértice de um polígono traçado nunca funcionou pelo motivo que o backlog
+  registrava. As alças e o `pointInPolygon` dentro de `surfaceAt` já existiam; o ponteiro
+  é que não chegava lá, porque a trilha do frame no overlay capturava o clique sobre a
+  caixa inteira. Consertar o `surfaceAt` sozinho não mudava nada — e não mudou, por meses.
+- O verificador de i18n reprovava a linha de abertura de um comentário JSDoc: ele pula
+  linhas que começam com `//` ou `*`, e `/**` não é nenhum dos dois, então uma palavra
+  entre aspas ali virava "texto em código". Comentários de bloco passaram a ser apagados
+  antes da varredura, preservando as quebras de linha para o número da linha continuar
+  certo. Mesmo defeito do apóstrofo em comentário de marcação, um nível acima.
 - O `smoke` herdava o idioma da máquina. O editor escolhe o catálogo por
   `navigator.languages`, então os cliques — escritos em português — só achavam os botões
   porque quem rodava tinha o laptop em pt-BR. Numa máquina em inglês a suíte inteira
@@ -139,7 +177,7 @@ idêntico, byte a byte.
 - Integração contínua num pipeline só: `testes → tipos → idioma → build → smoke →
   deploy`, com a publicação no Pages dependente de tudo que vem antes. Antes o deploy
   saía depois de apenas `npm test`, e pull request nenhum era verificado.
-- 81 testes de unidade sem framework (`node:test`).
-- 23 checagens de integração em chromium headless, lendo pixels do build real.
+- 85 testes de unidade sem framework (`node:test`).
+- 28 checagens de integração em chromium headless, lendo pixels do build real.
 - `npm run i18n` reprova string fixa no editor e tradução que perdeu placeholder ou
   marcação.

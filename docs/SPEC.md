@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 81 testes de unidade (node:test, sem framework)
+npm test              # 85 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -462,6 +462,71 @@ exemplos de código são idênticos, porque código não se traduz.
 > Um guia traduzido que perde um passo em silêncio é pior do que um que falta
 > inteiro: ninguém percebe até precisar daquele passo.
 
+### AC-56 — A pasta volta na sessão seguinte
+
+**Dado** uma pasta de projeto aberta numa sessão anterior
+**Quando** o app é aberto de novo
+**Então** o handle guardado é encontrado, e com permissão persistente a pasta é
+readotada com o projeto já lido — sem passar pelo seletor de arquivos.
+
+> O que se prova automaticamente é a camada de baixo: que `file://`, uma origem
+> opaca, guarda e devolve o valor. Um handle de verdade só sai de um diálogo do
+> sistema operacional, que nenhum teste consegue operar.
+
+### AC-57 — Permissão pendente não é escalada sozinha
+
+**Dado** um handle guardado cuja permissão não sobreviveu à sessão
+**Quando** o app parte
+**Então** nada é pedido: o nome da pasta vira um botão, e o pedido acontece
+dentro do clique. Permissão negada não vira botão nenhum.
+
+> Pedir permissão fora de um gesto do usuário é rejeitado pelo navegador de
+> propósito. E insistir com um botão numa pasta que a pessoa já recusou é a
+> versão de interface da mesma falta de educação.
+
+### AC-58 — Handle morto é esquecido
+
+**Dado** um handle cuja pasta foi apagada, movida, ou está num dispositivo
+ausente
+**Quando** o app tenta readotá-la
+**Então** o handle é descartado e a partida segue como se não houvesse nada
+guardado — nunca uma pasta meio adotada que falha a cada salvamento.
+
+### AC-59 — O clique respeita a forma, não a caixa dela
+
+**Dado** um polígono que ocupa uma fração da própria caixa
+**Quando** o ponteiro cai num canto vazio dessa caixa
+**Então** a superfície não é selecionada; dentro do polígono, é.
+
+> A área que responde ao ponteiro é a silhueta. O contorno do frame continua
+> desenhado como frame — ele é o guia de alinhamento —, mas deixou de ser o que
+> captura o clique.
+
+### AC-60 — Vértice de polígono se edita depois de traçado
+
+**Dado** um polígono já fechado
+**Quando** um vértice é arrastado
+**Então** aquele vértice se move, e o arrasto inteiro é um só desfazer.
+
+### AC-61 — O guia da malha sobrevive ao conteúdo
+
+**Dado** o guia da malha desenhado sobre conteúdo branco e sobre conteúdo preto
+**Quando** o contraste é medido no elemento renderizado, com o CSS aplicado
+**Então** a razão de contraste é de pelo menos 2 nos dois casos.
+
+> Medido, não olhado: o desenho anterior — violeta a 40%, sem contorno — dava
+> 1,38 sobre branco, que é o motivo de ele sumir justamente sobre a imagem em
+> que se julga o alinhamento.
+
+### AC-62 — O número da lista é o número projetado
+
+**Dado** superfícies em qualquer ordem de empilhamento
+**Quando** a lista é lida ao lado do padrão "número"
+**Então** os dois dizem o mesmo, e uma mudança de ordem move os dois juntos.
+
+> A lista chama `surfaceOrder`, a mesma função que o renderer usa para escolher
+> o glifo. Recalcular a ordenação na interface é como os dois divergem.
+
 ### AC-55 — O guia manda clicar em botões que existem
 
 **Dado** o guia e o catálogo de mensagens da mesma língua
@@ -546,6 +611,13 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-53 | provado | `warp.test.ts` (2 testes) |
 | AC-54 | provado | `store.test.ts` |
 | AC-55 | provado | `docs/guide.test.ts` (3 línguas) |
+| AC-56 | provado | `project-folder.test.ts` + `smoke.mjs` (IndexedDB em `file://`) |
+| AC-57 | provado | `project-folder.test.ts` (2 testes) |
+| AC-58 | provado | `project-folder.test.ts` |
+| AC-59 | provado | `smoke.mjs` (clique real) |
+| AC-60 | provado | `smoke.mjs` (arrasto real) |
+| AC-61 | provado | `smoke.mjs` (contraste medido) |
+| AC-62 | provado | `smoke.mjs` (DOM contra ordem do engine) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o
