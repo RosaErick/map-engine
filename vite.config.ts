@@ -5,6 +5,34 @@ import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+// @ts-expect-error — módulo .mjs sem tipos, usado só para gerar a marca
+import { markSvg } from './scripts/mark.mjs';
+
+/**
+ * Injeta o favicon como SVG embutido no próprio HTML.
+ *
+ * Um PNG de 192 reduzido para 16 fica borrado, e arquivo externo não carrega
+ * quando alguém abre o build direto do disco — que é justamente o caminho que
+ * este projeto vende. Como data URI ele é nítido em qualquer tamanho, não custa
+ * requisição, e sai da mesma função que desenha o ícone do app, então nunca
+ * dessincroniza.
+ */
+function favicon(): Plugin {
+  return {
+    name: 'map-engine:favicon',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html: string) {
+        const svg =
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+          '<rect width="64" height="64" fill="#000"/>' +
+          markSvg(64) +
+          '</svg>';
+        return html.replace('%FAVICON%', `data:image/svg+xml,${encodeURIComponent(svg)}`);
+      },
+    },
+  };
+}
 
 /**
  * Writes the service worker after the bundle exists, stamped with a hash of the
@@ -77,6 +105,6 @@ self.addEventListener('fetch', (event) => {
 // network: on site there is no wifi and no time to debug why there isn't.
 export default defineConfig({
   base: './',
-  plugins: [tailwindcss(), svelte(), viteSingleFile(), serviceWorker()],
+  plugins: [favicon(), tailwindcss(), svelte(), viteSingleFile(), serviceWorker()],
   build: { target: 'es2022', assetsInlineLimit: 100_000_000, cssCodeSplit: false },
 });
