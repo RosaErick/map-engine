@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 44 testes de unidade (node:test, sem framework)
+npm test              # 62 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -58,6 +58,24 @@ Seam: `packages/engine/homography.ts`, `packages/engine/geometry.ts` (funções 
 **Dado** um polígono simples de n pontos, convexo ou côncavo
 **Quando** ele é triangulado
 **Então** saem n-2 triângulos, e nenhum deles cobre área fora do polígono
+
+### AC-35 — O ímã gruda na aresta, não só no canto
+
+**Dado** um ponto arrastado perto da aresta de outra superfície
+**Quando** o ponto mais próximo daquele segmento é calculado
+**Então** ele é o pé da perpendicular quando cai dentro do segmento, e a ponta
+mais próxima quando passa dela; e uma aresta degenerada (dois cantos no mesmo
+lugar) devolve aquele ponto em vez de dividir por zero.
+
+### AC-36 — Elipse é elipse, não a caixa dela
+
+**Dado** um ponto no espaço do frame
+**Quando** ele é testado contra a elipse inscrita
+**Então** o centro e os meios das arestas estão dentro, e os quatro cantos do
+quadrado unitário estão fora.
+
+> É o que faz clicar no canto vazio de uma superfície elíptica **não** selecionar
+> o que não está aceso ali.
 
 ### AC-5 — Hit test e bounds
 
@@ -160,6 +178,64 @@ só a superfície em solo sai, mesmo que outras estejam visíveis
 **Então** volta idêntico; e uma referência de fonte que não existe mais é derrubada
 na leitura, em vez de chegar ao renderer
 
+### AC-37 — Recorte sempre amostra alguma coisa
+
+**Dado** um recorte com largura ou altura zero, negativa ou acima de 1
+**Quando** ele é gravado ou carregado de um arquivo
+**Então** ele é trazido para dentro de 0..1 com um mínimo que ainda amostra
+pixels — uma janela vazia apagaria a superfície por um motivo invisível no arquivo.
+
+### AC-38 — Vértice de polígono obedece à trava
+
+**Dado** um polígono traçado
+**Quando** um vértice é movido
+**Então** ele se move no espaço do frame; e numa superfície travada não se move,
+pela mesma razão que um canto não se move — a forma é o que está em cima do
+objeto físico.
+
+### AC-40 — A porta genérica tem as mesmas travas das nomeadas
+
+**Dado** um patch com opacidade 5, rotação 450°, recorte inválido, encaixe
+inexistente, mistura inexistente, nome em branco e `z` não numérico
+**Quando** ele é aplicado pelo caminho genérico
+**Então** o resultado é indistinguível do que os métodos nomeados produziriam:
+opacidade em 0..1, ângulo normalizado, recorte que amostra algo, encaixe e
+mistura recusados, nome preservado, `z` finito.
+
+> Uma regra que depende de qual método o chamador escolheu não é uma regra. E o
+> consumidor previsto do caminho genérico é a ponte de controle externo.
+
+### AC-41 — Id repetido é resolvido na leitura, não carregado adiante
+
+**Dado** um `project.json` com duas fontes de mesmo id e duas superfícies de
+mesmo id
+**Quando** ele é carregado
+**Então** sobra uma fonte — a que as superfícies já referenciam — e as duas
+superfícies sobrevivem com ids que as endereçam separadamente, de modo que apagar
+uma não apague a outra.
+
+---
+
+## 3c. O projeto em disco
+
+Seam: `createSaver` e `safeName` em `packages/editor/saver.ts`.
+
+### AC-42 — O autosave não perde estado nem trava
+
+**Dado** mudanças em sequência
+**Quando** o período de silêncio passa
+**Então** acontece **uma** escrita, com o conteúdo do momento em que ela roda; e
+se outra escrita já estiver em voo, exatamente uma passada extra é enfileirada,
+carregando o estado mais novo — não duas, e nenhuma perdida. Uma escrita que
+falha é reportada e **não trava** o autosave: a próxima funciona.
+
+### AC-43 — Nome de arquivo solto não escapa da pasta
+
+**Dado** um arquivo arrastado com nome hostil
+**Quando** ele é copiado para a pasta do projeto
+**Então** só o nome-base é usado, sem separador de caminho, sem ponto inicial e
+nunca vazio.
+
 ---
 
 ## 3b. Uma fonte, duas janelas
@@ -251,6 +327,15 @@ sem cinza, sem gradiente, sem vinheta, sem borda
 > Alinhar é uma superfície por vez: grade numa, número em outra, nada nas demais. O
 > global continua existindo porque "grade em tudo" é o caso mais comum.
 
+### AC-39 — Fonte que chega tarde acende sozinha
+
+**Dado** um projeto parado, sem nada animado e sem nenhuma mutação pendente
+**Quando** uma imagem termina de decodificar depois que o loop de render dormiu
+**Então** ela aparece na parede sem nenhuma ação do usuário.
+
+> O loop dorme de propósito. A textura chegando é uma das três razões para
+> desenhar um frame, ao lado de "o estado mudou" e "existe fonte animada".
+
 ### AC-20 — UV com correção de perspectiva
 
 **Dado** um quadrilátero fortemente deformado em perspectiva e um padrão com bordas retas
@@ -317,7 +402,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 
 ## 6. Estado da verificação
 
-Última execução: `npm test` (44/44) + `npm run smoke` (18/18), build de ~212 KB.
+Última execução: `npm test` (62/62) + `npm run smoke` (19/19), build de ~300 KB.
 
 | Critério | Estado | Prova |
 |---|---|---|
@@ -345,8 +430,17 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-29 | provado | `sources/textures.test.ts` (5 testes) |
 | AC-31 | provado | `smoke.mjs` |
 | AC-32 | provado | `store.test.ts` (3 testes) + `smoke.mjs` (2 checagens de pixel) |
-| AC-33 | provado | `check-i18n.mjs` + tipos (`Record<MessageKey, string>`) |
+| AC-33 | provado | `i18n/catalogues.test.ts` (6 testes) + `check-i18n.mjs` |
 | AC-34 | provado | `i18n/docs/guide.test.ts` (7 testes) |
+| AC-35 | provado | `math.test.ts` (2 testes) |
+| AC-36 | provado | `math.test.ts` |
+| AC-37 | provado | `store.test.ts` |
+| AC-38 | provado | `store.test.ts` |
+| AC-39 | provado | `smoke.mjs` (leitura de pixel sem forçar frame) |
+| AC-40 | provado | `store.test.ts` |
+| AC-41 | provado | `store.test.ts` |
+| AC-42 | provado | `saver.test.ts` (4 testes) |
+| AC-43 | provado | `saver.test.ts` |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o

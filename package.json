@@ -24,7 +24,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test 'packages/engine/*.test.ts' 'packages/engine/sources/*.test.ts' 'packages/editor/*.test.ts' 'packages/editor/i18n/docs/*.test.ts'",
+    "test": "node --test 'packages/engine/*.test.ts' 'packages/engine/sources/*.test.ts' 'packages/editor/*.test.ts' 'packages/editor/i18n/*.test.ts' 'packages/editor/i18n/docs/*.test.ts'",
     "check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "smoke": "node scripts/smoke.mjs",
     "verify": "npm test && npm run i18n && npm run build && npm run smoke",
