@@ -169,6 +169,19 @@ gira no lugar em vez de sair da forma), `isQuarterTurned(rotation)`,
 `frameAspectOf(surface)` (aspecto aproximado de um frame em perspectiva: média das arestas
 opostas), `frameToPixel(h, u, v)` e as constantes `IDENTITY_VIEW` / o tipo `ViewTransform`.
 
+#### [`packages/engine/warp.ts`](../packages/engine/warp.ts)
+
+A malha livre: a camada entre o frame e o recorte. Exporta `identityWarp`, `isIdentity`,
+`evaluateWarp` (a função que define o que a superfície **é** — o render tesselava, a
+reamostragem relê e o hit-test inverte), `unwarp`, `tessellate`, `resampleWarp` e
+`parseWarp`. Ponto de controle é **posição**, em espaço do frame, e não coordenada de
+textura.
+
+Uma armadilha registrada no código: interpolar Catmull-Rom repetindo o ponto de borda faz
+a grade identidade deixar de ser identidade — a spline curva. Extrapolar o vizinho
+(`2·borda − interno`) mantém pontos igualmente espaçados colineares, e spline por pontos
+colineares é a reta. Sem isso, "aplanar" não seria confiável.
+
 #### [`packages/engine/store.ts`](../packages/engine/store.ts)
 
 Fonte única de verdade. A classe `Store` guarda `{ project, view }` em campos privados,
