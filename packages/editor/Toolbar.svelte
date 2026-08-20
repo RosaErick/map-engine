@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { store, ui, fitView } from './state.svelte.ts';
+  import { store, ui, fitView, addSurface } from './state.svelte.ts';
   import type { TestPattern } from '../engine/index.ts';
   import { PATTERNS } from './patterns.ts';
+  import { t } from './i18n/index.svelte.ts';
 
   /** Quantas superfícies ignoram o padrão global por terem o seu. */
   const overrides = $derived(Object.keys($store.view.surfacePatterns).length);
@@ -16,28 +17,28 @@
      lateral, porque são coisas de começo e de fim, não de trabalho. -->
 <div class="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-base-300 bg-base-100 px-3 py-2">
   <div class="join">
-    <button class="btn btn-sm btn-primary join-item" onclick={() => store.addSurface()}>
-      + superfície
+    <button class="btn btn-sm btn-primary join-item" onclick={addSurface}>
+      {t('toolbar.newSurface')}
     </button>
     <button
       class="btn btn-sm join-item"
       class:btn-active={ui.tool === 'polygon'}
       aria-pressed={ui.tool === 'polygon'}
-      title="Clique para traçar um contorno livre em volta de um objeto torto"
+      title={t('toolbar.polygonHint')}
       onclick={() => (ui.tool = ui.tool === 'polygon' ? 'select' : 'polygon')}
     >
-      polígono
+      {t('toolbar.polygon')}
     </button>
   </div>
 
   <div class="divider divider-horizontal mx-0 h-6 self-center"></div>
 
   <div class="join">
-    <button class="btn btn-sm join-item" onclick={() => store.undo()} disabled={!store.canUndo} title="Ctrl+Z">
-      desfazer
+    <button class="btn btn-sm join-item" onclick={() => store.undo()} disabled={!store.canUndo} title={t('toolbar.undoShortcut')}>
+      {t('toolbar.undo')}
     </button>
-    <button class="btn btn-sm join-item" onclick={() => store.redo()} disabled={!store.canRedo} title="Ctrl+Shift+Z">
-      refazer
+    <button class="btn btn-sm join-item" onclick={() => store.redo()} disabled={!store.canRedo} title={t('toolbar.redoShortcut')}>
+      {t('toolbar.redo')}
     </button>
   </div>
 
@@ -45,47 +46,47 @@
     class="btn btn-sm"
     class:btn-active={ui.snap}
     aria-pressed={ui.snap}
-    title="Gruda nos cantos das outras superfícies. Segure Ctrl para desligar por um instante"
+    title={t('toolbar.snapHint')}
     onclick={() => (ui.snap = !ui.snap)}
   >
-    ímã
+    {t('toolbar.snap')}
   </button>
 
   <div class="divider divider-horizontal mx-0 h-6 self-center"></div>
 
   <label class="flex items-center gap-2 text-sm" for="pattern">
-    <span class="text-base-content/60">padrão em todas</span>
+    <span class="text-base-content/60">{t('toolbar.patternAll')}</span>
     <select
       id="pattern"
       class="select select-sm w-40"
-      title="Vale para todas as superfícies que não tiverem um padrão próprio"
+      title={t('toolbar.patternAllHint')}
       value={$store.view.testPattern}
       onchange={(e) => store.setTestPattern(e.currentTarget.value as TestPattern)}
     >
-      {#each PATTERNS as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
+      {#each PATTERNS as id (id)}<option value={id}>{t(`pattern.${id}`)}</option>{/each}
     </select>
   </label>
 
   {#if overrides > 0}
     <button
       class="btn btn-xs btn-ghost text-base-content/60"
-      title="Algumas superfícies têm padrão próprio e ignoram o de cima"
+      title={t('toolbar.overridesHint')}
       onclick={() => { for (const id of Object.keys($store.view.surfacePatterns)) store.setSurfacePattern(id, null); }}
     >
-      {overrides} com padrão próprio · limpar
+      {t('toolbar.overrides', { count: overrides })}
     </button>
   {/if}
 
   <div class="grow"></div>
 
-  <button class="btn btn-sm btn-ghost" onclick={enquadrar} title="Recentraliza a área de trabalho">
-    enquadrar
+  <button class="btn btn-sm btn-ghost" onclick={enquadrar} title={t('toolbar.fitHint')}>
+    {t('toolbar.fit')}
   </button>
   <button
     class="btn btn-sm btn-ghost"
     onclick={() => store.setView({ uiHidden: true })}
-    title="Esconde toda a interface. Tecla H para voltar"
+    title={t('toolbar.hideUiHint')}
   >
-    esconder UI
+    {t('toolbar.hideUi')}
   </button>
 </div>

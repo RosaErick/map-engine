@@ -3,7 +3,7 @@ import App from './App.svelte';
 import './app.css';
 
 const target = document.getElementById('app');
-if (!target) throw new Error('#app não encontrado');
+if (!target) throw new Error('#app not found');
 mount(App, { target });
 
 // Installable and offline once served over http(s). Registering from file://

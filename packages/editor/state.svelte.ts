@@ -1,4 +1,5 @@
-import { Store, emptyProject, quadToUnit, apply, type Surface, type Vec2 } from '../engine/index.ts';
+import { Store, emptyProject, newSurface, quadToUnit, apply, type Surface, type Vec2 } from '../engine/index.ts';
+import { t } from './i18n/index.svelte.ts';
 import type { Engine } from '../engine/engine.ts';
 
 /** One store for the whole app. The output window shares this exact object —
@@ -91,6 +92,23 @@ export function surfaceAt(p: Vec2): Surface | null {
 export function selected(): Surface | null {
   const id = store.view.selectedSurfaceId;
   return id ? store.project.surfaces.find((s) => s.id === id) ?? null : null;
+}
+
+/**
+ * Cria uma superfície com nome no idioma da interface.
+ *
+ * O nome vai para o `project.json` e é dado do projeto, não cópia de interface —
+ * por isso a engine inventa um nome em inglês e quem sabe a língua do usuário é
+ * quem passa o nome de verdade. Renomear depois não desfaz nada disso.
+ */
+export function addSurface(): void {
+  const number = store.project.surfaces.length + 1;
+  store.addSurface(newSurface(store.project, t('surfaces.defaultName', { number })));
+}
+
+export function duplicateSelected(): void {
+  const s = selected();
+  if (s) store.duplicateSurface(s.id, t('surfaces.copyOf', { name: s.name }));
 }
 
 export function flash(message: string): void {

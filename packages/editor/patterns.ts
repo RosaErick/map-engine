@@ -1,18 +1,12 @@
 import type { TestPattern } from '../engine/index.ts';
 
-/** Os oito padrões, com nome em português. Uma lista só, usada pela barra de
- *  trabalho (global) e pelo inspetor (por superfície). */
-export const PATTERNS: { id: TestPattern; label: string }[] = [
-  { id: 'none', label: 'sem padrão' },
-  { id: 'grid', label: 'grade' },
-  { id: 'number', label: 'número' },
-  { id: 'crosshair', label: 'cruz' },
-  { id: 'white', label: 'branco' },
-  { id: 'black', label: 'preto' },
-  { id: 'bars', label: 'barras de cor' },
-  { id: 'sweep', label: 'varredura' },
+/**
+ * A ordem em que os padrões aparecem nos seletores.
+ *
+ * Só os ids: o rótulo de cada um vive no catálogo, sob `pattern.<id>`, para não
+ * existir em dois lugares. `TestPattern` é união de literais, então acrescentar
+ * um padrão na engine sem traduzi-lo vira erro de compilação.
+ */
+export const PATTERNS: TestPattern[] = [
+  'none', 'grid', 'number', 'crosshair', 'white', 'black', 'bars', 'sweep',
 ];
-
-export function patternLabel(id: TestPattern): string {
-  return PATTERNS.find((p) => p.id === id)?.label ?? String(id);
-}

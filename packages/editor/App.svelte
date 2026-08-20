@@ -7,13 +7,22 @@
   import Inspector from './Inspector.svelte';
   import SourcePanel from './SourcePanel.svelte';
   import About from './About.svelte';
-  import { store, ui, selected, flash } from './state.svelte.ts';
-  import { scheduleSave, localProject, hasFileSystemAccess } from './project-folder.ts';
+  import { store, ui, selected, flash, duplicateSelected } from './state.svelte.ts';
+  import { scheduleSave, localProject, hasFileSystemAccess, setMemoryLabel } from './project-folder.ts';
   import { initTheme } from './theme.svelte.ts';
+  import { initLocale, i18n, t } from './i18n/index.svelte.ts';
 
   let aboutOpen = $state(false);
 
   initTheme();
+  initLocale();
+
+  // O rótulo de "onde foi salvo" é cópia, então quem tem o catálogo é quem o
+  // define — e ele acompanha a troca de idioma.
+  $effect(() => {
+    setMemoryLabel(t('project.inBrowserMemory'));
+    void i18n.locale;
+  });
 
   // Autosave a cada mudança. Meia hora de alinhamento não pode depender de
   // alguém lembrar de Ctrl+S em cima de uma escada.
@@ -30,7 +39,7 @@
 
   $effect(() => {
     if (!hasFileSystemAccess) {
-      flash('Sem File System Access: o projeto fica na memória do navegador. Use Chrome ou Edge para salvar em pasta.');
+      flash(t('warn.noFileSystemAccess'));
       const saved = localProject();
       if (saved) { try { store.load(saved); } catch { /* autosave corrompido, começa limpo */ } }
     }
@@ -53,7 +62,7 @@
     if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); store.redo(); return; }
 
     const s = selected();
-    if (mod && e.key.toLowerCase() === 'd' && s) { e.preventDefault(); store.duplicateSurface(s.id); return; }
+    if (mod && e.key.toLowerCase() === 'd' && s) { e.preventDefault(); duplicateSelected(); return; }
 
     if (e.key === 'Escape') {
       if (aboutOpen) return;
