@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { solveUnitToQuad, invert, apply, quadToUnit, type Quad } from './homography.ts';
-import { triangulate, pointInPolygon, signedArea, bounds } from './geometry.ts';
+import { triangulate, pointInPolygon, pointInUnitEllipse, closestOnSegment, signedArea, bounds } from './geometry.ts';
 
 const EPS = 1e-9;
 
@@ -71,4 +71,30 @@ test('AC-5: winding sign and bounds of a point set', () => {
   assert.ok(signedArea(cw) > 0);
   assert.ok(signedArea([...cw].reverse()) < 0);
   assert.deepEqual(bounds(cw), { x: 0, y: 0, w: 1, h: 1 });
+});
+
+test('AC-35: closestOnSegment lands on the perpendicular foot, not the nearest end', () => {
+  const a = { x: 0, y: 0 };
+  const b = { x: 100, y: 0 };
+  const { point, distance } = closestOnSegment({ x: 40, y: 10 }, a, b);
+  assert.deepEqual(point, { x: 40, y: 0 });
+  assert.equal(distance, 10);
+});
+
+test('AC-35: closestOnSegment clamps past the ends and survives a degenerate edge', () => {
+  const a = { x: 0, y: 0 };
+  const b = { x: 10, y: 0 };
+  assert.deepEqual(closestOnSegment({ x: -50, y: 0 }, a, b).point, a);
+  assert.deepEqual(closestOnSegment({ x: 50, y: 0 }, a, b).point, b);
+  const degenerate = closestOnSegment({ x: 3, y: 4 }, a, a);
+  assert.deepEqual(degenerate.point, a);
+  assert.equal(degenerate.distance, 5);
+});
+
+test('AC-36: pointInUnitEllipse follows the inscribed ellipse, not the box', () => {
+  assert.ok(pointInUnitEllipse({ x: 0.5, y: 0.5 }));
+  assert.ok(pointInUnitEllipse({ x: 0.5, y: 0 }));
+  // The corners of the unit square fall outside the inscribed ellipse.
+  assert.ok(!pointInUnitEllipse({ x: 0, y: 0 }));
+  assert.ok(!pointInUnitEllipse({ x: 1, y: 1 }));
 });
