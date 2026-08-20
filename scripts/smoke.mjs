@@ -553,6 +553,37 @@ check('AC-60: vértice de polígono se move e volta num só desfazer',
   Math.abs(vAfter.x - vBefore.x) > 0.005 && Math.abs(vUndone.x - vBefore.x) < 1e-9,
   `${vBefore.x.toFixed(3)} -> ${vAfter.x.toFixed(3)} -> ${vUndone.x.toFixed(3)}`);
 
+// O número da lista tem que ser o mesmo que o projetor desenha. Quem está na
+// escada lê os dois ao mesmo tempo; divergir seria pior do que não numerar.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  store.addSurface(); store.addSurface(); store.addSurface();
+  // A última superfície vai para o topo da pilha: se a lista numerasse por
+  // ordem de criação em vez de por z, esta é a linha que denunciaria.
+  const [a, , c] = store.project.surfaces;
+  store.reorder(c.id, 10);
+  store.reorder(a.id, -5);
+});
+await page.waitForFunction(() => document.querySelectorAll('aside li, .surface-row').length > 0
+  || document.querySelectorAll('li').length > 0, null, { timeout: 5000 });
+
+const numbering = await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  // O que o renderer projeta: z decrescente, começando em 1.
+  const projected = [...store.project.surfaces].sort((a, b) => b.z - a.z).map((s) => s.name);
+  // O que a lista mostra, lido do DOM.
+  const rows = [...document.querySelectorAll('li')]
+    .map((li) => ({ badge: li.querySelector('span'), label: li.querySelector('button') }))
+    .filter((r) => r.badge && r.label && /^\d+$/.test(r.badge.textContent.trim()))
+    .map((r) => ({ number: Number(r.badge.textContent.trim()), name: r.label.textContent.trim() }));
+  return { projected, rows };
+});
+const listOk = numbering.rows.length === numbering.projected.length
+  && numbering.rows.every((row, i) => row.number === i + 1 && row.name === numbering.projected[i]);
+check('AC-62: o número da lista é o número que o projetor desenha', listOk,
+  `lista=${numbering.rows.map((r) => `${r.number}:${r.name}`).join(' ')} | projetado=${numbering.projected.join(' ')}`);
+
 // A pasta guardada entre sessões depende de IndexedDB funcionar numa página
 // `file://`, que é uma origem opaca — vale provar no artefato construído, e não
 // no laptop de quem escreveu. Um handle de verdade não cabe aqui: ele só sai de

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { store, addSurface, duplicateSelected } from './state.svelte.ts';
+  import { surfaceOrder } from '../engine/index.ts';
   import { t } from './i18n/index.svelte.ts';
 
   let renaming = $state<string | null>(null);
@@ -12,6 +13,11 @@
   }
 
   const ordered = $derived([...$store.project.surfaces].sort((a, b) => b.z - a.z));
+
+  /** O número que o padrão "número" projeta. Vem do engine, e não de um
+   *  `index + 1` daqui: número na lista que discorda do número na parede é pior
+   *  do que lista sem número nenhum. */
+  const numbers = $derived(surfaceOrder($store.project));
 </script>
 
 <section class="border-b border-base-300 px-4 py-3">
@@ -37,6 +43,7 @@
           ? 'border-primary bg-primary/10'
           : 'border-transparent hover:bg-base-200'}"
       >
+        <span class="w-4 shrink-0 text-right text-[10px] tabular-nums text-base-content/35">{numbers.get(s) ?? ''}</span>
         <button
           class="flex-1 truncate px-2 py-0.5 text-left text-[13px]"
           onclick={() => store.setView({ selectedSurfaceId: s.id, selectedCorner: null })}
