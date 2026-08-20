@@ -163,10 +163,11 @@ export function sanitizeSurfacePatch(
   if (patch.z !== undefined) out.z = num(patch.z, 0);
   if (patch.crop !== undefined) out.crop = parseCrop(patch.crop);
   // A warp is geometry: the lock exists to stop exactly this from moving.
+  // Removing one goes through `Store.disableWarp`, because a partial patch can
+  // say "this value" but not "no value".
   if (!locked && patch.warp !== undefined) {
-    const warp = patch.warp === null ? null : parseWarp(patch.warp);
+    const warp = parseWarp(patch.warp);
     if (warp) out.warp = warp;
-    else if (patch.warp === null) out.warp = undefined;
   }
 
   // Geometry is the one thing the lock exists to protect.
