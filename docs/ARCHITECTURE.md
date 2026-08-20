@@ -429,6 +429,20 @@ singular —, a detecção por `navigator.languages`, a persistência da escolha
 `document.documentElement.lang`. `t` lê `i18n.locale` dentro de um rune, e é isso que faz
 a interface inteira trocar de idioma sem store, sem adaptador e sem recarregar a página.
 
+#### [`packages/editor/DocsPage.svelte`](../packages/editor/DocsPage.svelte) e [`i18n/docs/`](../packages/editor/i18n/docs)
+
+O guia de uso, no padrão de documentação técnica: índice fixo à esquerda que acompanha
+a leitura e uma coluna de no máximo 72 caracteres. O conteúdo não são chaves soltas de
+catálogo, e sim uma estrutura tipada (`Section` com blocos `p`, `steps`, `list`, `keys`,
+`note`, `code`) — texto longo pede estrutura, não cem chaves planas. Um teste compara as
+três línguas seção a seção. A página **cobre** o editor em vez de substituí-lo:
+desmontar a `Stage` destruiria o contexto WebGL e faria a captura de tela pedir
+permissão de novo na volta; enquanto o guia está aberto o loop de render é pausado.
+
+A seção ativa do índice vem da geometria, não da primeira interseção do
+`IntersectionObserver` — escolher pela primeira marca a seção anterior, justamente
+quando se está começando a ler a nova.
+
 #### [`packages/editor/Icon.svelte`](../packages/editor/Icon.svelte) e [`links.ts`](../packages/editor/links.ts)
 
 Ícones em SVG inline (sem fonte de ícone, sem CDN: um ícone que não carrega vira botão
@@ -545,6 +559,14 @@ do `index.html` construído — um service worker com versão constante nunca at
 serve o app antigo para sempre. O registro em `main.ts` é guardado por
 `location.protocol`, porque registrar service worker a partir de `file://` lança, e é
 justamente por `file://` que o arquivo avulso roda.
+
+#### [`vite.lib.config.ts`](../vite.lib.config.ts) e [`examples/embed/`](../examples/embed)
+
+A engine construída como biblioteca (`npm run build:lib`): ESM sem minificação, sem
+`publicDir`, mais declarações de tipo por um `tsconfig.lib.json` que usa
+`rewriteRelativeImportExtensions` para emitir `.d.ts` a partir de imports `.ts`. É o que
+transforma "a engine roda sem o editor" de frase em artefato. `examples/embed/` importa
+**o arquivo construído**, não o código-fonte, que é o que um terceiro faria.
 
 ### Configuração
 

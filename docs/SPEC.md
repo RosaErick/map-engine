@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 37 testes de unidade (node:test, sem framework)
+npm test              # 44 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -284,6 +284,17 @@ Seam: `packages/editor/i18n/` e `scripts/check-i18n.mjs`.
 
 > Chave que falta é erro de compilação, não rótulo em branco. O resto é `npm run i18n`.
 
+### AC-34 — O guia não perde conteúdo na tradução
+
+**Dado** o guia de uso em português, espanhol e inglês
+**Quando** as três versões são comparadas
+**Então** têm as mesmas seções, na mesma ordem, com os mesmos blocos e a mesma
+contagem de passos, itens e linhas de atalho; os títulos estão traduzidos; e os
+exemplos de código são idênticos, porque código não se traduz.
+
+> Um guia traduzido que perde um passo em silêncio é pior do que um que falta
+> inteiro: ninguém percebe até precisar daquele passo.
+
 ---
 
 ## 5. Não testado automaticamente
@@ -306,7 +317,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 
 ## 6. Estado da verificação
 
-Última execução: `npm test` (37/37) + `npm run smoke` (18/18), build de ~212 KB.
+Última execução: `npm test` (44/44) + `npm run smoke` (18/18), build de ~212 KB.
 
 | Critério | Estado | Prova |
 |---|---|---|
@@ -335,6 +346,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-31 | provado | `smoke.mjs` |
 | AC-32 | provado | `store.test.ts` (3 testes) + `smoke.mjs` (2 checagens de pixel) |
 | AC-33 | provado | `check-i18n.mjs` + tipos (`Record<MessageKey, string>`) |
+| AC-34 | provado | `i18n/docs/guide.test.ts` (7 testes) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o

@@ -169,6 +169,25 @@ projetor apontado para uma parede.
 
 ### 4b. Interface
 
+- [x] ~~**Engine publicável como biblioteca**~~ — feito
+  `vite.lib.config.ts` + `tsconfig.lib.json` geram `dist-lib/map-engine.js` com
+  declarações; `package.json` ganhou `exports`, `types`, `files` e um `prepare`, então
+  instalar do git constrói sozinho. `examples/embed/` prova que o artefato é
+  consumível — foi aberto no navegador antes de considerar pronto.
+  Onde: `vite.lib.config.ts`, `tsconfig.lib.json`, `package.json`, `examples/embed/`.
+
+- [x] ~~**Fonte de módulo JS pela interface**~~ — feito
+  Botão **módulo js** no painel de conteúdo: escolhe um `.js`, copia para a pasta do
+  projeto e cria a fonte. O ponto de extensão existia no código e não existia para o
+  usuário.
+  Onde: `packages/editor/SourcePanel.svelte`.
+
+- [x] ~~**Guia de uso dentro do app**~~ — feito
+  Página nova na barra de cima, no padrão de documentação técnica: índice fixo que
+  acompanha a leitura, dez seções, exemplo de código. Conteúdo tipado em
+  `packages/editor/i18n/docs/`, nas três línguas, com teste de paridade (AC-34).
+  Onde: `packages/editor/DocsPage.svelte`, `packages/editor/i18n/docs/`.
+
 - [x] ~~**Internacionalização do editor: português, espanhol e inglês**~~ — feito
   Catálogo tipado sem dependência (`packages/editor/i18n/`), idioma detectado por
   `navigator.languages` com seletor no topo e escolha lembrada, e `npm run i18n`
