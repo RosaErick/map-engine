@@ -1,7 +1,7 @@
 import {
   Store, emptyProject, newSurface, quadToUnit, solveUnitToQuad, apply, frameToPixel,
   pointInPolygon, pointInUnitEllipse, closestOnSegment,
-  type Surface, type Vec2,
+  type Mat3, type Surface, type Vec2,
 } from '../engine/index.ts';
 import { t } from './i18n/index.svelte.ts';
 import type { Engine } from '../engine/engine.ts';
@@ -107,9 +107,7 @@ export function surfaceAt(p: Vec2): Surface | null {
   const sorted = [...store.project.surfaces].sort((a, b) => b.z - a.z);
   for (const s of sorted) {
     if (!s.visible) continue;
-    const inv = quadToUnit(s.frame);
-    if (!inv) continue;
-    const uv = apply(inv, p);
+    const uv = outputToFrame(s, p);
     if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) continue;
 
     if (s.shape.kind === 'ellipse' && !pointInUnitEllipse(uv)) continue;
@@ -119,16 +117,36 @@ export function surfaceAt(p: Vec2): Surface | null {
   return null;
 }
 
+/**
+ * Homografia de uma superfície e sua inversa, resolvidas uma vez por versão.
+ *
+ * Resolver o sistema 8×8 é caro e estava acontecendo **por vértice** ao desenhar
+ * as alças de polígono, e a cada `pointermove` ao arrastar. A chave é o próprio
+ * objeto `Surface`: como `Store.mutate` clona o projeto, qualquer edição cria
+ * objetos novos e a entrada velha cai sozinha do WeakMap — não existe código de
+ * invalidação aqui para errar.
+ */
+const transforms = new WeakMap<Surface, { forward: Mat3 | null; inverse: Mat3 | null }>();
+
+function transformsFor(surface: Surface): { forward: Mat3 | null; inverse: Mat3 | null } {
+  const cached = transforms.get(surface);
+  if (cached) return cached;
+  const forward = solveUnitToQuad(surface.frame);
+  const entry = { forward, inverse: forward ? quadToUnit(surface.frame) : null };
+  transforms.set(surface, entry);
+  return entry;
+}
+
 /** Ponto do espaço do frame (0..1) em pixels de saída. */
 export function frameToOutput(surface: Surface, u: number, v: number): Vec2 | null {
-  const h = solveUnitToQuad(surface.frame);
-  return h ? frameToPixel(h, u, v) : null;
+  const { forward } = transformsFor(surface);
+  return forward ? frameToPixel(forward, u, v) : null;
 }
 
 /** Pixels de saída de volta para o espaço do frame. Devolve null num frame degenerado. */
 export function outputToFrame(surface: Surface, p: Vec2): Vec2 | null {
-  const inv = quadToUnit(surface.frame);
-  return inv ? apply(inv, p) : null;
+  const { inverse } = transformsFor(surface);
+  return inverse ? apply(inverse, p) : null;
 }
 
 export function selected(): Surface | null {
