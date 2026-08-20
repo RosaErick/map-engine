@@ -134,6 +134,40 @@ falarem a mesma língua.
 
 ---
 
+### ADR-0018 — i18n com catálogo tipado, sem biblioteca
+
+**Status:** aceita
+
+**Contexto.** O editor precisa falar português e inglês, escolhendo pelo idioma do
+navegador e permitindo troca manual. As bibliotecas de i18n do ecossistema resolvem
+coisas que este app não tem: carregamento assíncrono de catálogo, namespaces, contextos,
+formatação de data por região, fallback em cadeia. O que ele tem são duas línguas e um
+punhado de strings que cabem no bundle.
+
+**Decisão.** Catálogo em TypeScript, sem dependência. `en.ts` é a fonte da verdade e de
+onde os tipos saem (`MessageKey = keyof typeof en`); qualquer outra língua é
+`Record<MessageKey, string>`. `t(key, params)` interpola `{nome}` e escolhe plural por
+`Intl.PluralRules`, com a chave base servindo de forma geral e `_one` de singular.
+
+**Consequências.** **Chave que falta é erro de compilação**, não rótulo em branco numa
+parede às duas da manhã — que é a única garantia que realmente importa numa ferramenta
+de montagem. `Intl.PluralRules` significa que uma língua com mais formas que o inglês
+precisa de mais chaves, não de mais código. O custo é que todo o catálogo entra no
+bundle: com duas línguas isso é ruído, e virar problema é sinal de que chegou a hora de
+uma biblioteca de verdade.
+
+Duas regras que sustentam isso: **o código continua em inglês** — identificadores,
+comentários e mensagens de erro internas —, e a **engine não tem cópia de interface**.
+Texto que o usuário lê é responsabilidade do editor, e é por isso que `t` lê
+`i18n.locale` dentro de um rune: trocar de língua re-renderiza tudo sem store, sem
+adaptador e sem recarregar a página.
+
+**Verificação.** `npm run i18n` reprova qualquer string fixa em `packages/editor` — texto
+no markup, `title`, `aria-label`, `placeholder`, e literal acentuado em `.ts`. É o que
+define objetivamente "o editor está traduzido", e roda dentro de `npm run verify`.
+
+---
+
 ### ADR-0002 — WebGL2 puro, sem biblioteca gráfica
 
 **Status:** aceita (herdada do brief)
