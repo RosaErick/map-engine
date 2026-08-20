@@ -8,24 +8,18 @@
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { markSvg } from './mark.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const html = `<body style="margin:0;width:1200px;height:630px;background:#0f1013;
   font-family:ui-sans-serif,system-ui,sans-serif;color:#f4f4f4;overflow:hidden;position:relative">
-  <!-- O mesmo quad em perspectiva da marca, grande e sangrando na borda -->
-  <svg viewBox="0 0 24 24" width="560" height="560" fill="none"
-       style="position:absolute;right:-40px;top:35px;opacity:.9">
-    <path d="M5.5 4.5 19 6.8 17.6 19 3.6 17.3Z" fill="#52bdff" fill-opacity="0.10"
-          stroke="#52bdff" stroke-width="0.5" stroke-linejoin="round"/>
-    <circle cx="5.5" cy="4.5" r="0.75" fill="#0f1013" stroke="#52bdff" stroke-width="0.42"/>
-    <circle cx="19" cy="6.8" r="0.75" fill="#0f1013" stroke="#52bdff" stroke-width="0.42"/>
-    <circle cx="17.6" cy="19" r="0.75" fill="#0f1013" stroke="#52bdff" stroke-width="0.42"/>
-    <circle cx="3.6" cy="17.3" r="0.75" fill="#0f1013" stroke="#52bdff" stroke-width="0.42"/>
-  </svg>
+  <!-- A marca em grande, sangrando na borda direita. -->
+  <svg viewBox="0 0 560 560" width="560" height="560"
+       style="position:absolute;right:-20px;top:35px">${markSvg(560)}</svg>
 
   <div style="position:absolute;left:72px;top:150px;width:640px">
-    <div style="font-size:19px;letter-spacing:.18em;text-transform:uppercase;color:#52bdff;font-weight:600">
+    <div style="font-size:19px;letter-spacing:.18em;text-transform:uppercase;color:#ff3b30;font-weight:600">
       Projection mapping
     </div>
     <div style="font-size:74px;line-height:1.04;font-weight:600;letter-spacing:-.02em;margin-top:20px">

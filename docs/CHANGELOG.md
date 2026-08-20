@@ -54,6 +54,14 @@ arquivo único anexado.
 - Exemplo executável em `examples/embed/`: um canvas, um `Project`, e frames saindo
   em trinta linhas.
 
+**Marca**
+- Ícone novo: um grid de pixels vermelho deformado pela **mesma homografia que a
+  ferramenta aplica** — `scripts/mark.mjs` importa `solveUnitToQuad` da engine para
+  desenhá-lo. Um quadrado girado seria um grid girado; um que converge é um grid jogado
+  em cima de alguma coisa. Uma célula acesa é a superfície já mapeada.
+- A mesma marca no ícone do app, na barra de cima e no cartão de compartilhamento. Na
+  interface a célula acesa usa `currentColor`, então contrasta no tema claro e no escuro.
+
 **Descoberta**
 - Título, descrição, Open Graph, Twitter card e cartão de compartilhamento 1200×630.
 - Dados estruturados `SoftwareApplication` declarando `price: 0` e
