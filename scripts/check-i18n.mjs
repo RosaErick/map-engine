@@ -49,6 +49,9 @@ for (const file of walk(editor)) {
   const isTs = file.endsWith('.ts');
   if (!isSvelte && !isTs) continue;
   if (file.includes(`${join('editor', 'i18n')}`)) continue;
+  // Fixtures are not interface copy: a test may legitimately name a file
+  // "vídeo final.mov" to prove the sanitiser handles it.
+  if (file.endsWith('.test.ts')) continue;
 
   const source = readFileSync(file, 'utf8');
 
