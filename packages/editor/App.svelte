@@ -8,7 +8,7 @@
   import SourcePanel from './SourcePanel.svelte';
   import About from './About.svelte';
   import DocsPage from './DocsPage.svelte';
-  import { store, ui, selected, flash, duplicateSelected, getEngine } from './state.svelte.ts';
+  import { store, tools, session, duplicateSelected, flash, getEngine, selected } from './state.svelte.ts';
   import { scheduleSave, localProject, hasFileSystemAccess, setMemoryLabel } from './project-folder.ts';
   import { initTheme } from './theme.svelte.ts';
   import { initLocale, i18n, t } from './i18n/index.svelte.ts';
@@ -32,9 +32,9 @@
     void $store.project;
     if (firstRun) { firstRun = false; return; }
     scheduleSave(store, (where) => {
-      ui.folderName = where;
-      ui.savedAt = Date.now();
-      setTimeout(() => { ui.savedAt = 0; }, 2200);
+      session.folderName = where;
+      session.savedAt = Date.now();
+      setTimeout(() => { session.savedAt = 0; }, 2200);
     }, flash);
   });
 
@@ -49,7 +49,7 @@
   $effect(() => {
     const engine = getEngine();
     if (!engine) return;
-    if (ui.page === 'docs') engine.stop();
+    if (session.page === 'docs') engine.stop();
     else engine.start();
   });
 
@@ -59,7 +59,7 @@
     const target = e.target as HTMLElement | null;
     if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
 
-    if (e.key === 'Control') ui.snapOff = true;
+    if (e.key === 'Control') tools.snapOff = true;
 
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === 'z') {
@@ -74,8 +74,8 @@
 
     if (e.key === 'Escape') {
       if (aboutOpen) return;
-      ui.pendingPolygon = [];
-      ui.tool = 'select';
+      tools.pendingPolygon = [];
+      tools.tool = 'select';
       store.setView({ selectedCorner: null });
       return;
     }
@@ -96,7 +96,7 @@
   }
 
   function onKeyUp(e: KeyboardEvent): void {
-    if (e.key === 'Control') ui.snapOff = false;
+    if (e.key === 'Control') tools.snapOff = false;
     if (e.key.startsWith('Arrow')) store.endGesture();
   }
 </script>
@@ -106,7 +106,7 @@
 <div class="flex h-full flex-col bg-base-100">
   {#if !$store.view.uiHidden}
     <TopBar onAbout={() => (aboutOpen = true)} />
-    {#if ui.page === 'editor'}
+    {#if session.page === 'editor'}
       <Toolbar />
     {/if}
   {/if}
@@ -116,7 +116,7 @@
   <!-- O guia cobre o editor em vez de substituí-lo: desmontar a Stage destruiria
        o contexto WebGL e faria a captura de tela pedir permissão de novo ao voltar. -->
   <div class="relative flex min-h-0 flex-1 flex-col lg:flex-row">
-    {#if ui.page === 'docs'}
+    {#if session.page === 'docs'}
       <DocsPage />
     {/if}
     <Stage />
@@ -131,10 +131,10 @@
   </div>
 </div>
 
-{#if ui.status && !$store.view.uiHidden}
+{#if session.status && !$store.view.uiHidden}
   <div class="toast toast-start z-50">
     <div class="alert alert-info max-w-lg text-sm shadow-lg">
-      <span>{ui.status}</span>
+      <span>{session.status}</span>
     </div>
   </div>
 {/if}

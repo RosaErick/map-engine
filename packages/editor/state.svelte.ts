@@ -13,16 +13,31 @@ export const store = new Store(emptyProject(1920, 1080));
 export type Tool = 'select' | 'polygon';
 export type Page = 'editor' | 'docs';
 
-/** Editor-only state: never saved, never seen by the engine. */
-export const ui = $state({
-  scale: 0.5,
-  tx: 0,
-  ty: 0,
+/**
+ * Estado só do editor: nunca salvo, nunca visto pela engine.
+ *
+ * Três objetos em vez de um balde, porque são três ciclos de vida diferentes.
+ * `viewport` muda a cada roda do mouse e é a única parte que a engine lê;
+ * `tools` é o que está na mão do operador agora; `session` é o que está
+ * acontecendo com o projeto e a saída. Separar é legibilidade, não desempenho —
+ * runes já reagem por propriedade, então o balde não custava re-render extra.
+ */
+
+/** Pan e zoom da área de trabalho, em pixels de tela. */
+export const viewport = $state({ scale: 0.5, tx: 0, ty: 0 });
+
+/** O que o ponteiro faz agora. */
+export const tools = $state({
   tool: 'select' as Tool,
-  page: 'editor' as Page,
   snap: true,
-  snapOff: false,          // held key temporarily disables snapping
+  /** Tecla segurada desliga o ímã por um instante. */
+  snapOff: false,
   pendingPolygon: [] as Vec2[],
+});
+
+/** Onde o projeto está e o que a saída está fazendo. */
+export const session = $state({
+  page: 'editor' as Page,
   status: '' as string,
   folderName: '' as string,
   /** Uma pasta de projeto de verdade foi aberta — diferente de ter salvo na
@@ -41,20 +56,20 @@ export function getEngine(): Engine | null { return engineRef; }
 
 /** Screen pixels (relative to the stage) -> output pixels. */
 export function toOutput(p: Vec2): Vec2 {
-  return { x: (p.x - ui.tx) / ui.scale, y: (p.y - ui.ty) / ui.scale };
+  return { x: (p.x - viewport.tx) / viewport.scale, y: (p.y - viewport.ty) / viewport.scale };
 }
 
 /** Output pixels -> screen pixels. */
 export function toScreen(p: Vec2): Vec2 {
-  return { x: p.x * ui.scale + ui.tx, y: p.y * ui.scale + ui.ty };
+  return { x: p.x * viewport.scale + viewport.tx, y: p.y * viewport.scale + viewport.ty };
 }
 
 export function fitView(stageW: number, stageH: number): void {
   const { width, height } = store.project.output;
   const scale = Math.min(stageW / width, stageH / height) * 0.9;
-  ui.scale = scale;
-  ui.tx = (stageW - width * scale) / 2;
-  ui.ty = (stageH - height * scale) / 2;
+  viewport.scale = scale;
+  viewport.tx = (stageW - width * scale) / 2;
+  viewport.ty = (stageH - height * scale) / 2;
 }
 
 /** Snap radius in output pixels — a fixed screen distance, so zooming in makes
@@ -70,8 +85,8 @@ const SNAP_PX = 8;
  * ao alcance.
  */
 export function snapPoint(p: Vec2, exceptId: string): Vec2 {
-  if (!ui.snap || ui.snapOff) return p;
-  const radius = SNAP_PX / ui.scale;
+  if (!tools.snap || tools.snapOff) return p;
+  const radius = SNAP_PX / viewport.scale;
 
   let corner: Vec2 | null = null;
   let cornerDist = radius;
@@ -172,6 +187,6 @@ export function duplicateSelected(): void {
 }
 
 export function flash(message: string): void {
-  ui.status = message;
-  setTimeout(() => { if (ui.status === message) ui.status = ''; }, 4000);
+  session.status = message;
+  setTimeout(() => { if (session.status === message) session.status = ''; }, 4000);
 }

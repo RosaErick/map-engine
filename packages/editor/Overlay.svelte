@@ -1,7 +1,7 @@
 <script lang="ts">
   import { drag } from './actions.ts';
   import { t } from './i18n/index.svelte.ts';
-  import { store, ui, toScreen, toOutput, snapPoint, frameToOutput, outputToFrame } from './state.svelte.ts';
+  import { store, viewport, tools, frameToOutput, outputToFrame, snapPoint, toOutput, toScreen } from './state.svelte.ts';
   import type { Surface, Vec2 } from '../engine/index.ts';
 
   const HANDLE = 7;
@@ -32,8 +32,8 @@
   <rect
     x={toScreen({ x: 0, y: 0 }).x}
     y={toScreen({ x: 0, y: 0 }).y}
-    width={outline.width * ui.scale}
-    height={outline.height * ui.scale}
+    width={outline.width * viewport.scale}
+    height={outline.height * viewport.scale}
     class="canvas-bounds"
   />
 
@@ -48,7 +48,7 @@
         use:drag={{
           disabled: surface.locked,
           onStart: () => pickSurface(surface),
-          onMove: (_p, d) => store.moveSurface(surface.id, d.x / ui.scale, d.y / ui.scale),
+          onMove: (_p, d) => store.moveSurface(surface.id, d.x / viewport.scale, d.y / viewport.scale),
           onEnd: () => store.endGesture(),
         }}
       />
@@ -111,12 +111,12 @@
     </g>
   {/each}
 
-  {#if ui.pendingPolygon.length > 0}
+  {#if tools.pendingPolygon.length > 0}
     <polyline
-      points={ui.pendingPolygon.map((p) => fmt(toScreen(p))).join(' ')}
+      points={tools.pendingPolygon.map((p) => fmt(toScreen(p))).join(' ')}
       class="pending"
     />
-    {#each ui.pendingPolygon as p, i (i)}
+    {#each tools.pendingPolygon as p, i (i)}
       <circle cx={toScreen(p).x} cy={toScreen(p).y} r="3" class="pending-dot" />
     {/each}
   {/if}
