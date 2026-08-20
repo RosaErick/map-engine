@@ -180,6 +180,44 @@ await page.evaluate(() => {
   engine.store.endGesture();
 });
 
+// A source that finishes loading after everything went quiet has to reach the
+// wall on its own. Nothing mutates the project, the image is not animated, and
+// the loop is asleep — so the only thing that can wake it is the upload itself.
+// Read WITHOUT forcing a frame: forcing one would hide exactly this bug.
+const lateLoad = await page.evaluate(async () => {
+  const engine = window.engine;
+  const store = engine.store;
+  // 1x1 opaque red PNG, so the source is a real async fetch + decode.
+  const red = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  store.addSource({ id: 'late', name: 'late', kind: 'image', path: red });
+  const surface = store.project.surfaces[0];
+  store.setSurfaceShape(surface.id, { kind: 'quad' });
+  store.setSurfaceFrame(surface.id, [
+    { x: 400, y: 300 }, { x: 1500, y: 300 }, { x: 1500, y: 800 }, { x: 400, y: 800 },
+  ]);
+  store.setSurfaceSource(surface.id, 'late');
+  store.setTestPattern('none');
+
+  // Let the loop go idle before the image can possibly have decoded.
+  await new Promise((r) => setTimeout(r, 900));
+
+  const gl = engine.renderer.gl;
+  const out = new Uint8Array(4);
+  gl.readPixels(
+    Math.round(gl.drawingBufferWidth / 2),
+    Math.round(gl.drawingBufferHeight / 2),
+    1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out,
+  );
+  return [...out];
+});
+check('AC-39: fonte que carrega depois do loop dormir chega na parede sozinha',
+  lateLoad[0] > 200 && lateLoad[1] < 60 && lateLoad[2] < 60, `rgb=${lateLoad}`);
+
+await page.evaluate(() => {
+  const store = window.engine.store;
+  store.removeSource('late');
+});
+
 // Trap 1: perspective-correct UV. A homography maps straight lines to straight
 // lines, so on a strongly skewed quad the boundary between two colour bars must
 // stay straight. The classic linearly-interpolated-UV bug kinks it exactly at
