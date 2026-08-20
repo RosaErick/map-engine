@@ -454,6 +454,35 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// A pasta guardada entre sessões depende de IndexedDB funcionar numa página
+// `file://`, que é uma origem opaca — vale provar no artefato construído, e não
+// no laptop de quem escreveu. Um handle de verdade não cabe aqui: ele só sai de
+// um diálogo do sistema. O que se prova é a camada de baixo.
+const idb = await page.evaluate(async () => {
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('map-engine', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('handles');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').put({ name: 'palco' }, 'project-folder');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    return await new Promise((resolve) => {
+      const get = db.transaction('handles').objectStore('handles').get('project-folder');
+      get.onsuccess = () => resolve(get.result?.name ?? null);
+      get.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return `erro: ${e}`;
+  }
+});
+check('AC-56: file:// guarda e devolve o handle da pasta', idb === 'palco', `leu=${idb}`);
+
 check('AC-14: console sem erros', consoleErrors.length === 0, consoleErrors.join(' | '));
 
 await browser.close();
