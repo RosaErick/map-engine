@@ -10,7 +10,7 @@ export {
   solveUnitToQuad, quadToUnit, invert, apply, applyH,
   type Mat3, type Quad,
 } from './homography.ts';
-export { triangulate, pointInPolygon, bounds, signedArea, UNIT_QUAD } from './geometry.ts';
+export { triangulate, pointInPolygon, pointInUnitEllipse, closestOnSegment, bounds, signedArea, UNIT_QUAD } from './geometry.ts';
 export { Renderer, IDENTITY_VIEW, frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf, surfaceNumber, type ViewTransform } from './renderer.ts';
 export { SourcePool, createSource } from './sources/index.ts';
 export { listCameras } from './sources/video.ts';

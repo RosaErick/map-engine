@@ -90,6 +90,34 @@ function pointInTriangle(p: Vec2, a: Vec2, b: Vec2, c: Vec2): boolean {
   return !(hasNeg && hasPos);
 }
 
+/**
+ * Closest point on the segment a→b, and how far `p` is from it.
+ *
+ * Snapping to an edge needs the foot of the perpendicular, not the nearest
+ * endpoint: a corner dragged to the middle of a long edge has to land on the
+ * edge, not jump to its end.
+ */
+export function closestOnSegment(p: Vec2, a: Vec2, b: Vec2): { point: Vec2; distance: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  // A degenerate edge is a point; clamping t would divide by zero.
+  const t = lengthSquared === 0 ? 0 : clamp01(((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared);
+  const point = { x: a.x + dx * t, y: a.y + dy * t };
+  return { point, distance: Math.hypot(p.x - point.x, p.y - point.y) };
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+/** True when `p` is inside the ellipse inscribed in the unit frame. */
+export function pointInUnitEllipse(p: Vec2): boolean {
+  const dx = (p.x - 0.5) * 2;
+  const dy = (p.y - 0.5) * 2;
+  return dx * dx + dy * dy <= 1;
+}
+
 /** Unit-square outline in frame space, used as the quad shape's polygon. */
 export const UNIT_QUAD: readonly Vec2[] = [
   { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 },
