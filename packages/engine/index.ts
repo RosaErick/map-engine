@@ -11,7 +11,8 @@ export {
   type Mat3, type Quad,
 } from './homography.ts';
 export { triangulate, pointInPolygon, pointInUnitEllipse, closestOnSegment, bounds, signedArea, UNIT_QUAD } from './geometry.ts';
-export { Renderer, IDENTITY_VIEW, frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf, surfaceNumber, type ViewTransform } from './renderer.ts';
+export { Renderer, IDENTITY_VIEW, type ViewTransform } from './renderer.ts';
+export { frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf } from './surface-math.ts';
 export { SourcePool, createSource } from './sources/index.ts';
 export { listCameras } from './sources/video.ts';
 export type { TextureSource, SourceContext, CanvasModule, SourceError, SourceErrorCode } from './sources/types.ts';
