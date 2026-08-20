@@ -227,7 +227,7 @@ projetor apontado para uma parede.
   a opção `exclude:` do daisyUI corta algo relevante.
   Onde: `packages/editor/app.css`.
 
-- [ ] **Prints do `sobre` e do tema claro no `INSTALAR.md`** — `P`
+- [ ] **Prints do `sobre` e do tema claro no `docs/install/`** — `P`
   Some com os marcadores `📷 print:` agora que existe uma interface para fotografar.
 
 ### 5. Testes
@@ -264,19 +264,19 @@ projetor apontado para uma parede.
   **gerado no build e versionado pelo hash do HTML** (AC-31 — versão constante serve o
   app do mês passado para sempre). Registro é guardado por protocolo, então o arquivo
   avulso continua abrindo por `file://` sem tentar registrar nada. Release por tag anexa
-  `projection-mapping.html`. Guia em `INSTALAR.md`.
+  `projection-mapping.html`. Guia em `docs/install/`.
   Onde: `vite.config.ts`, `public/`, `packages/editor/main.ts`,
-  `.github/workflows/release.yml`, `INSTALAR.md`.
+  `.github/workflows/release.yml`, `docs/install/`.
 
-- [ ] **Prints reais no `INSTALAR.md`** — `P`
+- [ ] **Prints reais no `docs/install/`** — `P`
   O guia está escrito com marcadores `📷 print:` nos quatro pontos onde uma imagem
   resolve mais que um parágrafo: o ícone de instalar na barra de endereço, o arquivo
   baixado, os quatro cantos sendo arrastados. Precisa de alguém com um projetor e uma
   tela para tirar.
-  Onde: `INSTALAR.md`.
+  Onde: `docs/install/`.
 
 - [ ] **Confirmar o que `file://` bloqueia** — `M`
-  Segue sem resposta e é o que decide o peso do caminho 2 do `INSTALAR.md`: origem
+  Segue sem resposta e é o que decide o peso do caminho 2 do `docs/install/`: origem
   opaca não persiste permissão, então `getDisplayMedia`, câmera e `showDirectoryPicker`
   podem pedir autorização toda vez — ou nem funcionar. O guia já avisa disso como
   possibilidade; falta virar fato verificado.
