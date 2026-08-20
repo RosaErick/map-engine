@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "dist-lib/types",
+    "types": []
+  },
+  "include": ["packages/engine/**/*.ts"],
+  "exclude": ["packages/engine/**/*.test.ts"]
+}
