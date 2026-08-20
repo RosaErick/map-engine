@@ -169,6 +169,14 @@ projetor apontado para uma parede.
 
 ### 4b. Interface
 
+- [x] ~~**Internacionalização do editor: português, espanhol e inglês**~~ — feito
+  Catálogo tipado sem dependência (`packages/editor/i18n/`), idioma detectado por
+  `navigator.languages` com seletor no topo e escolha lembrada, e `npm run i18n`
+  reprovando string fixa ou tradução que perdeu placeholder/marcação. Engine e
+  `packages/output` deixaram de ter cópia de interface: erram por código e o editor
+  traduz. AC-33, ADR-0018.
+  Onde: `packages/editor/i18n/`, `packages/editor/TopBar.svelte`, `scripts/check-i18n.mjs`.
+
 - [x] ~~**Padrão de teste por superfície**~~ — feito
   O brief pede padrões "sobrepondo tudo", e era só isso que existia. Agora há o global
   (barra de trabalho) e um override por superfície (inspetor), com `'none'` próprio

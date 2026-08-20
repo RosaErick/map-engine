@@ -264,6 +264,28 @@ relação à reta ajustada
 
 ---
 
+## 4b. Idioma
+
+Seam: `packages/editor/i18n/` e `scripts/check-i18n.mjs`.
+
+### AC-33 — A interface fala a língua de quem abriu
+
+**Dado** um navegador configurado em português, espanhol ou inglês
+**Quando** o editor é aberto
+**Então**
+- a interface inteira aparece nessa língua, incluindo o "sobre";
+- `pt-BR`, `pt-PT` e `pt` caem todos em português, e o mesmo vale para as variantes
+  de espanhol e inglês;
+- uma língua que não temos cai no inglês, que é o catálogo base;
+- trocar de idioma no seletor re-renderiza tudo sem recarregar a página, atualiza
+  `<html lang>` e é lembrado na próxima abertura;
+- nenhuma string do editor está fixa no código, e nenhuma tradução perdeu um
+  `{placeholder}` ou uma marcação `<b>` do inglês.
+
+> Chave que falta é erro de compilação, não rótulo em branco. O resto é `npm run i18n`.
+
+---
+
 ## 5. Não testado automaticamente
 
 Deliberado e visível. Estes precisam de hardware, de permissão de usuário, ou de olho
@@ -312,6 +334,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-29 | provado | `sources/textures.test.ts` (5 testes) |
 | AC-31 | provado | `smoke.mjs` |
 | AC-32 | provado | `store.test.ts` (3 testes) + `smoke.mjs` (2 checagens de pixel) |
+| AC-33 | provado | `check-i18n.mjs` + tipos (`Record<MessageKey, string>`) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o

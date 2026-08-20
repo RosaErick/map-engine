@@ -57,6 +57,10 @@ aplicativo, e a ausência deles não impede nada.
 
 ## Interface
 
+**Português, espanhol e inglês.** O idioma é escolhido pelo do navegador e pode ser
+trocado no seletor do topo; a escolha é lembrada. O código, os identificadores e os
+comentários seguem em inglês — a tradução é da interface, não do projeto.
+
 Tema **claro**, **escuro** ou seguindo o sistema — o seletor fica no topo à direita, e a
 escolha é lembrada. A **área de trabalho é sempre preta**, nos dois temas: ela não é
 fundo de interface, é pré-visualização do que sai do projetor, e clarear isso faria a
