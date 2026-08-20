@@ -1,10 +1,17 @@
 <script lang="ts">
   import { drag } from './actions.ts';
   import { t } from './i18n/index.svelte.ts';
-  import { store, viewport, tools, frameToOutput, outputToFrame, snapPoint, toOutput, toScreen } from './state.svelte.ts';
+  import {
+    store, viewport, tools, frameToOutput, outputToFrame, snapPoint, toOutput, toScreen,
+    warpGridPath, warpPointToScreen, screenToFramePoint,
+  } from './state.svelte.ts';
   import type { Surface, Vec2 } from '../engine/index.ts';
 
   const HANDLE = 7;
+  // A mesh can carry up to 289 control points at once, so its handles are the
+  // smallest of the three: they have to sit on top of the content without
+  // burying it.
+  const MESH_HANDLE = 3.5;
 
   function screenPath(frame: readonly Vec2[]): string {
     return frame.map((c, i) => `${i === 0 ? 'M' : 'L'}${fmt(toScreen(c))}`).join(' ') + ' Z';
@@ -22,6 +29,12 @@
   // handle with Tab selects exactly what grabbing it with the mouse selects.
   function pickSurface(s: Surface): void {
     store.setView({ selectedSurfaceId: s.id, selectedCorner: null });
+  }
+
+  // Same deal for a mesh point: the arrow keys nudge whatever is selected, so
+  // pointer and keyboard have to agree on what grabbing a handle means.
+  function pickWarpPoint(s: Surface, i: number): void {
+    store.setView({ selectedSurfaceId: s.id, selectedCorner: null, selectedWarpPoint: i });
   }
 
   const outline = $derived($store.project.output);
@@ -57,6 +70,43 @@
         y={toScreen(surface.frame[0]).y - 6}
         class="label"
       >{surface.name}{surface.locked ? ' 🔒' : ''}</text>
+
+      <!-- The mesh, drawn before the polygon vertices and the frame corners on
+           purpose: SVG hit-testing takes the topmost shape, so a control point
+           landing under a corner never steals the pointer from that corner. The
+           grid lines come first inside the block, under every handle. -->
+      {#if isSelected(surface) && !surface.locked && surface.warp}
+        {@const warp = surface.warp}
+        {#if tools.showWarpGrid}
+          {#each warpGridPath(surface) as line, i (i)}
+            <path d={line} class="warp-line" />
+          {/each}
+        {/if}
+        {#each warp.points as _point, i (i)}
+          {@const screen = warpPointToScreen(surface, i)}
+          {#if screen}
+            <circle
+              cx={screen.x}
+              cy={screen.y}
+              r={MESH_HANDLE}
+              class="warp-point"
+              class:active={$store.view.selectedWarpPoint === i}
+              role="button"
+              tabindex="0"
+              aria-label={t('warp.point', { number: i + 1 })}
+              onfocus={() => pickWarpPoint(surface, i)}
+              use:drag={{
+                onStart: () => pickWarpPoint(surface, i),
+                onMove: (p) => {
+                  const local = screenToFramePoint(surface, p);
+                  if (local) store.setWarpPoint(surface.id, i, local, tools.warpFalloff);
+                },
+                onEnd: () => store.endGesture(),
+              }}
+            />
+          {/if}
+        {/each}
+      {/if}
 
       <!-- Vértices do polígono: vivem no espaço do frame, então passam pela
            homografia para virar pixels de saída e só então para a tela. Sem
@@ -158,13 +208,29 @@
     transition: fill 100ms ease;
   }
   .vertex:hover { fill: #ffb86c; }
+  /* A malha tem cor própria — violeta, nem o ciano do canto do frame nem o
+     laranja do vértice — porque as três alças podem estar na tela ao mesmo
+     tempo e mexer na errada custa caro. */
+  .warp-line {
+    fill: none; stroke: #be95ff; stroke-width: 0.75; opacity: 0.4;
+    pointer-events: none;
+  }
+  .warp-point {
+    fill: #1a1230; stroke: #be95ff; stroke-width: 1.5;
+    cursor: grab; pointer-events: auto;
+    transition: fill 100ms ease;
+  }
+  .warp-point:hover { fill: #be95ff; }
+  .warp-point.active { fill: #be95ff; }
   /* Keyboard focus ring. It has to read against the black work area and against
-     both handle colours, so it is white and sits outside the handle instead of
-     recolouring it: the accent still says "frame corner" and the orange still
-     says "polygon vertex" while focused. The wider stroke is a second cue for
-     engines that do not paint an outline on SVG shapes. */
+     every handle colour, so it is white and sits outside the handle instead of
+     recolouring it: the accent still says "frame corner", the orange still says
+     "polygon vertex" and the violet still says "mesh point" while focused. The
+     wider stroke is a second cue for engines that do not paint an outline on
+     SVG shapes. */
   .handle:focus-visible,
-  .vertex:focus-visible {
+  .vertex:focus-visible,
+  .warp-point:focus-visible {
     outline: 2px solid #ffffff;
     outline-offset: 3px;
     stroke-width: 3;
