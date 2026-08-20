@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { uvTransform, uvMatrix, isQuarterTurned, frameAspectOf, toColumnMajor } from './surface-math.ts';
-import { emptyProject, newSurface, type Surface } from './project.ts';
-import type { TextureSource } from './sources/types.ts';
+import { uvTransform, uvMatrix, isQuarterTurned, frameAspectOf, toColumnMajor } from '../model/surface-math.ts';
+import { emptyProject, newSurface, type Surface } from '../model/project.ts';
+import type { TextureSource } from '../sources/types.ts';
 
 function surfaceOfSize(w: number, h: number): Surface {
   const s = newSurface(emptyProject());

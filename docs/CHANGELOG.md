@@ -141,6 +141,18 @@ a mesma sequência deixava **zero** pixel da saída visível.
 - Publicação no GitHub Pages e Release com o `.html` avulso anexado.
 
 ### Mudado
+- **Os arquivos do editor e da engine foram para pastas.** O editor tinha 25 arquivos numa
+  pasta só; não é mais um punhado de componentes em volta de uma engine, é um aplicativo.
+  Nenhuma lógica mudou — só caminho e a linha de `import` que aponta para ele.
+  - A **engine** foi dividida pela direção das dependências, que já era obedecida sem estar
+    escrita: `math/` (funções puras que não sabem o que é um projeto) ← `model/` (o domínio
+    e o único caminho de mutação) ← `render/` (o que fala WebGL) ← `engine.ts` ← `index.ts`.
+  - O **editor** foi dividido pelas regiões da tela e por quem fala com o navegador:
+    `stage/`, `panels/`, `pages/`, `platform/` e `ui/`. Espelhar `domain/application/
+    adapters` aqui seria aplicar um padrão por ser um padrão: o editor **não tem domínio
+    próprio**, o agregado mora na engine.
+  - `npm run layers` reprova import na direção errada e entra no `verify`. Estrutura sem
+    guarda volta ao estado anterior em poucas semanas, um import de cada vez.
 - **Seletor de cor próprio**, no lugar do campo nativo que abria o diálogo do sistema:
   quadro de saturação e brilho, trilha de matiz, campo hex, três campos RGB, e as amostras
   que esta ferramenta usa o tempo todo — branco, cinza 50%, preto e as três primárias
@@ -167,6 +179,11 @@ a mesma sequência deixava **zero** pixel da saída visível.
   é configurada: **Projetor (saída)**.
 
 ### Corrigido
+- **O seletor de cor abria dentro da lista de fontes**, empurrava o painel para baixo e
+  obrigava a rolar até achá-lo — escondendo justamente a parede, que é o que se olha
+  enquanto se escolhe uma cor. E não dizia como fechar. Virou um painel flutuante, que
+  cabe na tela, é redimensionável pelo canto, e fecha por **Esc**, por clique fora e pelo
+  botão: três saídas, porque a primeira que a pessoa tenta varia.
 - **Toda fonte de cor se chamava "branco"**, qualquer que fosse a cor: o nome era fixado na
   criação e trocar a cor só mexia no `rgb`. Cinco fontes "branco" de cores diferentes é o
   que sobrava de uma sessão de calibração. O nome passou a ser derivado — o tom mais o hex,

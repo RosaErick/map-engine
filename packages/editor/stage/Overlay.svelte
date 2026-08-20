@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { drag } from './actions.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import { drag } from '../ui/actions.ts';
+  import { t } from '../i18n/index.svelte.ts';
   import {
     store, viewport, tools, frameToOutput, outputToFrame, snapPoint, toOutput, toScreen,
     warpGridPath, warpPointToScreen, screenToFramePoint,
-  } from './state.svelte.ts';
-  import { anchorId, type Surface, type Vec2 } from '../engine/index.ts';
+  } from '../state.svelte.ts';
+  import { anchorId, type Surface, type Vec2 } from '../../engine/index.ts';
 
   const HANDLE = 7;
   // A mesh can carry up to 289 control points at once, so its handles are the

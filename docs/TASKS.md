@@ -17,14 +17,14 @@ deixado no código.
 | # | Critério de aceite | Status | Justificativa |
 |---|---|---|---|
 | 1 | Build abre por `file://`, sem servidor, sem rede, console limpo | ✅ implementado | Provado por `scripts/smoke.mjs` (AC-14): chromium headless abre `dist/index.html` por `file://`, a engine monta e o console fica limpo. Ressalva que continua valendo para quem usar a engine como biblioteca: o `resolveUrl` padrão devolve o caminho cru e `fetch()` em URL `file://` é bloqueado — o editor não é afetado porque passa blob URLs vindas do `showDirectoryPicker`. |
-| 2 | Três superfícies alinhadas na parede dentro de 1px | 🟡 parcial | Arrastar canto e superfície existe (`packages/editor/Overlay.svelte`, `packages/editor/actions.ts`, `Store.setCorner`). A resolução de saída agora é ajustável na toolbar, com botão "casar resolução" que adota `width × devicePixelRatio` da tela escolhida — o bloqueio de pixel nativo saiu. Falta o teste físico. |
+| 2 | Três superfícies alinhadas na parede dentro de 1px | 🟡 parcial | Arrastar canto e superfície existe (`packages/editor/stage/Overlay.svelte`, `packages/editor/ui/actions.ts`, `Store.setCorner`). A resolução de saída agora é ajustável na toolbar, com botão "casar resolução" que adota `width × devicePixelRatio` da tela escolhida — o bloqueio de pixel nativo saiu. Falta o teste físico. |
 | 3 | Setas movem 1px, Shift 10px | ✅ implementado | `packages/editor/App.svelte:55-65` → `Store.nudgeCorner`, com coalescing de histórico e `endGesture()` no `keyup`. Sem canto selecionado as setas movem a superfície inteira. |
 | 4 | Imagem + vídeo em loop + GIF tocando juntos sem engasgo | 🟡 parcial | As três fontes existem e o cache é por id de fonte (`packages/engine/sources/index.ts`, `SourcePool`). Porém cada janela cria sua própria `Engine` e seu próprio `SourcePool` (`packages/output/output.ts:251`), então com a saída aberta todo vídeo é decodificado **duas vezes**. A meta de 30 superfícies com 4 vídeos 1080p nunca foi medida. |
-| 5 | Elipse com feather sobre objeto redondo | ✅ implementado | Máscara radial em espaço de frame com `smoothstep` no fragment shader (`packages/engine/renderer.ts:111-118`); botão e slider em `packages/editor/Inspector.svelte:233-245`. |
-| 6 | Polígono livre recorta corretamente | ✅ implementado | Traçado em `packages/editor/Stage.svelte:188-208` (bbox vira frame, pontos passam pela homografia inversa), triangulação por ear clipping em `packages/engine/geometry.ts:46`, geometria como máscara em `renderer.ts:286-292`. Depois de traçado os pontos não podem mais ser editados (ver backlog). |
-| 7 | Grade sem dobra diagonal | ✅ implementado | `gl_Position = vec4(clip * w, 0.0, w)` em `packages/engine/renderer.ts` deixa o rasterizador interpolar `vUV` projetivamente. Medido, não olhado: AC-20 ajusta uma reta à borda entre barras num quadrilátero fortemente deformado e mede **0,50 px** de desvio máximo em 414 amostras (limite 1,5 px). |
+| 5 | Elipse com feather sobre objeto redondo | ✅ implementado | Máscara radial em espaço de frame com `smoothstep` no fragment shader (`packages/engine/render/renderer.ts:111-118`); botão e slider em `packages/editor/panels/Inspector.svelte:233-245`. |
+| 6 | Polígono livre recorta corretamente | ✅ implementado | Traçado em `packages/editor/stage/Stage.svelte:188-208` (bbox vira frame, pontos passam pela homografia inversa), triangulação por ear clipping em `packages/engine/math/geometry.ts:46`, geometria como máscara em `renderer.ts:286-292`. Depois de traçado os pontos não podem mais ser editados (ver backlog). |
+| 7 | Grade sem dobra diagonal | ✅ implementado | `gl_Position = vec4(clip * w, 0.0, w)` em `packages/engine/render/renderer.ts` deixa o rasterizador interpolar `vUV` projetivamente. Medido, não olhado: AC-20 ajusta uma reta à borda entre barras num quadrilátero fortemente deformado e mede **0,50 px** de desvio máximo em 414 amostras (limite 1,5 px). |
 | 8 | `capture` mapeando a janela de outro programa, ao vivo | 🟡 parcial | `CaptureSource` usa `getDisplayMedia`. Fim de track agora vira `status: 'error'` e cai no padrão de mídia faltando em vez de congelar. Abrir a saída não pede mais permissão duas vezes: as duas janelas compartilham o pool de fontes (AC-29). Falta o teste com projetor. |
-| 9 | Superfície travada não se move | ✅ implementado | Guard `#editable` em `packages/engine/store.ts:167` cobre `setCorner`/`nudgeCorner`/`moveSurface`/`setSurfaceFrame`; `disabled` na action de drag (`Overlay.svelte:151`); coberto por teste (`store.test.ts:103`). |
+| 9 | Superfície travada não se move | ✅ implementado | Guard `#editable` em `packages/engine/model/store.ts:167` cobre `setCorner`/`nudgeCorner`/`moveSurface`/`setSurfaceFrame`; `disabled` na action de drag (`Overlay.svelte:151`); coberto por teste (`store.test.ts:103`). |
 | 10 | Saída na segunda tela, editor no laptop | 🟡 parcial | `openOutput` posiciona a janela pelos bounds da tela e chama `requestFullscreen({ screen })`. Agora é totalmente síncrona: as telas são enumeradas na montagem da toolbar, não no clique, então nada é `await`-ado antes de `window.open` e a ativação transitória sobrevive (Fullscreen Companion Window). `hasWindowManagement()` checa `screen.isExtended` e escolhe a mensagem de degradação. Falta a verificação com duas telas físicas. |
 | 11 | Saída limpa: só as superfícies acesas, resto preto absoluto | ✅ implementado | Janela de saída sem UI, `cursor:none`, body `#000` (`output.ts:245-248`); `clearColor(0,0,0,1)`, `alpha:false`, sem gama nem tone mapping (`renderer.ts:157-198`); superfície sem fonte faz `discard` em vez de pintar preto (`renderer.ts:99-102`). Falta a verificação física da mão em frente ao projetor. |
 | 12 | Fechar, reabrir a pasta e tudo voltar | 🟡 parcial | `showDirectoryPicker` + `project.json` com caminhos relativos + autosave com debounce de 400 ms, e `parseProject` derruba lixo em vez de deixar NaN chegar no renderer. Os dois furos do autosave foram fechados: escrita concorrente agora enfileira uma passada extra em vez de descartar o estado novo, e falha de escrita avisa na tela. Continua pendente: o handle da pasta não é persistido entre sessões. |
@@ -47,13 +47,13 @@ projetor apontado para uma parede.
   Campos largura×altura e botão "casar resolução" na toolbar, que adota
   `width × devicePixelRatio` da tela escolhida. Era o que bloqueava alinhar em pixel
   nativo em vez de num canvas escalonado.
-  Onde: `packages/editor/Toolbar.svelte`, `Store.setOutputSize`.
+  Onde: `packages/editor/stage/Toolbar.svelte`, `Store.setOutputSize`.
 
 - [x] ~~**Abrir a saída dentro de um único gesto de usuário**~~ — feito
   `openOutput` virou síncrona: as telas são enumeradas na montagem da toolbar, e o
   clique faz `window.open` e `requestFullscreen` sem nenhum `await` antes. É assim que
   o Fullscreen Companion Window sobrevive.
-  Onde: `packages/output/output.ts`, `packages/editor/Toolbar.svelte`.
+  Onde: `packages/output/output.ts`, `packages/editor/stage/Toolbar.svelte`.
 
 - [x] ~~**Usar `requestFullscreen({ screen })` e checar `screen.isExtended`**~~ — feito
   `hasWindowManagement()` agora exige `screen.isExtended` e escolhe a mensagem de
@@ -72,20 +72,20 @@ projetor apontado para uma parede.
   crop, encaixe e rotação num `mat3` em torno do centro do frame. Um quarto de volta
   troca a proporção usada por `contain`/`cover`. O frame não se mexe, então girar é
   seguro numa superfície travada. AC-28, com 5 testes de unidade e 2 checagens de pixel.
-  Onde: `packages/engine/project.ts`, `packages/engine/renderer.ts`,
-  `packages/engine/store.ts`, `packages/editor/Inspector.svelte`.
+  Onde: `packages/engine/model/project.ts`, `packages/engine/render/renderer.ts`,
+  `packages/engine/model/store.ts`, `packages/editor/panels/Inspector.svelte`.
 
 - [ ] **Girar o frame inteiro em torno do centro** — `P`
   Diferente de AC-28: rotacionar os 4 cantos, não o conteúdo. Útil quando o objeto
   físico está torto e o quad inteiro precisa acompanhar, em vez de arrastar canto por
   canto. Passaria pelo guard de lock, ao contrário da rotação de conteúdo.
-  Onde: `packages/engine/store.ts` (novo `rotateSurface(id, deg)`),
-  `packages/editor/Inspector.svelte`.
+  Onde: `packages/engine/model/store.ts` (novo `rotateSurface(id, deg)`),
+  `packages/editor/panels/Inspector.svelte`.
 
 - [ ] **Espelhar conteúdo (flip H/V)** — `P`
   A matriz de UV já é `mat3`; espelhar é trocar o sinal de uma escala. Só entra se
   aparecer o caso real — projeção em espelho ou retroprojeção.
-  Onde: `packages/engine/renderer.ts` (`uvMatrix`), `Inspector.svelte`.
+  Onde: `packages/engine/render/renderer.ts` (`uvMatrix`), `Inspector.svelte`.
 
 ### 2. Fontes de conteúdo
 
@@ -99,7 +99,7 @@ projetor apontado para uma parede.
   bem visível **e ofereça religar**". A primeira metade existe (listras magenta,
   `renderer.ts:50-54`, e status na lista de fontes); a segunda não — não há como
   apontar a fonte para outro arquivo sem apagar e recriar.
-  Onde: `packages/editor/SourcePanel.svelte`, `packages/editor/project-folder.ts:161`.
+  Onde: `packages/editor/panels/SourcePanel.svelte`, `packages/editor/platform/project-folder.ts:161`.
 
 - [x] ~~**Upload de vídeo sem `requestVideoFrameCallback`**~~ — feito, e era bug, não desperdício
   O fallback marcava a textura suja **uma vez só**, na construção: vídeo, GIF, captura e
@@ -127,7 +127,7 @@ projetor apontado para uma parede.
   Escrita concorrente enfileira uma passada extra (`saveAgain`) em vez de descartar o
   estado novo, e falha de escrita chama `onError`, que o `App.svelte` liga no aviso de
   tela.
-  Onde: `packages/editor/project-folder.ts`, `packages/editor/App.svelte`.
+  Onde: `packages/editor/platform/project-folder.ts`, `packages/editor/App.svelte`.
 
 - [x] ~~**Persistir o handle da pasta entre sessões**~~ — feito
   O handle vai para IndexedDB (`handle-store.ts`), que aceita clone estruturado —
@@ -138,7 +138,7 @@ projetor apontado para uma parede.
   fora de um gesto do usuário é rejeitado de propósito, então a partida nunca escala
   sozinha — o nome da pasta vira botão e o pedido acontece dentro do clique. Handle
   morto é esquecido. AC-56 a AC-58.
-  Onde: `packages/editor/handle-store.ts`, `project-folder.ts`, `App.svelte`,
+  Onde: `packages/editor/platform/handle-store.ts`, `project-folder.ts`, `App.svelte`,
   `ProjectPanel.svelte`.
 
 ### 4. Editor
@@ -147,7 +147,7 @@ projetor apontado para uma parede.
   `patchSurface` remove `frame` do patch quando a superfície está travada; nome,
   visibilidade e o próprio `locked` continuam passando, senão a trava viraria armadilha.
   Coberto por teste (`AC-9`, segundo caso).
-  Onde: `packages/engine/store.ts`.
+  Onde: `packages/engine/model/store.ts`.
 
 - [x] ~~**Editar pontos de um polígono já traçado, e acertar o hit-test**~~ — feito
   As alças de vértice e o `pointInPolygon` dentro de `surfaceAt` já existiam desde a
@@ -157,7 +157,7 @@ projetor apontado para uma parede.
   A região que responde ao ponteiro passou a ser a silhueta (polígono, elipse amostrada
   em espaço de frame, ou o quad quando não há recorte); o contorno do frame continua
   desenhado como frame, que é o papel dele. AC-59 e AC-60.
-  Onde: `packages/editor/Overlay.svelte`.
+  Onde: `packages/editor/stage/Overlay.svelte`.
 
 - [ ] **`DECISION:` snap só de canto** — `P`
   Decisão registrada em `packages/editor/state.svelte.ts:49-54`: canto a canto, sem
@@ -168,14 +168,14 @@ projetor apontado para uma parede.
 - [x] ~~**Padrão "número" usa a ordem do array, não a da lista**~~ — feito
   `surfaceNumber()` numera por `z` decrescente, a mesma ordem da lista do editor, com
   teste (`AC-11`, segundo caso).
-  Onde: `packages/engine/renderer.ts`.
+  Onde: `packages/engine/render/renderer.ts`.
 
 - [x] ~~**`duplicateSurface` gera id fora do `newId`**~~ — feito
   Usa `newId('surf')` como todo o resto.
-  Onde: `packages/engine/store.ts`.
+  Onde: `packages/engine/model/store.ts`.
 
 - [ ] **`ponytail:` triangulação O(n²), só polígono simples** — `P`
-  Anotado em `packages/engine/geometry.ts:42`. Correto para um polígono traçado à mão
+  Anotado em `packages/engine/math/geometry.ts:42`. Correto para um polígono traçado à mão
   com uma dúzia de pontos; só vira problema se alguém importar SVG. Manter como está e
   só trocar por earcut se aparecer o caso — item registrado para não ser redescoberto.
 
@@ -189,15 +189,15 @@ projetor apontado para uma parede.
   em vez de subdividir até o erro não aparecer, que é o que o brief proíbe. Projeto sem
   malha continua idêntico byte a byte, e o caminho de render sem malha não foi tocado
   para não arriscar o AC-20. AC-44 a AC-54, ADR-0019 e ADR-0020.
-  Onde: `packages/engine/warp.ts`, `renderer.ts`, `shaders.ts`, `store.ts`,
-  `packages/editor/Inspector.svelte`, `Overlay.svelte`, `docs/specs/0001-mesh-warp.md`.
+  Onde: `packages/engine/model/warp.ts`, `renderer.ts`, `shaders.ts`, `store.ts`,
+  `packages/editor/panels/Inspector.svelte`, `Overlay.svelte`, `docs/specs/0001-mesh-warp.md`.
 
 - [x] ~~**Contraste do guia de malha sobre conteúdo claro**~~ — feito
   Contorno escuro sob o traço claro, como a cartografia faz com estrada sobre qualquer
   fundo. Medir a luminância e inverter, que era a ideia registrada aqui, custaria
   `readPixels` por ponto e por frame — uma parada sincronizada da GPU dentro do laço de
   render. Medido: 1,38 → 3,14 de contraste sobre branco. AC-61.
-  Onde: `packages/editor/Overlay.svelte`.
+  Onde: `packages/editor/stage/Overlay.svelte`.
 
 - [x] ~~**Engine publicável como biblioteca**~~ — feito
   `vite.lib.config.ts` + `tsconfig.lib.json` geram `dist-lib/map-engine.js` com
@@ -210,13 +210,13 @@ projetor apontado para uma parede.
   Botão **módulo js** no painel de conteúdo: escolhe um `.js`, copia para a pasta do
   projeto e cria a fonte. O ponto de extensão existia no código e não existia para o
   usuário.
-  Onde: `packages/editor/SourcePanel.svelte`.
+  Onde: `packages/editor/panels/SourcePanel.svelte`.
 
 - [x] ~~**Guia de uso dentro do app**~~ — feito
   Página nova na barra de cima, no padrão de documentação técnica: índice fixo que
   acompanha a leitura, dez seções, exemplo de código. Conteúdo tipado em
   `packages/editor/i18n/docs/`, nas três línguas, com teste de paridade (AC-34).
-  Onde: `packages/editor/DocsPage.svelte`, `packages/editor/i18n/docs/`.
+  Onde: `packages/editor/pages/DocsPage.svelte`, `packages/editor/i18n/docs/`.
 
 - [x] ~~**Internacionalização do editor: português, espanhol e inglês**~~ — feito
   Catálogo tipado sem dependência (`packages/editor/i18n/`), idioma detectado por
@@ -230,16 +230,16 @@ projetor apontado para uma parede.
   O brief pede padrões "sobrepondo tudo", e era só isso que existia. Agora há o global
   (barra de trabalho) e um override por superfície (inspetor), com `'none'` próprio
   servindo para apagar o padrão só numa. Alinhar é uma superfície por vez. AC-32.
-  Onde: `packages/engine/project.ts` (`ViewState.surfacePatterns`),
-  `packages/engine/store.ts` (`patternFor`, `setSurfacePattern`),
-  `packages/engine/renderer.ts` (recebe função, não valor),
-  `packages/editor/Inspector.svelte`, `packages/editor/Toolbar.svelte`.
+  Onde: `packages/engine/model/project.ts` (`ViewState.surfacePatterns`),
+  `packages/engine/model/store.ts` (`patternFor`, `setSurfacePattern`),
+  `packages/engine/render/renderer.ts` (recebe função, não valor),
+  `packages/editor/panels/Inspector.svelte`, `packages/editor/stage/Toolbar.svelte`.
 
 - [x] ~~**Numerar as linhas da lista de superfícies**~~ — feito
   A lista chama `surfaceOrder`, a mesma função do engine que o renderer usa para escolher
   o glifo — e não um `index + 1` próprio, que é como os dois números passariam a
   divergir. `surfaceOrder` virou export público por causa disso. AC-62.
-  Onde: `packages/editor/SurfaceList.svelte`, `packages/engine/index.ts`.
+  Onde: `packages/editor/panels/SurfaceList.svelte`, `packages/engine/index.ts`.
 
 - [x] ~~**Redesenho: espaçamento, temas, responsividade, sobre**~~ — feito
   Tailwind v4 + daisyUI no editor (ADR-0017), tema claro/escuro/sistema com persistência,
@@ -247,7 +247,7 @@ projetor apontado para uma parede.
   projeto recolhível, estado vazio que ensina o primeiro passo, ícone e link do
   repositório, e um "sobre" com tipografia de jornal.
   Onde: `packages/editor/*.svelte`, `packages/editor/app.css`,
-  `packages/editor/theme.svelte.ts`.
+  `packages/editor/platform/theme.svelte.ts`.
 
 - [x] ~~**Enxugar o CSS do daisyUI**~~ — feito
   A lista `include:` no `app.css` restringe o daisyUI aos componentes realmente usados:
@@ -270,19 +270,28 @@ projetor apontado para uma parede.
   Laço no vazio, Shift + clique, Ctrl+A, arrasto de grupo num só desfazer, e vínculo
   persistente entre superfícies. Seleção e vínculo ficaram separados no modelo de
   propósito: uma é do momento, o outro é do projeto. AC-65 a AC-69, `docs/specs/0003`.
-  Onde: `packages/engine/project.ts`, `store.ts`, `packages/editor/Stage.svelte`,
+  Onde: `packages/engine/model/project.ts`, `store.ts`, `packages/editor/stage/Stage.svelte`,
   `Overlay.svelte`, `SurfaceList.svelte`, `App.svelte`.
 
 - [x] ~~**Seletor de cor próprio, e o nome que não acompanhava a cor**~~ — feito
   Toda fonte de cor se chamava "branco" para sempre. O nome passou a ser derivado do tom,
   e o campo nativo deu lugar a um seletor que cabe no painel e traz as amostras de
   conferir projetor. AC-63 e AC-64.
-  Onde: `packages/engine/color.ts`, `packages/editor/ColorPicker.svelte`, `SourcePanel.svelte`.
+  Onde: `packages/engine/sources/color.ts`, `packages/editor/ui/ColorPicker.svelte`, `SourcePanel.svelte`.
 
 - [x] ~~**A vista que não voltava de um zoom perdido**~~ — feito
   A saída continua sempre alcançável, e Ctrl + arrastar reenquadra. Medido: sem o limite,
   a mesma sequência de rolagem e arrasto deixava zero pixel da saída visível. AC-70, AC-71.
   Onde: `packages/editor/state.svelte.ts` (`clampView`), `Stage.svelte`, `actions.ts`.
+
+- [x] ~~**Organizar os arquivos do editor e da engine em pastas**~~ — feito
+  25 arquivos numa pasta só no editor. A engine foi dividida pela direção das dependências
+  (que já era obedecida sem estar escrita); o editor, pelas regiões da tela e por quem fala
+  com o navegador. Espelhar `domain/application/adapters` no editor teria sido aplicar um
+  padrão por ser um padrão: o editor não tem domínio próprio. `npm run layers` guarda a
+  regra. AC-73, `docs/specs/0004-file-layout.md`.
+  Onde: `packages/engine/{math,model,render}/`, `packages/editor/{stage,panels,pages,platform,ui}/`,
+  `scripts/check-layers.mjs`.
 
 ### 5. Testes
 
@@ -291,14 +300,14 @@ projetor apontado para uma parede.
   renderer e apagar a projeção no meio do show, e não tem teste direto: só o
   round-trip e a referência pendurada em `store.test.ts:149`. Faltam frame com 3
   pontos, coordenada não numérica, `kind` desconhecido, `shape` polígono com 2 pontos.
-  Onde: `packages/engine/project.ts:122-229`, novo caso em `packages/engine/store.test.ts`.
+  Onde: `packages/engine/model/project.ts:122-229`, novo caso em `packages/engine/model/store.test.ts`.
 
 - [ ] **Testar a ida e volta polígono → espaço de frame** — `P`
   O caminho de `Stage.finishPolygon` (bbox vira frame, pontos pela homografia inversa)
   é a única parte da matemática do critério 6 sem teste, e é onde um erro produz um
   recorte fora do lugar na parede.
-  Onde: `packages/editor/Stage.svelte:188-208` — extrair a função pura para a engine e
-  testá-la em `packages/engine/math.test.ts`.
+  Onde: `packages/editor/stage/Stage.svelte:188-208` — extrair a função pura para a engine e
+  testá-la em `packages/engine/math/math.test.ts`.
 
 - [x] ~~**Smoke test do build**~~ — feito, e mais fundo do que o previsto
   `scripts/smoke.mjs` (`npm run smoke`) abre o `dist/index.html` por `file://` em
@@ -407,6 +416,6 @@ Existem e devem continuar limpos — não implementar, não sujar.
 
 | Ponto de extensão | Onde vive o gancho |
 |---|---|
-| **Controle externo** (uma ponte OSC via WebSocket vira só um adaptador) | `packages/engine/store.ts` — toda mutação passa por `Store.mutate` e pelos métodos públicos da classe; nenhum componente do editor escreve no projeto por fora. |
+| **Controle externo** (uma ponte OSC via WebSocket vira só um adaptador) | `packages/engine/model/store.ts` — toda mutação passa por `Store.mutate` e pelos métodos públicos da classe; nenhum componente do editor escreve no projeto por fora. |
 | ~~**Warp por malha**~~ — **construído**, e não como este gancho previa | O gancho apostava num `Shape` `{ kind: 'mesh' }`. Isso teria custado a máscara: forma é o recorte, e uma malha que ocupasse esse lugar tornaria "elipse deformada" irrepresentável. Virou camada própria (`Surface.warp`), ortogonal ao recorte. ADR-0019. |
-| **Múltiplas saídas** (`output` vira array depois) | `packages/engine/project.ts:39-44` — `output` é um objeto (`{ width, height }`), não campos soltos em `Project`. |
+| **Múltiplas saídas** (`output` vira array depois) | `packages/engine/model/project.ts:39-44` — `output` é um objeto (`{ width, height }`), não campos soltos em `Project`. |

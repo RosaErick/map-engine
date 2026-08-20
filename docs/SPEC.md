@@ -19,6 +19,7 @@ Como rodar a prova:
 
 ```bash
 npm test              # 100 testes de unidade (node:test, sem framework)
+npm run layers        # reprova import na direção errada entre as camadas
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -27,7 +28,7 @@ npm run smoke         # chromium headless abre o build por file:// e lê pixels
 
 ## 1. Matemática — homografia e geometria
 
-Seam: `packages/engine/homography.ts`, `packages/engine/geometry.ts` (funções puras).
+Seam: `packages/engine/math/homography.ts`, `packages/engine/math/geometry.ts` (funções puras).
 
 ### AC-1 — O frame define a projeção
 
@@ -88,7 +89,7 @@ envolvem todos eles
 
 ## 2. Conteúdo dentro da forma
 
-Seam: `uvTransform` em `packages/engine/renderer.ts` (função pura, sem GL).
+Seam: `uvTransform` em `packages/engine/render/renderer.ts` (função pura, sem GL).
 
 ### AC-6 — Encaixe respeita a proporção
 
@@ -122,7 +123,7 @@ Seam: `uvTransform` em `packages/engine/renderer.ts` (função pura, sem GL).
 
 ## 3. Estado, histórico e travas
 
-Seam: `Store` em `packages/engine/store.ts`. Toda mutação passa por métodos daqui —
+Seam: `Store` em `packages/engine/model/store.ts`. Toda mutação passa por métodos daqui —
 é isso que torna uma ponte OSC futura um adaptador puro.
 
 ### AC-7 — Desfazer e refazer
@@ -218,7 +219,7 @@ uma não apague a outra.
 
 ## 3c. O projeto em disco
 
-Seam: `createSaver` e `safeName` em `packages/editor/saver.ts`.
+Seam: `createSaver` e `safeName` em `packages/editor/platform/saver.ts`.
 
 ### AC-42 — O autosave não perde estado nem trava
 
@@ -261,7 +262,7 @@ Seam: `ContextTextures` em `packages/engine/sources/types.ts` e `SourcePool`.
 
 ## 3d. Malha livre
 
-Seam: `packages/engine/warp.ts` e o caminho de malha do renderer.
+Seam: `packages/engine/model/warp.ts` e o caminho de malha do renderer.
 
 ### AC-44 — Ter malha não muda nada até alguém usar
 
@@ -615,6 +616,18 @@ a chave no JSON.
 > enquanto se escolhe uma cor. Três saídas porque a primeira que a pessoa tenta
 > varia, e nenhuma delas pode não funcionar.
 
+### AC-73 — As dependências apontam para baixo
+
+**Dado** a estrutura de pastas de `packages/`
+**Quando** os `import` são lidos
+**Então** nada em `engine/math/` importa do modelo, do renderer ou das fontes;
+nada em `engine/model/` importa do renderer; nada em `editor/ui/` conhece o
+estado ou o domínio; e a engine não importa nada do editor.
+
+> Uma estrutura de pastas sem guarda volta ao estado anterior em poucas semanas,
+> um `import` de cada vez. `npm run layers` torna a regra executável, e as
+> mensagens dizem **por que** a direção existe, não só que ela foi violada.
+
 ### AC-55 — O guia manda clicar em botões que existem
 
 **Dado** o guia e o catálogo de mensagens da mesma língua
@@ -716,6 +729,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-70 | provado | `smoke.mjs` (pixels da saída depois de afastar e arrastar) |
 | AC-71 | provado | `smoke.mjs` (ponteiro real) |
 | AC-72 | provado | `smoke.mjs` (2 checagens: layout e fechamento) |
+| AC-73 | provado | `scripts/check-layers.mjs` (`npm run layers`) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o

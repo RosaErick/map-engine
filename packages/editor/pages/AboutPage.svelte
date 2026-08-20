@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Icon from './Icon.svelte';
-  import { REPO_URL } from './links.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import Icon from '../ui/Icon.svelte';
+  import { REPO_URL } from '../links.ts';
+  import { t } from '../i18n/index.svelte.ts';
 </script>
 
 <!--

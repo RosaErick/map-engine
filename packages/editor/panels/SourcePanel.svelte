@@ -1,10 +1,10 @@
 <script lang="ts">
-  import Icon from './Icon.svelte';
-  import { store, flash, getEngine } from './state.svelte.ts';
-  import { anchorId, colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../engine/index.ts';
-  import ColorPicker from './ColorPicker.svelte';
-  import { importFile } from './project-folder.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import Icon from '../ui/Icon.svelte';
+  import { store, flash, getEngine } from '../state.svelte.ts';
+  import { anchorId, colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../../engine/index.ts';
+  import ColorPicker from '../ui/ColorPicker.svelte';
+  import { importFile } from '../platform/project-folder.ts';
+  import { t } from '../i18n/index.svelte.ts';
 
   const s = $derived(
     $store.project.surfaces.find((x) => x.id === anchorId($store.view)) ?? null,

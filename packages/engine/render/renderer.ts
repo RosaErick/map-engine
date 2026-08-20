@@ -1,12 +1,12 @@
-import { applyH, solveUnitToQuad, type Mat3, type Vec2 } from './homography.ts';
-import { triangulate } from './geometry.ts';
-import { tessellate, type Warp } from './warp.ts';
+import { applyH, solveUnitToQuad, type Mat3, type Vec2 } from '../math/homography.ts';
+import { triangulate } from '../math/geometry.ts';
+import { tessellate, type Warp } from '../model/warp.ts';
 import { compile, FRAG, VERT } from './shaders.ts';
-import { frameToPixel, surfaceOrder, toColumnMajor, uvMatrix } from './surface-math.ts';
-import type { Blend, Project, Shape, Surface, TestPattern } from './project.ts';
-import type { SourcePool } from './sources/index.ts';
-import { createTexture, uploadTexture } from './sources/types.ts';
-import type { TextureSource } from './sources/types.ts';
+import { frameToPixel, surfaceOrder, toColumnMajor, uvMatrix } from '../model/surface-math.ts';
+import type { Blend, Project, Shape, Surface, TestPattern } from '../model/project.ts';
+import type { SourcePool } from '../sources/index.ts';
+import { createTexture, uploadTexture } from '../sources/types.ts';
+import type { TextureSource } from '../sources/types.ts';
 
 /** What a surface needs on the GPU, derived once per surface version. */
 interface SurfaceDraw {

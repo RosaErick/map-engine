@@ -28,7 +28,7 @@ navegar o diálogo do sistema**, e nenhum quando a permissão é persistente.
 
 **Desenho.**
 
-- `packages/editor/handle-store.ts` — IndexedDB cru, sem dependência, três
+- `packages/editor/platform/handle-store.ts` — IndexedDB cru, sem dependência, três
   funções: `rememberFolder`, `recallFolder`, `forgetFolder`. Um banco, um store,
   uma chave.
 - `project-folder.ts` ganha `restoreFolder()`, que devolve um de três estados:
