@@ -10,6 +10,8 @@ export const es: Messages = {
   'docs.onThisPage': 'En esta página',
   'topbar.guide': 'guía',
   'topbar.backToEditor': 'volver al editor',
+  'seo.title': 'Projection Mapping en el Navegador — Gratis y Código Abierto',
+  'seo.description': 'Projection mapping gratis que funciona en el navegador. Arrastra cuatro esquinas sobre un objeto real y pon dentro video, imágenes, GIF o una captura de pantalla en vivo. Sin instalación, sin cuenta, sin nube.',
   'topbar.about': 'acerca de',
   'topbar.github': 'Código en GitHub — AGPL-3.0',
   'topbar.githubLabel': 'Repositorio en GitHub',

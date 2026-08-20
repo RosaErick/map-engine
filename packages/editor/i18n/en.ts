@@ -19,6 +19,8 @@ export const en = {
   'docs.onThisPage': 'On this page',
   'topbar.guide': 'guide',
   'topbar.backToEditor': 'back to the editor',
+  'seo.title': 'Projection Mapping in the Browser — Free and Open Source',
+  'seo.description': 'Free projection mapping that runs in your browser. Drag four corners onto a real object, drop in video, images, GIFs or a live screen capture. No install, no account, no cloud.',
   'topbar.about': 'about',
   'topbar.github': 'Code on GitHub — AGPL-3.0',
   'topbar.githubLabel': 'GitHub repository',
