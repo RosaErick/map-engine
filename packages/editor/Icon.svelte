@@ -6,7 +6,7 @@
    * Só entram aqui os ícones que valem mais que uma palavra. Botão de ação
    * continua com texto — é mais explicativo, que é o ponto.
    */
-  type Name = 'github' | 'sun' | 'moon' | 'laptop' | 'eye' | 'eye-off' | 'lock' | 'lock-open' | 'close' | 'trash' | 'mark';
+  type Name = 'github' | 'sun' | 'moon' | 'laptop' | 'eye' | 'eye-off' | 'lock' | 'lock-open' | 'close' | 'trash' | 'globe' | 'mark';
   let { name, class: klass = 'size-4' }: { name: Name; class?: string } = $props();
 </script>
 
@@ -46,6 +46,10 @@
     {:else if name === 'lock-open'}
       <rect x="4" y="11" width="16" height="10" rx="2"/>
       <path d="M8 11V7a4 4 0 0 1 7.5-2"/>
+    {:else if name === 'globe'}
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M3 12h18"/>
+      <path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/>
     {:else if name === 'trash'}
       <path d="M4 7h16"/>
       <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
