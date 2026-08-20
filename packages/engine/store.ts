@@ -44,6 +44,7 @@ export class Store {
         selectedSurfaceId: null,
         selectedCorner: null,
         testPattern: 'none',
+        surfacePatterns: {},
         uiHidden: false,
       },
     };
@@ -145,9 +146,15 @@ export class Store {
 
   removeSurface(id: string): void {
     this.mutate((p) => { p.surfaces = p.surfaces.filter((s) => s.id !== id); });
+    const { [id]: _dropped, ...surfacePatterns } = this.#state.view.surfacePatterns;
+    const patch: Partial<ViewState> = { surfacePatterns };
+    // Um override órfão reapareceria numa superfície futura que reusasse o id.
     if (this.#state.view.selectedSurfaceId === id) {
-      this.setView({ selectedSurfaceId: null, selectedCorner: null });
+      patch.selectedSurfaceId = null;
+      patch.selectedCorner = null;
     }
+    if (this.#state.view.soloId === id) patch.soloId = null;
+    this.setView(patch);
   }
 
   duplicateSurface(id: string): void {
@@ -285,9 +292,29 @@ export class Store {
     });
   }
 
+  /** Padrão global, para todas as superfícies sem override. */
   setTestPattern(pattern: TestPattern): void {
     this.setView({ testPattern: pattern });
   }
+
+  /** Padrão só desta superfície. `null` devolve o controle ao padrão global. */
+  setSurfacePattern(id: string, pattern: TestPattern | null): void {
+    const next = { ...this.#state.view.surfacePatterns };
+    if (pattern === null) delete next[id];
+    else next[id] = pattern;
+    this.setView({ surfacePatterns: next });
+  }
+}
+
+/**
+ * O padrão que vale para uma superfície: o dela, se tiver, senão o global.
+ *
+ * Alinhar é uma superfície por vez — grade numa, número em outra, nada nas
+ * demais. O global continua existindo porque "grade em tudo" é o caso mais
+ * comum, e ter que ligar superfície por superfície seria pior.
+ */
+export function patternFor(state: StoreState, surfaceId: string): TestPattern {
+  return state.view.surfacePatterns[surfaceId] ?? state.view.testPattern;
 }
 
 /** Surfaces the renderer should draw, in z order, honouring solo and visible. */

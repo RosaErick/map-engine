@@ -209,12 +209,17 @@ export class Renderer {
     }
   }
 
+  /**
+   * `patternFor` recebe a superfície e devolve o padrão de teste dela. É função
+   * e não um valor único porque cada superfície pode ter o seu — o renderer não
+   * precisa saber de onde vem a decisão.
+   */
   render(
     project: Project,
     surfaces: readonly Surface[],
     pool: SourcePool,
     view: ViewTransform = IDENTITY_VIEW,
-    pattern: TestPattern = 'none',
+    patternFor: (surface: Surface) => TestPattern = () => 'none',
   ): void {
     const gl = this.gl;
     const { width, height } = this.#canvas;
@@ -229,7 +234,7 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE0);
 
     for (const surface of surfaces) {
-      this.#drawSurface(project, surface, pool, pattern);
+      this.#drawSurface(project, surface, pool, patternFor(surface));
     }
     gl.bindVertexArray(null);
   }

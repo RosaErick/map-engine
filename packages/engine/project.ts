@@ -53,7 +53,11 @@ export interface ViewState {
   soloId: string | null;
   selectedSurfaceId: string | null;
   selectedCorner: number | null;
+  /** Padrão aplicado a todas as superfícies que não têm o seu próprio. */
   testPattern: TestPattern;
+  /** Override por superfície, por id. Ausência significa "segue o global" —
+   *  e um `'none'` explícito apaga o padrão só naquela superfície. */
+  surfacePatterns: Record<string, TestPattern>;
   uiHidden: boolean;
 }
 
