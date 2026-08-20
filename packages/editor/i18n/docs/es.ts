@@ -65,6 +65,24 @@ export const guideEs: Guide = [
     ],
   },
   {
+    id: 'mesh',
+    title: 'Superficies curvas',
+    blocks: [
+      { kind: 'p', text: 'Cuatro esquinas mapean un plano. En una columna, un arco o una pared abombada aciertan el contorno y fallan en el medio — el contenido se desliza a medida que la superficie se aleja. La <b>malla libre</b> lo resuelve.' },
+      {
+        kind: 'list',
+        items: [
+          'Abre <b>malla libre</b> en el panel de la superficie y crea una. Todavía no cambia nada: una malla nueva nace perfectamente plana.',
+          'Arrastra los puntos violeta hasta que el contenido se apoye en el objeto. Haz clic en uno y las flechas lo mueven 1 px, como una esquina.',
+          '<b>Arrastrar vecinos</b> decide cuánto acompañan los puntos de alrededor al que arrastras. Bájalo para ajustar un solo punto, súbelo para moldear una curva amplia.',
+          '<b>Curvo</b> pasa una superficie suave entre los puntos — es la opción para cualquier cosa redonda. <b>Recto</b> mantiene pliegues duros, para un doblez.',
+          'Más puntos de control es más control fino. Cambiar la cantidad conserva la forma que ya ajustaste.',
+        ],
+      },
+      { kind: 'note', text: '<b>Aplanar</b> deshace todas las curvas sin quitar la malla, y una superficie bloqueada rechaza editar la malla igual que rechaza una esquina.' },
+    ],
+  },
+  {
     id: 'content',
     title: 'Contenido',
     blocks: [

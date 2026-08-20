@@ -65,6 +65,24 @@ export const guidePt: Guide = [
     ],
   },
   {
+    id: 'mesh',
+    title: 'Superfícies curvas',
+    blocks: [
+      { kind: 'p', text: 'Quatro cantos mapeiam um plano. Numa coluna, num arco ou numa parede com barriga eles acertam o contorno e erram o meio — o conteúdo escorrega conforme a superfície foge. A <b>malha livre</b> resolve isso.' },
+      {
+        kind: 'list',
+        items: [
+          'Abra <b>malha livre</b> no painel da superfície e crie uma. Nada muda ainda: malha nova nasce perfeitamente plana.',
+          'Arraste os pontos violeta até o conteúdo assentar no objeto. Clique num deles e as setas movem 1 px, como num canto.',
+          '<b>Puxar vizinhos</b> decide o quanto os pontos ao redor acompanham o que você arrasta. Baixe para ajustar um ponto só, aumente para moldar uma curva larga.',
+          '<b>Curvo</b> passa uma superfície suave entre os pontos — é a escolha para qualquer coisa redonda. <b>Reto</b> mantém dobra dura, para vinco.',
+          'Mais pontos de controle é mais controle fino. Trocar a quantidade preserva a forma que você já ajustou.',
+        ],
+      },
+      { kind: 'note', text: '<b>Aplanar</b> desfaz todas as curvas sem remover a malha, e superfície travada recusa edição de malha exatamente como recusa canto.' },
+    ],
+  },
+  {
     id: 'content',
     title: 'Conteúdo',
     blocks: [

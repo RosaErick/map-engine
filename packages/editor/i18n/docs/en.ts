@@ -65,6 +65,24 @@ export const guideEn: Guide = [
     ],
   },
   {
+    id: 'mesh',
+    title: 'Curved surfaces',
+    blocks: [
+      { kind: 'p', text: 'Four corners map a flat plane. On a column, an arch or a wall with a belly they get the outline right and the middle wrong — the content slides as the surface curves away. A <b>free mesh</b> fixes that.' },
+      {
+        kind: 'list',
+        items: [
+          'Open <b>free mesh</b> in the surface panel and add one. Nothing changes yet: a fresh mesh is perfectly flat.',
+          'Drag the violet points until the content sits on the object. Click one and the arrow keys move it 1 px, like a corner.',
+          '<b>Pull neighbours</b> decides how much the surrounding points follow the one you drag. Turn it down to nudge a single point, up to shape a broad curve.',
+          '<b>Curved</b> runs a smooth surface between the points — the right choice for anything round. <b>Straight</b> keeps hard folds, for a crease.',
+          'More control points means finer control. Changing the count keeps the shape you already dialled in.',
+        ],
+      },
+      { kind: 'note', text: '<b>Flatten</b> undoes every bend without removing the mesh, and a locked surface refuses mesh edits exactly as it refuses corners.' },
+    ],
+  },
+  {
     id: 'content',
     title: 'Content',
     blocks: [

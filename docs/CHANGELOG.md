@@ -10,6 +10,25 @@ migrado na leitura.
 
 ## [Não lançado]
 
+### Malha livre
+
+Superfície que não é plana — coluna, arco, parede abaulada — passa a ter uma camada de
+deformação entre o frame e o recorte. **Opcional**: projeto salvo sem ela continua
+idêntico, byte a byte.
+
+- Pontos de controle arrastáveis, com **atração de vizinhos** ajustável — sem isso,
+  moldar uma curva seria um ponto de cada vez.
+- Setas do teclado movem 1 px num ponto de malha, como já faziam num canto.
+- Interpolação **curva** (Catmull-Rom) para superfície contínua, ou **reta** para vinco
+  duro.
+- Grade de controle separada da tesselação: poucas alças para arrastar, malha fina para
+  desenhar. Trocar a subdivisão **reamostra** e preserva o que já foi ajustado.
+- Cada célula carrega a própria homografia e o próprio `w`, então a textura fica
+  projetivamente exata dentro dela e a malha não mostra costura.
+- Máscara de elipse e de polígono continuam recortando numa superfície deformada.
+- Superfície travada recusa edição de malha, pela mesma razão que recusa canto.
+
+
 Ainda sem tag. `git tag v0.1.0 && git push origin v0.1.0` publica o Release com o
 arquivo único anexado.
 
