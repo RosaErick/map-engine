@@ -230,6 +230,40 @@ export class Store {
     });
   }
 
+  /** Recorte dentro da fonte, em 0..1. */
+  setCrop(id: string, crop: Partial<Surface['crop']>): void {
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (!s) return;
+      const next = { ...s.crop, ...crop };
+      // A window with no width or height would sample nothing at all.
+      s.crop = {
+        x: clamp(next.x, 0, 1),
+        y: clamp(next.y, 0, 1),
+        w: clamp(next.w, 0.01, 1),
+        h: clamp(next.h, 0.01, 1),
+      };
+    }, { coalesce: `crop:${id}` });
+  }
+
+  /**
+   * Moves one vertex of a traced polygon, in frame space.
+   *
+   * Locked applies here for the same reason it applies to a corner: the shape
+   * is what sits on the physical object, and nudging it is as destructive as
+   * nudging the frame.
+   */
+  setPolygonPoint(id: string, index: number, point: Vec2): void {
+    if (!this.#editable(id)) return;
+    this.mutate((p) => {
+      const s = p.surfaces.find((x) => x.id === id);
+      if (s?.shape.kind !== 'polygon') return;
+      const target = s.shape.points[index];
+      if (!target) return;
+      s.shape.points[index] = { x: point.x, y: point.y };
+    }, { coalesce: `poly:${id}:${index}` });
+  }
+
   setSurfaceShape(id: string, shape: Shape): void {
     this.mutate((p) => {
       const s = p.surfaces.find((x) => x.id === id);
