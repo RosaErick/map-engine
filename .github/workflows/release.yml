@@ -1,0 +1,44 @@
+# Publica o arquivo único como anexo de um Release, para quem não vai clonar
+# repositório nenhum: baixa o .html e dá dois cliques.
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag do release (ex: v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      # O nome do anexo é o que a pessoa vai ver na pasta de Downloads.
+      - name: Nomear o arquivo
+        run: cp dist/index.html projection-mapping.html
+
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" projection-mapping.html \
+            --title "$TAG" \
+            --notes "Baixe \`projection-mapping.html\` e abra com Chrome ou Edge. Um arquivo só: sem instalação, sem servidor, sem internet. Instruções: https://github.com/${{ github.repository }}/blob/main/INSTALAR.md" \
+            || gh release upload "$TAG" projection-mapping.html --clobber
