@@ -105,6 +105,54 @@ for (const file of walk(editor)) {
   });
 }
 
+// --- catalogue consistency -------------------------------------------------
+//
+// TypeScript guarantees every locale has every key. It cannot see inside the
+// strings, and that is where the damage hides: a translation that drops `{name}`
+// renders a sentence with a hole in it, and one that loses `<b>` breaks markup
+// that goes through {@html}. Both are silent in production and loud on a wall.
+const catalogues = readdirSync(join(editor, 'i18n'))
+  .filter((f) => /^[a-z]{2}\.ts$/.test(f))
+  .map((f) => ({ locale: f.slice(0, 2), path: join(editor, 'i18n', f) }));
+
+function entries(path) {
+  const map = new Map();
+  for (const m of readFileSync(path, 'utf8').matchAll(/^  '([^']+)':\s*'((?:[^'\\]|\\.)*)',$/gm)) {
+    map.set(m[1], m[2]);
+  }
+  return map;
+}
+
+const base = entries(join(editor, 'i18n', 'en.ts'));
+const tokens = (value) => [...value.matchAll(/\{(\w+)\}|<(\/?\w+)>/g)].map((m) => m[0]).sort();
+
+for (const { locale, path } of catalogues) {
+  if (locale === 'en') continue;
+  const other = entries(path);
+  for (const [key, value] of base) {
+    const translated = other.get(key);
+    if (translated === undefined) {
+      findings.push({ file: relative(root, path), line: 0, kind: 'chave ausente', snippet: key });
+      continue;
+    }
+    const want = tokens(value).join(' ');
+    const got = tokens(translated).join(' ');
+    if (want !== got) {
+      findings.push({
+        file: relative(root, path),
+        line: 0,
+        kind: 'placeholder/marcação',
+        snippet: `${key}: esperado [${want}] veio [${got}]`,
+      });
+    }
+  }
+  for (const key of other.keys()) {
+    if (!base.has(key)) {
+      findings.push({ file: relative(root, path), line: 0, kind: 'chave a mais', snippet: key });
+    }
+  }
+}
+
 if (findings.length === 0) {
   console.log('ok  nenhuma string fixa no editor');
   process.exit(0);
