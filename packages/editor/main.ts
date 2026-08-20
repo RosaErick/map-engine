@@ -4,6 +4,10 @@ import './app.css';
 
 const target = document.getElementById('app');
 if (!target) throw new Error('#app not found');
+// The markup already inside #app is the crawler-readable fallback from
+// index.html. It has done its job by now; mount() appends rather than replaces,
+// so it has to go before the editor renders.
+target.replaceChildren();
 mount(App, { target });
 
 // Installable and offline once served over http(s). Registering from file://
