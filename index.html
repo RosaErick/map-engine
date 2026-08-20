@@ -1,15 +1,106 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Projection Mapping</title>
+
+    <title>Projection Mapping in the Browser — Free and Open Source</title>
+    <meta
+      name="description"
+      content="Free projection mapping that runs in your browser. Drag four corners onto a real object, drop in video, images, GIFs or a live screen capture. No install, no account, no cloud."
+    />
+    <link rel="canonical" href="https://rosaerick.github.io/map-engine/" />
+
     <meta name="theme-color" content="#000000" />
     <link rel="icon" href="./icon-192.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Projection Mapping" />
+    <meta property="og:title" content="Projection Mapping in the Browser — Free and Open Source" />
+    <meta
+      property="og:description"
+      content="Drag four corners onto a real object and put video, images or a live screen capture inside. Runs in the browser, works offline, free forever."
+    />
+    <meta property="og:url" content="https://rosaerick.github.io/map-engine/" />
+    <meta property="og:image" content="https://rosaerick.github.io/map-engine/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A perspective quadrilateral with four corner handles on a black background." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="pt_BR" />
+    <meta property="og:locale:alternate" content="es_ES" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!--
+      Structured data. A tool that is genuinely free needs to say so in a way a
+      machine can read: `price: 0` on the offer is what stops it being filed
+      next to the trials and the freemium tiers.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Projection Mapping",
+        "url": "https://rosaerick.github.io/map-engine/",
+        "applicationCategory": "MultimediaApplication",
+        "applicationSubCategory": "Projection mapping",
+        "operatingSystem": "Any (web browser)",
+        "browserRequirements": "Requires WebGL2. Best in Chrome or Edge.",
+        "description": "Projection mapping in the browser: drag four corners onto a physical object and put video, images, GIFs, solid colour, a live screen capture or a webcam inside each mapped shape. Works offline from a single file.",
+        "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+        "isAccessibleForFree": true,
+        "inLanguage": ["en", "pt-BR", "es"],
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "Four-corner perspective warping",
+          "Ellipse and free polygon masks",
+          "Video, image, GIF and solid colour sources",
+          "Live screen capture and webcam as textures",
+          "Custom JavaScript canvas modules",
+          "Test patterns for alignment",
+          "Second-screen output for the projector",
+          "Projects saved as a folder on disk"
+        ],
+        "codeRepository": "https://github.com/RosaErick/map-engine"
+      }
+    </script>
   </head>
   <body>
-    <div id="app"></div>
+    <!--
+      Conteúdo real dentro de #app, e não em <noscript>.
+      Sem isto o rastreador lê duas palavras: o app é renderizado por JS e a
+      página servida é um div vazio. `main.ts` limpa este bloco antes de montar,
+      então ele também é o que aparece se o JS falhar ou demorar.
+    -->
+    <div id="app">
+      <main style="max-width: 42rem; margin: 0 auto; padding: 4rem 1.5rem; color: #f4f4f4; background: #161616; font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.6;">
+        <h1 style="font-size: 2rem; line-height: 1.2; margin: 0 0 1rem;">
+          Projection mapping in the browser
+        </h1>
+        <p>
+          Point a projector at a physical object — a wall with picture frames, a stack of
+          boxes, a window — then drag four corners over the projection until they match the
+          real edges, and put content inside each shape: video, images, GIFs, a solid colour,
+          a live screen capture, a webcam, or your own JavaScript drawing.
+        </p>
+        <p>
+          <strong>Free and open source, today and always.</strong> No paid tier, no plan, no
+          account, no watermark, no project limit and no cloud. It runs entirely on your
+          machine, works offline from a single file, and saves projects as an ordinary folder
+          on disk.
+        </p>
+        <p>
+          <a href="https://github.com/RosaErick/map-engine" style="color: #52bdff;">Source code on GitHub</a>
+          ·
+          <a href="https://github.com/RosaErick/map-engine/blob/main/docs/install/en.md" style="color: #52bdff;">How to install</a>
+        </p>
+        <p style="color: #b6b8bb;">
+          The editor needs JavaScript and WebGL2. If you are reading this, it has not started
+          yet — use a recent Chrome or Edge.
+        </p>
+      </main>
+    </div>
     <script type="module" src="/packages/editor/main.ts"></script>
   </body>
 </html>
