@@ -188,7 +188,9 @@ patch pelo mesmo motivo — o adaptador de controle externo chama esses mesmos m
 pode atravessar a trava. Nome, visibilidade e o próprio `locked` continuam passando, senão
 uma superfície travada nunca poderia ser destravada. No fim do arquivo, a função livre
 `visibleSurfaces(state)` devolve o que o renderer deve desenhar, aplicando solo, `visible` e
-ordenação por z.
+ordenação por z, e `patternFor(state, id)` resolve o padrão de teste de cada superfície: o
+dela, se tiver, senão o global. `Renderer.render` recebe essa resolução como **função**, e
+não como um valor único, para não precisar saber de onde vem a decisão.
 
 #### [`packages/engine/engine.ts`](../packages/engine/engine.ts)
 
@@ -381,16 +383,47 @@ alça usa `use:drag` chamando `store.setCorner(id, i, snapPoint(toOutput(p), id)
 
 #### [`packages/editor/Toolbar.svelte`](../packages/editor/Toolbar.svelte)
 
-A barra superior. Botões de nova superfície, ferramenta polígono, desfazer/refazer
-(ligados a `store.canUndo`/`canRedo`), seletor dos oito padrões de teste
-(`store.setTestPattern`), toggle de snap, abrir pasta / salvar / baixar JSON, seletor de
-tela e o botão "saída" que chama `openOutput(store, ...)` de
-[`output.ts`](../packages/output/output.ts), além dos campos de resolução de saída, do botão
-"casar resolução" (adota `width × devicePixelRatio` da tela escolhida — a resolução nativa
-do projetor, sem escalonamento intermediário), "esconder UI" e "enquadrar". Um `$effect`
-popula a lista de telas por `listScreens()` **na montagem**, e não no clique: pedir as telas
-dentro do handler gastaria a ativação transitória de que `window.open` e `requestFullscreen`
-precisam. `onOpenFolder` invalida as URLs em cache antes de carregar o novo projeto.
+Só o que se toca **enquanto alinha**: nova superfície, ferramenta polígono,
+desfazer/refazer (ligados a `store.canUndo`/`canRedo`), ímã (snap), o seletor dos oito
+padrões de teste, enquadrar e esconder UI. Tudo o que é de começo e de fim de montagem
+mudou-se para [`ProjectPanel.svelte`](../packages/editor/ProjectPanel.svelte), que é o
+que torna esta barra legível.
+
+#### [`packages/editor/TopBar.svelte`](../packages/editor/TopBar.svelte)
+
+Marca à esquerda, **informação de contexto no centro**, ações discretas à direita. O
+centro responde, sem ninguém perguntar, o que se quer saber de relance no meio de uma
+montagem: onde o projeto está sendo salvo (com um ponto que fica verde por dois segundos
+a cada autosave), a resolução da saída, quantas superfícies existem e se a projeção está
+no ar. É informação, não mais botões — a barra de trabalho já tem os botões. O seletor de
+tema é **um** ícone com menu suspenso, e não três botões: o controle não pode competir em
+peso visual com o que a pessoa veio fazer.
+
+#### [`packages/editor/theme.svelte.ts`](../packages/editor/theme.svelte.ts)
+
+`applyTheme(next)` grava `data-theme` no elemento raiz e persiste em `localStorage`;
+`'system'` **remove** o atributo, deixando o `--prefersdark` do daisyUI resolver pela
+preferência do sistema — seguir o sistema sem uma linha de JS de cálculo.
+
+#### [`packages/editor/ProjectPanel.svelte`](../packages/editor/ProjectPanel.svelte)
+
+Pasta do projeto, salvar, resolução de saída, escolha de tela e o botão que abre a janela
+de saída (passando o `SourcePool` do editor). Vive num `<details>` recolhível que começa
+aberto e se fecha quando existe pasta: é trabalho de começo e de fim de montagem, e não
+pode empurrar as superfícies para fora da tela durante o alinhamento. Enumera as telas na
+montagem, nunca no clique, pelo motivo descrito em `output.ts`.
+
+#### [`packages/editor/About.svelte`](../packages/editor/About.svelte)
+
+O "sobre", num `<dialog>` nativo (foco, camada e `Esc` de graça). Tipografia de jornal —
+coluna estreita, serifa, fios finos, capitular, citação com fio à esquerda — usando só
+fontes do sistema, porque carregar fonte externa quebraria o uso offline.
+
+#### [`packages/editor/Icon.svelte`](../packages/editor/Icon.svelte) e [`links.ts`](../packages/editor/links.ts)
+
+Ícones em SVG inline (sem fonte de ícone, sem CDN: um ícone que não carrega vira botão
+sem rótulo) e o endereço do repositório em um lugar só. Só entram ícones que valem mais
+que uma palavra — botão de ação continua com texto, que é mais explicativo.
 
 #### [`packages/editor/SurfaceList.svelte`](../packages/editor/SurfaceList.svelte)
 
@@ -443,6 +476,18 @@ são as únicas cores usadas pelos componentes.
 
 ### Saída
 
+#### [`packages/engine/sources/types.ts`](../packages/engine/sources/types.ts) — nota sobre `ContextTextures`
+
+Além da interface `TextureSource` e de `uploadTexture`, este arquivo define
+`ContextTextures`: um `WebGLTexture` por contexto GL, mais a versão de conteúdo que cada
+contexto subiu por último. Existe porque textura não atravessa janela, mas o `<video>` e
+o `ImageDecoder` atravessam — então o editor e a saída compartilham **a fonte** e têm
+cada um **a sua textura**. `invalidate()` marca conteúdo novo, `isStale(gl)` diz quem
+está atrasado, `release(gl)` derruba só as texturas de uma janela e `disposeAll()` mata
+tudo. O `isDirty` da interface virou um getter derivado disso: um booleano único não
+sobrevive a dois consumidores, porque quem subisse primeiro apagaria o aviso do outro.
+`TextureSource` ganhou `release(gl)` ao lado de `dispose(gl)` pela mesma razão.
+
 #### [`packages/output/output.ts`](../packages/output/output.ts)
 
 A janela de saída limpa. Declara localmente as interfaces `ScreenDetailed`/`ScreenDetails`
@@ -460,7 +505,13 @@ Window), e cai para um aviso quando falha. A decisão documentada no arquivo: as
 o objeto `Store` **por referência**, não por `BroadcastChannel`, porque em `file://` cada
 documento tem origem opaca e o canal não conecta — mas uma janela aberta com
 `window.open('')` herda o realm do opener. Cada janela mantém contexto GL próprio, porque
-contexto GL não atravessa janela.
+contexto GL não atravessa janela — mas **compartilha o `SourcePool`** por `OutputOptions.pool`,
+para não decodificar cada vídeo duas vezes nem pedir permissão de captura de novo. O ciclo
+de vida converge num `teardown` único, alcançado por `pagehide` e `beforeunload` da janela
+filha, por `pagehide` do editor (reload não deixa janela zumbi no projetor) e pelo `close()`
+do chamador; `onClose` avisa a toolbar para o botão voltar a dizer "saída". A janela também
+escuta `Escape` — é o único controle que ela tem, já que não há UI, cursor nem barra de
+título. Um `subscribe` no store re-aplica o letterbox quando a resolução do projeto muda.
 
 #### [`scripts/smoke.mjs`](../scripts/smoke.mjs)
 
@@ -472,6 +523,18 @@ que prova AC-14 a AC-20 de [`SPEC.md`](SPEC.md), incluindo a medição objetiva 
 nº 1: ajusta uma reta por mínimos quadrados à borda entre duas barras de cor num
 quadrilátero fortemente deformado e falha se o desvio máximo passar de 1,5 px. O handle
 global `window.engine` que ele usa é criado em `Stage.svelte`.
+
+#### [`public/`](../public) e o service worker gerado
+
+`public/` guarda o que **não** pode ser embutido no HTML: `manifest.webmanifest` e os
+três ícones (gerados por [`scripts/make-icons.mjs`](../scripts/make-icons.mjs), que
+desenha um quad em perspectiva com as quatro alças e tira um screenshot com o
+Playwright já instalado). O `sw.js` não fica aqui: é escrito no `closeBundle` por um
+plugin em [`vite.config.ts`](../vite.config.ts), com o nome do cache derivado do hash
+do `index.html` construído — um service worker com versão constante nunca atualiza e
+serve o app antigo para sempre. O registro em `main.ts` é guardado por
+`location.protocol`, porque registrar service worker a partir de `file://` lança, e é
+justamente por `file://` que o arquivo avulso roda.
 
 ### Configuração
 

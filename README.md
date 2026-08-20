@@ -17,21 +17,28 @@ outro projeto.
 
 ---
 
-## Começo rápido
+## Instalar
+
+**Não é programador?** As instruções com passo a passo estão em
+**[`INSTALAR.md`](INSTALAR.md)**. Em resumo, dois caminhos:
+
+- **Instalar como aplicativo** — abra o endereço no Chrome ou Edge e clique no ícone
+  de instalar na barra de endereço. Ganha ícone próprio, janela sem barra de endereço
+  e passa a funcionar sem internet.
+- **Baixar um arquivo** — pegue `projection-mapping.html` nos
+  [Releases](../../releases) e dê dois cliques. Um arquivo só, ~100 KB, sem instalação
+  e sem servidor.
+
+## Começo rápido (desenvolvimento)
 
 ```bash
 npm install
 npm run dev          # http://localhost:5173
+npm run build        # dist/ — index.html autocontido + manifest, ícones e service worker
 ```
 
-Ou, para levar para o local da montagem, um arquivo só que abre sem servidor:
-
-```bash
-npm run build        # dist/index.html — ~100 KB, autocontido, abre por file://
-```
-
-Copie `dist/index.html` para um pendrive e dê dois cliques. Não precisa de servidor,
-não precisa de rede.
+`dist/index.html` funciona sozinho: os outros arquivos só existem para a instalação como
+aplicativo, e a ausência deles não impede nada.
 
 ### O fluxo de 60 segundos
 
@@ -45,6 +52,18 @@ não precisa de rede.
 4. **arraste um vídeo** da pasta direto para cima da superfície.
 5. **saída** — manda a projeção para a segunda tela; o editor fica no laptop.
 6. **H** — esconde a interface.
+
+---
+
+## Interface
+
+Tema **claro**, **escuro** ou seguindo o sistema — o seletor fica no topo à direita, e a
+escolha é lembrada. A **área de trabalho é sempre preta**, nos dois temas: ela não é
+fundo de interface, é pré-visualização do que sai do projetor, e clarear isso faria a
+ferramenta mentir sobre o que vai aparecer na parede.
+
+O botão **sobre** abre uma página curta explicando a ferramenta, e o ícone do GitHub leva
+ao código.
 
 ---
 
@@ -108,7 +127,13 @@ num subcaminho de GitHub Pages, num domínio próprio, ou aberto do disco.
 
 **GitHub Pages.** O workflow em [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
 roda os testes, builda e publica a cada push na `main`. Ligue uma vez em
-*Settings → Pages → Source: GitHub Actions*.
+*Settings → Pages → Source: GitHub Actions*. Servido por `https`, o app vira instalável:
+o service worker cacheia tudo e ele passa a abrir offline, com permissões de câmera e
+captura lembradas — coisa que `file://` não consegue fazer.
+
+**Release com o arquivo avulso.** `git tag v0.1.0 && git push origin v0.1.0` dispara
+[`.github/workflows/release.yml`](.github/workflows/release.yml), que testa, builda e
+anexa `projection-mapping.html` ao Release.
 
 **Netlify.** [`netlify.toml`](netlify.toml) já traz comando e diretório. Conecte o
 repositório e não há mais nada a configurar — ou arraste a pasta `dist/` para o
@@ -179,6 +204,18 @@ diz isso na tela.
 | [`docs/SPEC.md`](docs/SPEC.md) | Critérios de aceite numerados, ligados aos testes pelo id |
 | [`docs/TASKS.md`](docs/TASKS.md) | O que falta, em ordem de quem bloqueia o teste físico |
 | [`AGENTS.md`](AGENTS.md) | As decisões de arquitetura em formato ADR, e as regras para quem for mexer |
+
+---
+
+## Licença
+
+**AGPL-3.0-only** ([`LICENSE`](LICENSE)). Qualquer um pode usar, estudar, modificar e
+contribuir. O que a AGPL impede é o único cenário que este projeto não quer: alguém
+pegar o código, fechar e publicar como produto próprio — inclusive hospedando como
+serviço, sem distribuir binário nenhum. Modificou e publicou, o código modificado sai
+junto.
+
+Como contribuir está em [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
