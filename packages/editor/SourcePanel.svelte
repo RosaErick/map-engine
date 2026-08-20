@@ -91,9 +91,28 @@
 
     const sync = (): void => {
       const next = read();
-      if (JSON.stringify(next) !== JSON.stringify(statuses)) statuses = next;
+      // Comparação campo a campo em vez de serializar os dois lados a cada
+      // tique: são poucos itens e isso roda num relógio.
+      const changed =
+        Object.keys(next).length !== Object.keys(statuses).length ||
+        Object.entries(next).some(([id, value]) => {
+          const before = statuses[id];
+          return !before || before.text !== value.text || before.bad !== value.bad;
+        });
+      if (changed) statuses = next;
     };
     sync();
+
+    // O relógio só existe enquanto algo pode mudar sozinho: uma fonte ainda
+    // carregando, ou um stream que pode ser encerrado por fora (captura de tela
+    // parada pelo usuário, câmera desconectada). Arquivo já carregado e cor
+    // sólida nunca mudam sem uma mutação — e mutação já redesenha por conta.
+    const watchable = $store.project.sources.some((src) => {
+      if (src.kind === 'capture' || src.kind === 'camera') return true;
+      return statuses[src.id] === undefined || statuses[src.id]?.text === t('sources.loading');
+    });
+    if (!watchable) return;
+
     const timer = setInterval(sync, 400);
     return () => clearInterval(timer);
   });
@@ -116,9 +135,8 @@
     input.value = '';
     if (!file) return;
     const path = await importFile(file);
-    // Um módulo generativo é apontado por `moduleId`, não por `path`.
-    const patch = source.kind === 'canvas' ? { moduleId: path } : { path };
-    store.patchSource(source.id, patch as Partial<Source>);
+    // Qual campo recebe o caminho depende do tipo da fonte; o store estreita.
+    store.relinkSource(source.id, path);
   }
 
   const RELINKABLE = new Set(['image', 'video', 'gif', 'canvas']);
@@ -179,7 +197,7 @@
               class="select select-xs w-24"
               value={source.deviceId ?? ''}
               title={t('sources.switchCamera')}
-              onchange={(e) => store.patchSource(source.id, { deviceId: e.currentTarget.value } as Partial<Source>)}
+              onchange={(e) => store.setCameraDevice(source.id, e.currentTarget.value)}
             >
               {#each cameras as cam (cam.deviceId)}
                 <option value={cam.deviceId}>{cam.label}</option>
@@ -194,7 +212,8 @@
               value={`#${source.rgb.map((v) => v.toString(16).padStart(2, '0')).join('')}`}
               oninput={(e) => {
                 const hex = e.currentTarget.value;
-                store.patchSource(source.id, { rgb: [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) } as Partial<Source>);
+                const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+                store.setSourceColor(source.id, [r ?? 0, g ?? 0, b ?? 0]);
               }}
             />
           {/if}

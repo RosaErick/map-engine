@@ -312,6 +312,43 @@ export class Store {
     });
   }
 
+  /**
+   * Operações nomeadas por tipo de fonte.
+   *
+   * `Source` é união discriminada, e `Partial<Source>` num `patchSource` obriga
+   * o chamador a um cast — que desliga exatamente a checagem que a união existe
+   * para dar. Estreitar aqui dentro, uma vez, tira o cast de todos os
+   * chamadores e faz o compilador recusar `rgb` numa câmera.
+   */
+  setSourceColor(id: string, rgb: [number, number, number]): void {
+    this.#patchByKind(id, 'color', (s) => { s.rgb = rgb; });
+  }
+
+  setCameraDevice(id: string, deviceId: string): void {
+    this.#patchByKind(id, 'camera', (s) => { s.deviceId = deviceId; });
+  }
+
+  /** Aponta uma fonte de arquivo para outro arquivo — o "religar" do editor. */
+  relinkSource(id: string, path: string): void {
+    this.mutate((p) => {
+      const s = p.sources.find((x) => x.id === id);
+      if (!s) return;
+      if (s.kind === 'canvas') s.moduleId = path;
+      else if (s.kind === 'image' || s.kind === 'gif' || s.kind === 'video') s.path = path;
+    });
+  }
+
+  #patchByKind<K extends Source['kind']>(
+    id: string,
+    kind: K,
+    apply: (source: Extract<Source, { kind: K }>) => void,
+  ): void {
+    this.mutate((p) => {
+      const s = p.sources.find((x) => x.id === id);
+      if (s?.kind === kind) apply(s as Extract<Source, { kind: K }>);
+    });
+  }
+
   /** Global pattern, for every surface without an override. */
   setTestPattern(pattern: TestPattern): void {
     this.setView({ testPattern: pattern });
