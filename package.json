@@ -1,17 +1,37 @@
 {
   "name": "map-engine",
   "version": "0.1.0",
+  "description": "Projection mapping engine and editor that run in the browser.",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
+  "sideEffects": false,
+  "module": "./dist-lib/map-engine.js",
+  "types": "./dist-lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist-lib/types/index.d.ts",
+      "import": "./dist-lib/map-engine.js"
+    }
+  },
+  "files": [
+    "dist-lib",
+    "packages/engine",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test 'packages/engine/*.test.ts' 'packages/engine/sources/*.test.ts'",
+    "test": "node --test 'packages/engine/*.test.ts' 'packages/engine/sources/*.test.ts' 'packages/editor/i18n/docs/*.test.ts'",
     "check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "smoke": "node scripts/smoke.mjs",
     "verify": "npm test && npm run i18n && npm run build && npm run smoke",
-    "i18n": "node scripts/check-i18n.mjs"
+    "i18n": "node scripts/check-i18n.mjs",
+    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "prepare": "npm run build:lib",
+    "example": "vite examples/embed --port 5174"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
@@ -25,7 +45,5 @@
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
     "vite-plugin-singlefile": "^2.1.0"
-  },
-  "license": "AGPL-3.0-only",
-  "description": "Projection mapping no navegador: engine WebGL2 sem interface + editor."
+  }
 }
