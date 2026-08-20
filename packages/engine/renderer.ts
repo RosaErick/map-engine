@@ -152,6 +152,9 @@ export class Renderer {
   #u: Record<string, WebGLUniformLocation | null>;
   #numberTextures = new Map<number, WebGLTexture>();
   #t0 = performance.now();
+  /** Last GL state pushed this frame, to skip redundant calls — see #setState. */
+  #boundTexture: WebGLTexture | null = null;
+  #boundBlend: Blend | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', {
@@ -232,6 +235,9 @@ export class Renderer {
     gl.uniform1f(this.#u['uTime']!, (performance.now() - this.#t0) / 1000);
     gl.uniform1i(this.#u['uTex']!, 0);
     gl.activeTexture(gl.TEXTURE0);
+    // A fresh frame knows nothing about what the last one left bound.
+    this.#boundTexture = null;
+    this.#boundBlend = null;
 
     for (const surface of surfaces) {
       this.#drawSurface(project, surface, pool, patternFor(surface));
@@ -255,7 +261,13 @@ export class Renderer {
       texture = source.getTexture(gl);
       if (!texture) return;
     }
-    if (texture) gl.bindTexture(gl.TEXTURE_2D, texture);
+    // Draw order still follows z — reordering would change what blends over
+    // what. What is skipped is the redundant state: several surfaces sharing a
+    // source, which is the common case in a wall of clips, bind once.
+    if (texture && texture !== this.#boundTexture) {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      this.#boundTexture = texture;
+    }
 
     const [verts, indices] = this.#geometry(surface);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.#vbo);
@@ -271,7 +283,10 @@ export class Renderer {
     gl.uniform1i(this.#u['uMode']!, mode);
     gl.uniform1i(this.#u['uPattern']!, patternId);
 
-    setBlend(gl, surface.blend);
+    if (surface.blend !== this.#boundBlend) {
+      setBlend(gl, surface.blend);
+      this.#boundBlend = surface.blend;
+    }
     gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
   }
 
