@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Store, visibleSurfaces, patternFor } from './store.ts';
 import { emptyProject } from './project.ts';
-import { surfaceNumber } from './renderer.ts';
+import { surfaceOrder } from './surface-math.ts';
 
 test('AC-7: undo restores the previous state and redo reapplies it', () => {
   const store = new Store(emptyProject());
@@ -110,8 +110,11 @@ test('AC-11: the projected surface number follows the editor list order', () => 
   store.reorder(a.id, 1);
   store.reorder(b.id, 9);
   const surfaces = store.project.surfaces;
+  const order = surfaceOrder(store.project);
   const top = surfaces.find((s) => s.id === b.id)!;
-  assert.equal(surfaceNumber(store.project, top), 1);
+  const bottom = surfaces.find((s) => s.id === a.id)!;
+  assert.equal(order.get(top), 1);
+  assert.equal(order.get(bottom), 2);
 });
 
 test('AC-32: a surface without an override follows the global test pattern', () => {
@@ -178,4 +181,61 @@ test('AC-38: a polygon vertex moves, and a locked surface refuses', () => {
   store.setPolygonPoint(s.id, 2, { x: 0.1, y: 0.1 });
   const after = store.project.surfaces[0]!.shape;
   assert.deepEqual(after.kind === 'polygon' ? after.points[2] : null, { x: 0.8, y: 0.9 });
+});
+
+test('AC-40: the generic patch enforces the same invariants as the named setters', () => {
+  const store = new Store(emptyProject());
+  const s = store.addSurface();
+
+  // Values that no named setter would ever accept, through the generic door.
+  store.patchSurface(s.id, {
+    opacity: 5,
+    rotation: 450,
+    crop: { x: -1, y: 2, w: 0, h: 9 },
+    fit: 'diagonal' as never,
+    blend: 'glow' as never,
+    name: '   ',
+    z: Number.NaN,
+  });
+
+  const after = store.project.surfaces[0]!;
+  assert.equal(after.opacity, 1, 'opacity clamped');
+  assert.equal(after.rotation, 90, 'rotation normalised');
+  assert.ok(after.crop.w > 0 && after.crop.h > 0, 'crop samples something');
+  assert.ok(after.crop.x >= 0 && after.crop.y <= 1, 'crop inside the source');
+  assert.equal(after.fit, 'stretch', 'unknown fit rejected');
+  assert.equal(after.blend, 'normal', 'unknown blend rejected');
+  assert.notEqual(after.name.trim(), '', 'blank name rejected');
+  assert.ok(Number.isFinite(after.z), 'z stays a number');
+});
+
+test('AC-41: duplicate ids in a loaded project are resolved, not carried', () => {
+  const store = new Store(emptyProject());
+  const frame = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+  store.load({
+    version: 1,
+    output: { width: 1920, height: 1080 },
+    sources: [
+      { id: 'dup', name: 'first', kind: 'color', rgb: [255, 0, 0] },
+      { id: 'dup', name: 'second', kind: 'color', rgb: [0, 255, 0] },
+    ],
+    surfaces: [
+      { id: 'same', name: 'a', frame, sourceId: 'dup' },
+      { id: 'same', name: 'b', frame },
+    ],
+  });
+
+  // One source survives, and it is the one the surfaces already referenced.
+  assert.equal(store.project.sources.length, 1);
+  assert.equal(store.project.sources[0]!.name, 'first');
+
+  // Both surfaces survive, with ids that address them separately.
+  const ids = store.project.surfaces.map((s) => s.id);
+  assert.equal(ids.length, 2);
+  assert.notEqual(ids[0], ids[1]);
+
+  // The clash used to make removal delete both.
+  store.removeSurface(ids[0]!);
+  assert.equal(store.project.surfaces.length, 1);
+  assert.equal(store.project.surfaces[0]!.name, 'b');
 });
