@@ -1,4 +1,4 @@
-import { createTexture, uploadTexture, type CanvasModule, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type CanvasModule, type SourceContext, type TextureSource } from './types.ts';
 
 /**
  * Generative content: a user module exporting `draw(ctx, t)`.
@@ -12,10 +12,10 @@ export class CanvasSource implements TextureSource {
   status: 'loading' | 'ready' | 'error' = 'loading';
   error?: string;
   readonly animated = true;
-  isDirty = true;
 
-  #tex: WebGLTexture | null = null;
+  #textures = new ContextTextures();
   #canvas = document.createElement('canvas');
+  #frameAt = -1;
   #module: CanvasModule | null = null;
   #t0 = performance.now();
 
@@ -44,31 +44,37 @@ export class CanvasSource implements TextureSource {
     );
   }
 
+  get isDirty(): boolean { return this.#textures.anyStale; }
+
   getTexture(gl: WebGL2RenderingContext): WebGLTexture | null {
-    if (this.status !== 'ready') return null;
-    if (!this.#tex) this.#tex = createTexture(gl);
-    return this.#tex;
+    return this.status === 'ready' ? this.#textures.texture(gl) : null;
   }
 
   update(gl: WebGL2RenderingContext): void {
-    const tex = this.getTexture(gl);
-    if (!tex || !this.#module) return;
-    const c2d = this.#canvas.getContext('2d');
-    if (!c2d) return;
-    c2d.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
-    try {
-      this.#module.draw(c2d, (performance.now() - this.#t0) / 1000);
-    } catch (e) {
-      // A throwing user module must not take the show down with it.
-      this.status = 'error';
-      this.error = `módulo falhou: ${String(e)}`;
-      return;
+    if (this.status !== 'ready' || !this.#module) return;
+    const now = performance.now();
+    // With two windows drawing, the module must run once per frame, not once
+    // per context, or a generative sketch advances at double speed on screen.
+    if (now !== this.#frameAt) {
+      this.#frameAt = now;
+      const c2d = this.#canvas.getContext('2d');
+      if (!c2d) return;
+      c2d.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
+      try {
+        this.#module.draw(c2d, (now - this.#t0) / 1000);
+      } catch (e) {
+        // A throwing user module must not take the show down with it.
+        this.status = 'error';
+        this.error = `módulo falhou: ${String(e)}`;
+        return;
+      }
+      this.#textures.invalidate();
     }
-    uploadTexture(gl, tex, this.#canvas);
+    if (!this.#textures.isStale(gl)) return;
+    uploadTexture(gl, this.#textures.texture(gl), this.#canvas);
+    this.#textures.markUploaded(gl);
   }
 
-  dispose(gl: WebGL2RenderingContext): void {
-    if (this.#tex) gl.deleteTexture(this.#tex);
-    this.#tex = null;
-  }
+  release(gl: WebGL2RenderingContext): void { this.#textures.release(gl); }
+  dispose(_gl: WebGL2RenderingContext): void { this.#textures.disposeAll(); }
 }

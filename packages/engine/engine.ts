@@ -1,12 +1,19 @@
 import { Renderer, IDENTITY_VIEW, type ViewTransform } from './renderer.ts';
 import { SourcePool } from './sources/index.ts';
 import type { CanvasModule } from './sources/types.ts';
-import { Store, visibleSurfaces, type StoreState } from './store.ts';
+import { Store, visibleSurfaces, patternFor, type StoreState } from './store.ts';
 import { emptyProject, type Project, type TestPattern, type Vec2 } from './project.ts';
 
 export interface EngineOptions {
   /** Share a store between the editor window and the output window. */
   store?: Store;
+  /**
+   * Share the source pool too. A GL texture cannot cross a window, but the
+   * `<video>`, the decoder and the capture stream behind it can — and must, or
+   * opening the output decodes every clip twice and asks for screen-capture
+   * permission a second time.
+   */
+  pool?: SourcePool;
   /** Turns project-relative media paths into loadable URLs. Defaults to using
    *  the path as-is, which is what a plain `file://` or dev server wants. */
   resolveUrl?: (path: string) => Promise<string>;
@@ -36,6 +43,7 @@ export class Engine {
   #view: ViewTransform = IDENTITY_VIEW;
   #unsubscribe: () => void;
   #dpr: number;
+  #ownsPool: boolean;
   #unlockBound: () => void;
 
   constructor(canvas: HTMLCanvasElement, project: Project = emptyProject(), opts: EngineOptions = {}) {
@@ -43,7 +51,8 @@ export class Engine {
     this.#win = canvas.ownerDocument.defaultView ?? window;
     this.store = opts.store ?? new Store(project);
     this.renderer = new Renderer(canvas);
-    this.pool = new SourcePool({
+    this.#ownsPool = !opts.pool;
+    this.pool = opts.pool ?? new SourcePool({
       resolveUrl: opts.resolveUrl ?? (async (p) => p),
       loadModule: opts.loadModule,
     });
@@ -113,7 +122,7 @@ export class Engine {
       visibleSurfaces(state),
       this.pool,
       v,
-      state.view.testPattern,
+      (surface) => patternFor(state, surface.id),
     );
   }
 
@@ -123,6 +132,7 @@ export class Engine {
   setSurfaceFrame(id: string, corners: [Vec2, Vec2, Vec2, Vec2]): void { this.store.setSurfaceFrame(id, corners); }
   setSurfaceSource(id: string, sourceId: string | null): void { this.store.setSurfaceSource(id, sourceId); }
   setTestPattern(pattern: TestPattern): void { this.store.setTestPattern(pattern); }
+  setSurfacePattern(id: string, pattern: TestPattern | null): void { this.store.setSurfacePattern(id, pattern); }
 
   /** Only 'change' exists today; the signature leaves room for more. */
   on(event: 'change', cb: (state: StoreState) => void): () => void {
@@ -134,7 +144,9 @@ export class Engine {
     this.stop();
     this.#unsubscribe();
     this.#canvas.ownerDocument.removeEventListener('pointerdown', this.#unlockBound);
-    this.pool.disposeAll(this.renderer.gl);
+    // A borrowed pool outlives this engine: drop only this context's textures.
+    if (this.#ownsPool) this.pool.disposeAll(this.renderer.gl);
+    else this.pool.releaseContext(this.renderer.gl);
     this.renderer.dispose();
   }
 }

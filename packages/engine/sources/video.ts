@@ -1,4 +1,4 @@
-import { createTexture, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
 
 /** `requestVideoFrameCallback` is stable in Chromium but not in every lib.dom. */
 type VideoWithRVFC = HTMLVideoElement & {
@@ -19,9 +19,10 @@ export class VideoTextureSource implements TextureSource {
   status: 'loading' | 'ready' | 'error' = 'loading';
   error?: string;
   readonly animated = true;
-  isDirty = false;
   protected video: VideoWithRVFC;
-  #tex: WebGLTexture | null = null;
+  protected textures = new ContextTextures();
+  /** False on browsers without requestVideoFrameCallback — see #scheduleFrame. */
+  #hasRvfc = false;
   #rvfcHandle: number | null = null;
   #objectUrl: string | null = null;
 
@@ -32,11 +33,25 @@ export class VideoTextureSource implements TextureSource {
     v.loop = true;
     v.crossOrigin = 'anonymous';
     this.video = v;
-    v.addEventListener('loadedmetadata', () => {
-      this.size = [v.videoWidth, v.videoHeight];
-      this.status = 'ready';
-      this.isDirty = true;
-    });
+    const measure = (): void => {
+      // Firefox and Safari can report 0x0 for a live stream until the first
+      // frame lands, and a webcam may renegotiate its resolution mid-session.
+      // The track's own settings are the reliable answer when they do.
+      let [w, h] = [v.videoWidth, v.videoHeight];
+      if ((!w || !h) && v.srcObject instanceof MediaStream) {
+        const settings = v.srcObject.getVideoTracks()[0]?.getSettings();
+        w = settings?.width ?? w;
+        h = settings?.height ?? h;
+      }
+      if (w && h) {
+        this.size = [w, h];
+        this.status = 'ready';
+        this.textures.invalidate();
+      }
+    };
+    v.addEventListener('loadedmetadata', measure);
+    v.addEventListener('resize', measure);
+    v.addEventListener('playing', measure);
     v.addEventListener('error', () => {
       this.status = 'error';
       this.error = 'vídeo não carregou';
@@ -44,18 +59,25 @@ export class VideoTextureSource implements TextureSource {
     this.#scheduleFrame();
   }
 
+  get isDirty(): boolean { return this.textures.anyStale; }
+
+  /**
+   * Drives the upload from the video's own frame rate, not the monitor's: a
+   * 25fps clip on a 60Hz screen uploads 25 times a second instead of 60.
+   *
+   * Where `requestVideoFrameCallback` is missing — Firefox and older Safari —
+   * there is no callback to re-arm, so the source must be treated as stale on
+   * every render instead. Marking it dirty once here is what used to freeze
+   * every video and webcam on those browsers after the first frame.
+   */
   #scheduleFrame(): void {
     const v = this.video;
-    if (typeof v.requestVideoFrameCallback === 'function') {
-      this.#rvfcHandle = v.requestVideoFrameCallback(() => {
-        this.isDirty = true;
-        this.#scheduleFrame();
-      });
-    } else {
-      // ponytail: no rVFC means we upload once per render frame. Correct, just
-      // wasteful; Chromium has had it since 2020 so this path is rarely taken.
-      this.isDirty = true;
-    }
+    if (typeof v.requestVideoFrameCallback !== 'function') return;
+    this.#hasRvfc = true;
+    this.#rvfcHandle = v.requestVideoFrameCallback(() => {
+      this.textures.invalidate();
+      this.#scheduleFrame();
+    });
   }
 
   protected setSrcObject(stream: MediaStream): void {
@@ -89,29 +111,32 @@ export class VideoTextureSource implements TextureSource {
   }
 
   getTexture(gl: WebGL2RenderingContext): WebGLTexture | null {
-    if (this.status !== 'ready') return null;
-    if (!this.#tex) this.#tex = createTexture(gl);
-    return this.#tex;
+    return this.status === 'ready' ? this.textures.texture(gl) : null;
   }
 
   update(gl: WebGL2RenderingContext): void {
-    if (!this.isDirty || this.video.readyState < 2) return;
-    const tex = this.getTexture(gl);
-    if (!tex) return;
-    uploadTexture(gl, tex, this.video);
-    this.isDirty = false;
+    if (this.status !== 'ready' || this.video.readyState < 2) return;
+    // Without rVFC nobody tells us a frame arrived, so every render is a
+    // candidate; with it, only the contexts behind the current frame re-upload.
+    if (!this.#hasRvfc && !this.video.paused) this.textures.invalidate();
+    if (!this.textures.isStale(gl)) return;
+    uploadTexture(gl, this.textures.texture(gl), this.video);
+    this.textures.markUploaded(gl);
   }
 
-  dispose(gl: WebGL2RenderingContext): void {
+  release(gl: WebGL2RenderingContext): void { this.textures.release(gl); }
+
+  dispose(_gl: WebGL2RenderingContext): void {
     if (this.#rvfcHandle !== null) this.video.cancelVideoFrameCallback?.(this.#rvfcHandle);
     const stream = this.video.srcObject;
+    // Stopping the tracks is what turns the webcam light off. Skipping it leaves
+    // a camera live on a machine nobody is sitting at.
     if (stream instanceof MediaStream) for (const t of stream.getTracks()) t.stop();
     this.video.srcObject = null;
     this.video.removeAttribute('src');
     this.video.load();
     if (this.#objectUrl) URL.revokeObjectURL(this.#objectUrl);
-    if (this.#tex) gl.deleteTexture(this.#tex);
-    this.#tex = null;
+    this.textures.disposeAll();
   }
 }
 
@@ -162,13 +187,46 @@ export class CameraSource extends VideoTextureSource {
       this.error = 'câmera indisponível neste navegador';
       return;
     }
-    const video: MediaTrackConstraints = deviceId ? { deviceId: { exact: deviceId } } : {};
+    // `exact` fails outright when the camera was unplugged since the project was
+    // saved; `ideal` falls back to whatever is there, which is what someone
+    // reopening a project on another machine wants.
+    const video: boolean | MediaTrackConstraints = deviceId ? { deviceId: { ideal: deviceId } } : true;
     void md.getUserMedia({ video, audio: false }).then(
       (stream) => this.setSrcObject(stream),
-      () => {
+      (e: unknown) => {
         this.status = 'error';
-        this.error = 'câmera recusada';
+        this.error = cameraError(e);
       },
     );
+  }
+}
+
+/** Turns a getUserMedia rejection into something readable on a wall. */
+function cameraError(e: unknown): string {
+  const name = (e as { name?: string } | null)?.name ?? '';
+  switch (name) {
+    case 'NotAllowedError': return 'permissão de câmera negada';
+    case 'NotFoundError': return 'nenhuma câmera encontrada';
+    case 'NotReadableError': return 'câmera em uso por outro programa';
+    case 'OverconstrainedError': return 'câmera pedida não existe mais';
+    default: return 'câmera não abriu';
+  }
+}
+
+/**
+ * Cameras available for selection. Labels only exist after permission has been
+ * granted at least once — before that browsers return empty strings, so we fill
+ * in a positional name rather than showing a list of blanks.
+ */
+export async function listCameras(): Promise<{ deviceId: string; label: string }[]> {
+  const md = navigator.mediaDevices;
+  if (!md?.enumerateDevices) return [];
+  try {
+    const devices = await md.enumerateDevices();
+    return devices
+      .filter((d) => d.kind === 'videoinput')
+      .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `câmera ${i + 1}` }));
+  } catch {
+    return [];
   }
 }

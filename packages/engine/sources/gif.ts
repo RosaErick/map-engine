@@ -1,4 +1,4 @@
-import { createTexture, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
+import { ContextTextures, uploadTexture, type SourceContext, type TextureSource } from './types.ts';
 
 /** WebCodecs' ImageDecoder is Chromium-only and absent from some lib.dom builds. */
 type ImageDecoderCtor = new (init: { data: ArrayBuffer; type: string }) => ImageDecoderLike;
@@ -28,9 +28,8 @@ export class GifSource implements TextureSource {
   status: 'loading' | 'ready' | 'error' = 'loading';
   error?: string;
   readonly animated = true;
-  isDirty = false;
 
-  #tex: WebGLTexture | null = null;
+  #textures = new ContextTextures();
   #decoder: ImageDecoderLike | null = null;
   #frameCount = 0;
   #frameIndex = 0;
@@ -42,6 +41,8 @@ export class GifSource implements TextureSource {
   constructor(path: string, ctx: SourceContext) {
     void this.#load(path, ctx);
   }
+
+  get isDirty(): boolean { return this.#textures.anyStale; }
 
   async #load(path: string, ctx: SourceContext): Promise<void> {
     try {
@@ -75,7 +76,7 @@ export class GifSource implements TextureSource {
     this.#fallbackCanvas = canvas;
     this.size = [canvas.width, canvas.height];
     this.status = 'ready';
-    this.isDirty = true;
+    this.#textures.invalidate();
   }
 
   async #decodeFrame(index: number): Promise<void> {
@@ -87,24 +88,22 @@ export class GifSource implements TextureSource {
     // Duration is microseconds. A GIF with none gets the 100ms an <img> would use.
     const ms = image.duration ? image.duration / 1000 : 100;
     this.#nextAt = performance.now() + Math.max(20, ms);
-    this.isDirty = true;
+    this.#textures.invalidate();
   }
 
   getTexture(gl: WebGL2RenderingContext): WebGLTexture | null {
-    if (this.status !== 'ready') return null;
-    if (!this.#tex) this.#tex = createTexture(gl);
-    return this.#tex;
+    return this.status === 'ready' ? this.#textures.texture(gl) : null;
   }
 
   update(gl: WebGL2RenderingContext): void {
-    const tex = this.getTexture(gl);
-    if (!tex) return;
+    if (this.status !== 'ready') return;
 
     if (this.#fallbackCanvas && this.#fallbackImg) {
+      // The browser owns the animation clock here, so every render is a new frame.
       const c2d = this.#fallbackCanvas.getContext('2d')!;
       c2d.clearRect(0, 0, this.#fallbackCanvas.width, this.#fallbackCanvas.height);
       c2d.drawImage(this.#fallbackImg, 0, 0);
-      uploadTexture(gl, tex, this.#fallbackCanvas);
+      uploadTexture(gl, this.#textures.texture(gl), this.#fallbackCanvas);
       return;
     }
 
@@ -112,18 +111,19 @@ export class GifSource implements TextureSource {
       this.#frameIndex = (this.#frameIndex + 1) % this.#frameCount;
       void this.#decodeFrame(this.#frameIndex);
     }
-    if (this.isDirty && this.#pending) {
-      uploadTexture(gl, tex, this.#pending as unknown as TexImageSource);
-      this.isDirty = false;
+    if (this.#pending && this.#textures.isStale(gl)) {
+      uploadTexture(gl, this.#textures.texture(gl), this.#pending as unknown as TexImageSource);
+      this.#textures.markUploaded(gl);
     }
   }
 
-  dispose(gl: WebGL2RenderingContext): void {
+  release(gl: WebGL2RenderingContext): void { this.#textures.release(gl); }
+
+  dispose(_gl: WebGL2RenderingContext): void {
     this.#pending?.close();
     this.#pending = null;
     this.#decoder?.close();
     this.#decoder = null;
-    if (this.#tex) gl.deleteTexture(this.#tex);
-    this.#tex = null;
+    this.#textures.disposeAll();
   }
 }
