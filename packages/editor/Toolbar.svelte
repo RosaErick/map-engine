@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { store, ui, fitView, addSurface } from './state.svelte.ts';
+  import { store, tools, addSurface, fitView } from './state.svelte.ts';
   import type { TestPattern } from '../engine/index.ts';
   import { PATTERNS } from './patterns.ts';
   import { t } from './i18n/index.svelte.ts';
@@ -22,10 +22,10 @@
     </button>
     <button
       class="btn btn-sm join-item"
-      class:btn-active={ui.tool === 'polygon'}
-      aria-pressed={ui.tool === 'polygon'}
+      class:btn-active={tools.tool === 'polygon'}
+      aria-pressed={tools.tool === 'polygon'}
       title={t('toolbar.polygonHint')}
-      onclick={() => (ui.tool = ui.tool === 'polygon' ? 'select' : 'polygon')}
+      onclick={() => (tools.tool = tools.tool === 'polygon' ? 'select' : 'polygon')}
     >
       {t('toolbar.polygon')}
     </button>
@@ -44,10 +44,10 @@
 
   <button
     class="btn btn-sm"
-    class:btn-active={ui.snap}
-    aria-pressed={ui.snap}
+    class:btn-active={tools.snap}
+    aria-pressed={tools.snap}
     title={t('toolbar.snapHint')}
-    onclick={() => (ui.snap = !ui.snap)}
+    onclick={() => (tools.snap = !tools.snap)}
   >
     {t('toolbar.snap')}
   </button>

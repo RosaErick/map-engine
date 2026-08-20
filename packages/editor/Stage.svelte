@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import Overlay from './Overlay.svelte';
   import { panZoom } from './actions.ts';
-  import { store, ui, setEngine, getEngine, fitView, toOutput, outputToFrame, surfaceAt, flash } from './state.svelte.ts';
+  import { store, viewport, tools, fitView, flash, getEngine, outputToFrame, setEngine, surfaceAt, toOutput } from './state.svelte.ts';
   import { createEngine, newId, newSurface, type Vec2, type Source } from '../engine/index.ts';
   import { importFile, resolveUrl, loadModule } from './project-folder.ts';
   import { t } from './i18n/index.svelte.ts';
@@ -36,22 +36,22 @@
   // Pan/zoom is a view transform on the way to clip space, never a change to
   // the project's own coordinates.
   $effect(() => {
-    const { scale, tx, ty } = ui;
+    const { scale, tx, ty } = viewport;
     getEngine()?.setView({ scale, tx, ty });
   });
 
   function onPan(delta: Vec2): void {
-    ui.tx += delta.x;
-    ui.ty += delta.y;
+    viewport.tx += delta.x;
+    viewport.ty += delta.y;
   }
 
   function onZoom(factor: number, at: Vec2): void {
-    const next = Math.min(8, Math.max(0.05, ui.scale * factor));
+    const next = Math.min(8, Math.max(0.05, viewport.scale * factor));
     // Keep the point under the cursor fixed while zooming.
-    const k = next / ui.scale;
-    ui.tx = at.x - (at.x - ui.tx) * k;
-    ui.ty = at.y - (at.y - ui.ty) * k;
-    ui.scale = next;
+    const k = next / viewport.scale;
+    viewport.tx = at.x - (at.x - viewport.tx) * k;
+    viewport.ty = at.y - (at.y - viewport.ty) * k;
+    viewport.scale = next;
   }
 
   function onPointerDown(e: PointerEvent): void {
@@ -59,8 +59,8 @@
     const r = host.getBoundingClientRect();
     const p = toOutput({ x: e.clientX - r.left, y: e.clientY - r.top });
 
-    if (ui.tool === 'polygon') {
-      ui.pendingPolygon = [...ui.pendingPolygon, p];
+    if (tools.tool === 'polygon') {
+      tools.pendingPolygon = [...tools.pendingPolygon, p];
       return;
     }
     const hit = surfaceAt(p);
@@ -68,7 +68,7 @@
   }
 
   function onDoubleClick(): void {
-    if (ui.tool === 'polygon') finishPolygon();
+    if (tools.tool === 'polygon') finishPolygon();
   }
 
   /**
@@ -77,9 +77,9 @@
    * homography. Nothing downstream needs a polygon-specific code path.
    */
   function finishPolygon(): void {
-    const pts = ui.pendingPolygon;
-    ui.pendingPolygon = [];
-    ui.tool = 'select';
+    const pts = tools.pendingPolygon;
+    tools.pendingPolygon = [];
+    tools.tool = 'select';
     if (pts.length < 3) return;
 
     const xs = pts.map((p) => p.x);
@@ -148,7 +148,7 @@
   {#if !$store.view.uiHidden}
     <Overlay />
   {/if}
-  {#if ui.tool === 'polygon'}
+  {#if tools.tool === 'polygon'}
     <div class="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
       <div class="rounded-full border border-base-300 bg-base-100/90 px-4 py-1.5 text-xs text-base-content/70 shadow-lg backdrop-blur">
         {t('stage.polygonHint')} <kbd class="kbd kbd-xs">{t('stage.polygonHintEsc')}</kbd> {t('stage.polygonHintCancel')}

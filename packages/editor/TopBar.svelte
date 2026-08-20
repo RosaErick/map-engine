@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { REPO_URL } from './links.ts';
-  import { store, ui } from './state.svelte.ts';
+  import { store, session } from './state.svelte.ts';
   import { theme, applyTheme, type Theme } from './theme.svelte.ts';
   import { t, i18n, setLocale, LOCALES, type Locale, type MessageKey } from './i18n/index.svelte.ts';
 
@@ -32,14 +32,14 @@
   <!-- O meio da barra responde, sem ninguém perguntar, o que uma pessoa quer
        saber de relance no meio de uma montagem. Informação, não mais botões. -->
   <div class="mx-2 hidden min-w-0 flex-1 items-center justify-center gap-3 text-[11px] text-base-content/50 md:flex">
-    {#if ui.folderName}
+    {#if session.folderName}
       <span class="flex min-w-0 items-center gap-1.5" title={t('topbar.savedTo')}>
         <span
-          class="size-1.5 shrink-0 rounded-full transition-colors duration-500 {ui.savedAt
+          class="size-1.5 shrink-0 rounded-full transition-colors duration-500 {session.savedAt
             ? 'bg-success'
             : 'bg-base-content/20'}"
         ></span>
-        <span class="truncate">{ui.savedAt ? t('topbar.saved') : ui.folderName}</span>
+        <span class="truncate">{session.savedAt ? t('topbar.saved') : session.folderName}</span>
       </span>
       <span class="h-3 w-px bg-base-content/10"></span>
     {/if}
@@ -50,12 +50,12 @@
     <span class="h-3 w-px bg-base-content/10"></span>
     <span class="whitespace-nowrap">{t('topbar.surfaces', { count: surfaces })}</span>
 
-    {#if ui.outputOpen}
+    {#if session.outputOpen}
       <span class="h-3 w-px bg-base-content/10"></span>
       <span class="flex items-center gap-1.5 text-primary" title={t('topbar.outputOpen')}>
         <span class="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"></span>
         <span class="truncate">
-          {t('topbar.onProjector')}{ui.outputScreen ? ` · ${ui.outputScreen}` : ''}
+          {t('topbar.onProjector')}{session.outputScreen ? ` · ${session.outputScreen}` : ''}
         </span>
       </span>
     {/if}
@@ -64,9 +64,9 @@
   <div class="flex items-center gap-0.5">
     <button
       class="btn btn-ghost btn-xs font-normal"
-      class:btn-active={ui.page === 'docs'}
-      onclick={() => (ui.page = ui.page === 'docs' ? 'editor' : 'docs')}
-    >{ui.page === 'docs' ? t('topbar.backToEditor') : t('topbar.guide')}</button>
+      class:btn-active={session.page === 'docs'}
+      onclick={() => (session.page = session.page === 'docs' ? 'editor' : 'docs')}
+    >{session.page === 'docs' ? t('topbar.backToEditor') : t('topbar.guide')}</button>
 
     <button class="btn btn-ghost btn-xs font-normal" onclick={onAbout}>{t('topbar.about')}</button>
 

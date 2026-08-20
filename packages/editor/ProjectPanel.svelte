@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { store, ui, flash, getEngine } from './state.svelte.ts';
+  import { store, session, flash, getEngine } from './state.svelte.ts';
   import { openFolder, save, downloadProject, hasFileSystemAccess, invalidateUrls, resolveUrl, FolderError } from './project-folder.ts';
   import { openOutput, listScreens, type OutputScreen, type OutputWarning } from '../output/output.ts';
   import { t, type MessageKey } from './i18n/index.svelte.ts';
@@ -39,8 +39,8 @@
       const json = await openFolder();
       invalidateUrls();
       if (json) store.load(json);
-      ui.hasFolder = true;
-      ui.folderName = t('project.folderOpen');
+      session.hasFolder = true;
+      session.folderName = t('project.folderOpen');
       flash(json ? t('project.loaded') : t('project.emptyFolder'));
     } catch (e) {
       // Cancelar o seletor não é erro: só um "deixa pra lá".
@@ -72,19 +72,19 @@
       onWarn: (code) => flash(t(WARNINGS[code])),
       onClose: () => {
         output = null;
-        ui.outputOpen = false;
-        ui.outputScreen = '';
+        session.outputOpen = false;
+        session.outputScreen = '';
       },
     });
-    ui.outputOpen = !!output;
-    ui.outputScreen = output && screen ? (screen.label || t('project.screenFallback', { number: screenIndex + 1 })) : '';
+    session.outputOpen = !!output;
+    session.outputScreen = output && screen ? (screen.label || t('project.screenFallback', { number: screenIndex + 1 })) : '';
   }
 </script>
 
 <!-- Abrir pasta e casar resolução são trabalho de começo e de fim de montagem.
      Ficam recolhidos assim que existe uma pasta, para o painel não empurrar as
      superfícies para fora da tela durante o alinhamento, que é o trabalho real. -->
-<details class="collapse-arrow collapse border-b border-base-300 rounded-none" open={!ui.hasFolder}>
+<details class="collapse-arrow collapse border-b border-base-300 rounded-none" open={!session.hasFolder}>
   <summary class="collapse-title min-h-0 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-base-content/45">
     {t('project.title')}
   </summary>
@@ -104,8 +104,8 @@
       <button class="btn btn-xs btn-ghost" onclick={() => downloadProject(store)}>{t('project.downloadJson')}</button>
     {/if}
   </div>
-  {#if ui.folderName}
-    <p class="mt-2 text-[11px] text-base-content/50">{ui.folderName}</p>
+  {#if session.folderName}
+    <p class="mt-2 text-[11px] text-base-content/50">{session.folderName}</p>
   {/if}
 
   <div class="divider my-4"></div>
