@@ -45,6 +45,11 @@ export const i18n = $state({ locale: detect() });
 export function setLocale(next: Locale): void {
   i18n.locale = next;
   document.documentElement.lang = next;
+  // The static title and description in index.html are what a crawler that does
+  // not run JavaScript reads. Once the app is running, both follow the language
+  // actually on screen — for the browser tab, and for anything that renders.
+  document.title = t('seo.title');
+  document.querySelector('meta[name="description"]')?.setAttribute('content', t('seo.description'));
   try { localStorage.setItem(KEY, next); } catch { /* nothing to do */ }
 }
 
