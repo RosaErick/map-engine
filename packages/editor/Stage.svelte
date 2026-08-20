@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import Overlay from './Overlay.svelte';
   import { panZoom } from './actions.ts';
-  import { store, viewport, tools, fitView, flash, getEngine, outputToFrame, setEngine, surfaceAt, toOutput } from './state.svelte.ts';
+  import { store, viewport, tools, clampView, fitView, flash, getEngine, outputToFrame, setEngine, surfaceAt, toOutput, toScreen } from './state.svelte.ts';
   import { createEngine, newId, newSurface, type Vec2, type Source } from '../engine/index.ts';
   import { importFile, resolveUrl, loadModule } from './project-folder.ts';
   import { t } from './i18n/index.svelte.ts';
@@ -46,6 +46,7 @@
   function onPan(delta: Vec2): void {
     viewport.tx += delta.x;
     viewport.ty += delta.y;
+    clampView(host.clientWidth, host.clientHeight);
   }
 
   function onZoom(factor: number, at: Vec2): void {
@@ -55,6 +56,7 @@
     viewport.tx = at.x - (at.x - viewport.tx) * k;
     viewport.ty = at.y - (at.y - viewport.ty) * k;
     viewport.scale = next;
+    clampView(host.clientWidth, host.clientHeight);
   }
 
   function onPointerDown(e: PointerEvent): void {
@@ -67,8 +69,66 @@
       return;
     }
     const hit = surfaceAt(p);
-    store.setView({ selectedSurfaceId: hit?.id ?? null, selectedCorner: null });
+    if (hit) {
+      if (e.shiftKey || e.metaKey) store.toggleSelection(hit.id);
+      else store.setSelection([hit.id]);
+      return;
+    }
+    // Vazio: começa um laço. Sem modificador ele troca a seleção; com Shift,
+    // acrescenta ao que já estava escolhido.
+    marquee = { from: p, to: p, add: e.shiftKey || e.metaKey };
   }
+
+  /**
+   * Laço de seleção. Guardado em pixels de saída, e não de tela, para continuar
+   * valendo se a vista mudar no meio do gesto.
+   */
+  let marquee = $state<{ from: Vec2; to: Vec2; add: boolean } | null>(null);
+
+  function onPointerMove(e: PointerEvent): void {
+    if (!marquee) return;
+    const r = host.getBoundingClientRect();
+    marquee = { ...marquee, to: toOutput({ x: e.clientX - r.left, y: e.clientY - r.top }) };
+  }
+
+  function onPointerUp(): void {
+    if (!marquee) return;
+    const { from, to, add } = marquee;
+    marquee = null;
+    const box = {
+      x0: Math.min(from.x, to.x), x1: Math.max(from.x, to.x),
+      y0: Math.min(from.y, to.y), y1: Math.max(from.y, to.y),
+    };
+    // Um clique no vazio é um laço de tamanho zero: limpa a seleção, que é o
+    // que clicar fora sempre significou.
+    if (box.x1 - box.x0 < 2 && box.y1 - box.y0 < 2) {
+      if (!add) store.setSelection([]);
+      return;
+    }
+    // Interseção, não contenção: numa parede cheia, exigir a superfície inteira
+    // dentro do laço obrigaria a arrastar até fora do conteúdo.
+    const caught = $store.project.surfaces
+      .filter((s) => s.visible)
+      .filter((s) => {
+        const xs = s.frame.map((c) => c.x);
+        const ys = s.frame.map((c) => c.y);
+        return Math.min(...xs) <= box.x1 && Math.max(...xs) >= box.x0
+          && Math.min(...ys) <= box.y1 && Math.max(...ys) >= box.y0;
+      })
+      .map((s) => s.id);
+    store.setSelection(add ? [...$store.view.selectedIds, ...caught] : caught);
+  }
+
+  /** O laço em pixels de tela, para desenhar. */
+  const marqueeBox = $derived.by(() => {
+    if (!marquee) return null;
+    const a = toScreen(marquee.from);
+    const b = toScreen(marquee.to);
+    return {
+      left: Math.min(a.x, b.x), top: Math.min(a.y, b.y),
+      width: Math.abs(a.x - b.x), height: Math.abs(a.y - b.y),
+    };
+  });
 
   function onDoubleClick(): void {
     if (tools.tool === 'polygon') finishPolygon();
@@ -140,6 +200,9 @@
   bind:this={host}
   use:panZoom={{ onPan, onZoom }}
   onpointerdown={onPointerDown}
+  onpointermove={onPointerMove}
+  onpointerup={onPointerUp}
+  onpointercancel={() => (marquee = null)}
   ondblclick={onDoubleClick}
   ondragover={(e) => { e.preventDefault(); dragOver = true; }}
   ondragleave={() => (dragOver = false)}
@@ -148,6 +211,13 @@
   aria-label={t('stage.label')}
 >
   <canvas bind:this={canvas}></canvas>
+  {#if marqueeBox}
+    <div
+      class="marquee"
+      style:left="{marqueeBox.left}px" style:top="{marqueeBox.top}px"
+      style:width="{marqueeBox.width}px" style:height="{marqueeBox.height}px"
+    ></div>
+  {/if}
   {#if !$store.view.uiHidden}
     <Overlay />
   {/if}
@@ -161,6 +231,11 @@
 </div>
 
 <style>
+  .marquee {
+    position: absolute; pointer-events: none;
+    border: 1px solid #52bdff; background: rgba(82, 189, 255, 0.12);
+  }
+
   /* O fundo preto vem de .stage-surface (app.css): é pré-visualização do que sai
      do projetor, então não muda com o tema. */
   .drop { outline: 2px dashed #52bdff; outline-offset: -6px; }

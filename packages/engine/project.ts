@@ -38,6 +38,15 @@ export interface Surface {
    * mask — those live in the same undeformed frame space and ride along.
    */
   warp?: Warp;
+  /**
+   * Vínculo com outras superfícies: as que compartilham este id se selecionam e
+   * se movem juntas.
+   *
+   * Opcional pelo mesmo motivo de `warp`: projeto salvo sem vínculo continua
+   * idêntico byte a byte. É uma decisão do operador, nunca uma inferência a
+   * partir de posição ou nome.
+   */
+  link?: string;
   fit: Fit;
   /** Content rotation inside the frame, in degrees clockwise. The frame keeps
    *  the perspective; this only spins what is sampled into it. */
@@ -61,7 +70,14 @@ export interface Project {
  *  folder never leaves you staring at a single soloed surface. */
 export interface ViewState {
   soloId: string | null;
-  selectedSurfaceId: string | null;
+  /**
+   * Quem está selecionado agora, em ordem de escolha.
+   *
+   * Uma lista, e não um id mais um conjunto: dois campos exigiriam manter um
+   * invariante entre eles, e o âncora — a superfície que o inspetor edita e cujo
+   * canto as setas movem — é sempre o **último** escolhido. Ver `anchorId`.
+   */
+  selectedIds: string[];
   selectedCorner: number | null;
   /** Índice do ponto de controle selecionado, para as setas do teclado. */
   selectedWarpPoint: number | null;
@@ -71,6 +87,41 @@ export interface ViewState {
    *  explicit `'none'` blanks the pattern on that surface alone. */
   surfacePatterns: Record<string, TestPattern>;
   uiHidden: boolean;
+}
+
+/**
+ * A superfície cujas propriedades a interface edita: a última escolhida.
+ *
+ * Editar sempre vale para uma; mover vale para todas. Confundir as duas é o erro
+ * clássico aqui, e por isso o âncora tem nome próprio.
+ */
+export function anchorId(view: ViewState): string | null {
+  return view.selectedIds[view.selectedIds.length - 1] ?? null;
+}
+
+/**
+ * A seleção depois de puxar os vínculos: superfície ligada vem junto.
+ *
+ * Vínculo é do projeto e seleção é do momento — esta função é onde os dois se
+ * encontram, e o único lugar onde essa expansão acontece.
+ */
+export function expandSelection(project: Project, ids: readonly string[]): string[] {
+  const byId = new Map(project.surfaces.map((s) => [s.id, s]));
+  const links = new Set<string>();
+  const out: string[] = [];
+
+  const push = (id: string): void => { if (!out.includes(id)) out.push(id); };
+
+  for (const id of ids) {
+    const surface = byId.get(id);
+    if (!surface) continue; // id órfão nunca entra na seleção
+    push(id);
+    if (surface.link) links.add(surface.link);
+  }
+  for (const surface of project.surfaces) {
+    if (surface.link && links.has(surface.link)) push(surface.id);
+  }
+  return out;
 }
 
 export type TestPattern =
@@ -289,6 +340,7 @@ function parseSurface(raw: unknown, sourceIds: ReadonlySet<string>): Surface | n
     fit: oneOf(raw['fit'], FITS, 'stretch'),
     rotation: normalizeAngle(num(raw['rotation'], 0)),
     ...parseOptionalWarp(raw['warp']),
+    ...parseOptionalLink(raw['link']),
     opacity: clamp(num(raw['opacity'], 1), 0, 1),
     blend: oneOf(raw['blend'], BLENDS, 'normal'),
     locked: bool(raw['locked'], false),
@@ -298,6 +350,13 @@ function parseSurface(raw: unknown, sourceIds: ReadonlySet<string>): Surface | n
 }
 
 /** Spread-friendly: an absent or unrecoverable warp adds no key at all. */
+/** Ausente continua ausente: um `link: undefined` escrito no JSON mudaria o
+ *  arquivo de quem nunca ligou superfície nenhuma. */
+function parseOptionalLink(raw: unknown): { link?: string } {
+  const link = str(raw, '');
+  return link ? { link } : {};
+}
+
 function parseOptionalWarp(raw: unknown): { warp?: Warp } {
   if (raw === undefined || raw === null) return {};
   const warp = parseWarp(raw);

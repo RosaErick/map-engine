@@ -454,6 +454,105 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// Seleção múltipla, arrasto de grupo, e a vista que não se perde. Tudo com
+// ponteiro de verdade: é a camada onde os três defeitos moravam.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  const place = (x) => {
+    const s = store.addSurface();
+    store.setSurfaceFrame(s.id, [{ x, y: 200 }, { x: x + 300, y: 200 }, { x: x + 300, y: 500 }, { x, y: 500 }]);
+  };
+  place(100); place(500); place(900);
+  store.setSelection([]);
+});
+/**
+ * Pixel de saída -> pixel da página, lendo a transformação que o engine está
+ * mesmo usando. Repetir a conta do `fitView` aqui amarraria cada checagem ao
+ * enquadramento padrão, e a primeira que mexesse na vista quebraria as de baixo.
+ */
+const outXY = (ox, oy) => page.evaluate(([ox, oy]) => {
+  const rect = document.querySelector('canvas').getBoundingClientRect();
+  const { scale, tx, ty } = window.mapEngine.view;
+  return { x: rect.left + ox * scale + tx, y: rect.top + oy * scale + ty };
+}, [ox, oy]);
+const frames = () => page.evaluate(() => window.mapEngine.store.project.surfaces.map((s) => s.frame[0].x));
+
+// Laço em volta das duas primeiras, sem tocar na terceira.
+let from = await outXY(50, 150);
+let to = await outXY(850, 550);
+await page.mouse.move(from.x, from.y);
+await page.mouse.down();
+await page.mouse.move(to.x, to.y, { steps: 10 });
+await page.mouse.up();
+const caught = await page.evaluate(() => window.mapEngine.store.view.selectedIds.length);
+
+const beforeDrag = await frames();
+const grab = await outXY(250, 350);
+await page.mouse.move(grab.x, grab.y);
+await page.mouse.down();
+await page.mouse.move(grab.x + 60, grab.y, { steps: 10 });
+await page.mouse.up();
+const afterDrag = await frames();
+await page.evaluate(() => window.mapEngine.store.undo());
+const undoneDrag = await frames();
+
+const moved = afterDrag.map((x, i) => x - (beforeDrag[i] ?? 0));
+check('AC-65: laço pega várias e o arrasto move o grupo num só desfazer',
+  caught === 2 && moved[0] > 1 && Math.abs(moved[0] - (moved[1] ?? 0)) < 1e-9 && moved[2] === 0
+  && JSON.stringify(undoneDrag) === JSON.stringify(beforeDrag),
+  `pegou=${caught} deslocou=${moved.map((m) => m.toFixed(1))}`);
+
+// Ctrl + arrastar reenquadra: a vista anda, a superfície não.
+const stillBefore = await frames();
+await page.keyboard.down('Control');
+await page.mouse.move(grab.x, grab.y);
+await page.mouse.down();
+await page.mouse.move(grab.x + 90, grab.y + 50, { steps: 8 });
+await page.mouse.up();
+await page.keyboard.up('Control');
+check('AC-71: Ctrl + arrastar reenquadra sem mover superfície',
+  JSON.stringify(await frames()) === JSON.stringify(stillBefore),
+  JSON.stringify(await frames()));
+
+// Afastar muito e arrastar para longe costumava perder a saída de vista.
+const centre = await outXY(960, 540);
+await page.mouse.move(centre.x, centre.y);
+for (let i = 0; i < 40; i++) await page.mouse.wheel(0, 400);
+await page.keyboard.down('Control');
+for (let i = 0; i < 6; i++) {
+  await page.mouse.move(centre.x, centre.y);
+  await page.mouse.down();
+  await page.mouse.move(centre.x + 600, centre.y + 400, { steps: 5 });
+  await page.mouse.up();
+}
+await page.keyboard.up('Control');
+
+const reachable = await page.evaluate(() => {
+  const engine = window.mapEngine;
+  const { store } = engine;
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  const s = store.addSurface();
+  const { width, height } = store.project.output;
+  store.setSurfaceFrame(s.id, [{ x: 0, y: 0 }, { x: width, y: 0 }, { x: width, y: height }, { x: 0, y: height }]);
+  store.addSource({ id: 'probe', name: '', kind: 'color', rgb: [255, 255, 255] });
+  store.setSurfaceSource(s.id, 'probe');
+  engine.renderFrame();
+  const gl = engine.renderer.gl;
+  const px = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+  gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  let lit = 0;
+  for (let i = 0; i < px.length; i += 4) if ((px[i] ?? 0) > 200) lit++;
+  return lit;
+});
+check('AC-70: a saída continua alcançável depois de afastar e arrastar longe',
+  reachable > 0, `pixels visíveis=${reachable}`);
+
+// Devolve o enquadramento padrão: as checagens abaixo calculam a posição na
+// tela a partir dele, e este bloco deixou a vista longe de propósito.
+await page.getByRole('button', { name: 'enquadrar', exact: true }).click();
+await page.waitForTimeout(80);
+
 // Toda fonte de cor nascia chamada "branco" e continuava assim depois de trocar
 // a cor: cinco fontes "branco" de cores diferentes numa lista é o que sobra
 // depois de calibrar um projetor. E o que o hex diz tem que ser o que acende.
@@ -494,7 +593,7 @@ await page.evaluate(() => {
   const { store } = window.mapEngine;
   if (!store.project.surfaces[0]) store.addSurface();
   const s = store.project.surfaces[0];
-  store.setView({ selectedSurfaceId: s.id });
+  store.setSelection([s.id]);
   store.enableWarp(s.id);
 });
 // O overlay é Svelte: as alças só existem no DOM depois que ele pinta.
@@ -543,20 +642,19 @@ await page.evaluate(() => {
   store.addSurface();
   const s = store.project.surfaces[0];
   store.setSurfaceShape(s.id, { kind: 'polygon', points: [{ x: 0.05, y: 0.05 }, { x: 0.75, y: 0.25 }, { x: 0.2, y: 0.8 }] });
-  store.setView({ selectedSurfaceId: null });
+  store.setSelection([]);
+  // Espaço de frame -> página, pela vista real. Mesmo motivo de `outXY`.
   window.__xy = (u, v) => {
     const rect = document.querySelector('canvas').getBoundingClientRect();
-    const { width: W, height: H } = window.mapEngine.store.project.output;
-    const scale = Math.min(rect.width / W, rect.height / H) * 0.9;
+    const { scale, tx, ty } = window.mapEngine.view;
     const f = window.mapEngine.store.project.surfaces[0].frame;
     const ox = f[0].x + (f[1].x - f[0].x) * u + (f[3].x - f[0].x) * v;
     const oy = f[0].y + (f[1].y - f[0].y) * u + (f[3].y - f[0].y) * v;
-    return { x: rect.left + ox * scale + (rect.width - W * scale) / 2,
-             y: rect.top + oy * scale + (rect.height - H * scale) / 2 };
+    return { x: rect.left + ox * scale + tx, y: rect.top + oy * scale + ty };
   };
 });
 const at = (u, v) => page.evaluate(([u, v]) => window.__xy(u, v), [u, v]);
-const selected = () => page.evaluate(() => window.mapEngine.store.view.selectedSurfaceId);
+const selected = () => page.evaluate(() => window.mapEngine.store.view.selectedIds[0] ?? null);
 
 let spot = await at(0.9, 0.9);
 await page.mouse.click(spot.x, spot.y);
@@ -574,10 +672,10 @@ const vertex = () => page.evaluate(() => {
   return { x: p.x, y: p.y };
 });
 const vBefore = await vertex();
-const grab = await at(vBefore.x, vBefore.y);
-await page.mouse.move(grab.x, grab.y);
+const vertexGrab = await at(vBefore.x, vBefore.y);
+await page.mouse.move(vertexGrab.x, vertexGrab.y);
 await page.mouse.down();
-await page.mouse.move(grab.x - 150, grab.y + 60, { steps: 12 });
+await page.mouse.move(vertexGrab.x - 150, vertexGrab.y + 60, { steps: 12 });
 await page.mouse.up();
 const vAfter = await vertex();
 await page.evaluate(() => window.mapEngine.store.undo());
