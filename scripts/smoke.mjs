@@ -392,6 +392,51 @@ check('AC-49: mover um ponto de controle muda o que chega na parede',
 
 await page.selectOption('#pattern', 'none');
 
+// A warped surface still has to respect its cutout. The polygon stops being the
+// geometry once a mesh is drawing, so it moves into a mask texture — and the
+// test is the same one that mattered for the ellipse: the corners of the frame
+// have to stay dark while the middle stays lit.
+const maskedMesh = await page.evaluate(() => {
+  const engine = window.mapEngine;
+  const store = engine.store;
+  const gl = engine.renderer.gl;
+  const surface = store.project.surfaces[0];
+
+  store.setSurfaceFrame(surface.id, [
+    { x: 500, y: 250 }, { x: 1400, y: 250 }, { x: 1400, y: 830 }, { x: 500, y: 830 },
+  ]);
+  store.setSurfaceSource(surface.id, store.project.sources[0].id);
+  store.setTestPattern('none');
+  // Losango: os quatro cantos do frame ficam de fora.
+  store.setSurfaceShape(surface.id, {
+    kind: 'polygon',
+    points: [{ x: 0.5, y: 0 }, { x: 1, y: 0.5 }, { x: 0.5, y: 1 }, { x: 0, y: 0.5 }],
+  });
+  store.enableWarp(surface.id);
+
+  const v = engine.view;
+  const dpr = window.devicePixelRatio;
+  const at = (x, y) => {
+    engine.renderFrame();
+    const out = new Uint8Array(4);
+    gl.readPixels(
+      Math.round((x * v.scale + v.tx) * dpr),
+      gl.drawingBufferHeight - Math.round((y * v.scale + v.ty) * dpr),
+      1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out,
+    );
+    return [...out];
+  };
+
+  const centre = at(950, 540);
+  const corner = at(520, 270);
+  store.disableWarp(surface.id);
+  store.setSurfaceShape(surface.id, { kind: 'quad' });
+  return { centre, corner };
+});
+check('AC-52: máscara de polígono continua recortando numa superfície deformada',
+  maskedMesh.centre[0] > 200 && maskedMesh.corner.slice(0, 3).every((v) => v < 20),
+  `centro=${maskedMesh.centre} canto=${maskedMesh.corner}`);
+
 // Undo must walk the geometry back.
 const undoOk = await page.evaluate(() => {
   const engine = window.mapEngine;

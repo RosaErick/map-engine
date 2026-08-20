@@ -3,8 +3,9 @@ import { triangulate } from './geometry.ts';
 import { tessellate, type Warp } from './warp.ts';
 import { compile, FRAG, VERT } from './shaders.ts';
 import { frameToPixel, surfaceOrder, toColumnMajor, uvMatrix } from './surface-math.ts';
-import type { Blend, Project, Surface, TestPattern } from './project.ts';
+import type { Blend, Project, Shape, Surface, TestPattern } from './project.ts';
 import type { SourcePool } from './sources/index.ts';
+import { createTexture, uploadTexture } from './sources/types.ts';
 import type { TextureSource } from './sources/types.ts';
 
 /** What a surface needs on the GPU, derived once per surface version. */
@@ -53,6 +54,9 @@ export class Renderer {
   #meshIbo: WebGLBuffer;
   #u: Record<string, WebGLUniformLocation | null>;
   #numberTextures = new Map<number, WebGLTexture>();
+  /** Polygon cutouts rasterised for the mesh path, keyed by the shape object —
+   *  a mutation replaces the shape, so the old entry falls out on its own. */
+  #maskTextures = new WeakMap<Shape, WebGLTexture>();
   /**
    * Per-surface data that only changes when the surface itself changes.
    *
@@ -122,7 +126,7 @@ export class Renderer {
     gl.bindVertexArray(null);
 
     this.#u = Object.fromEntries(
-      ['uH', 'uResolution', 'uView', 'uTex', 'uUVMat', 'uOpacity', 'uMask', 'uFeather', 'uMode', 'uPattern', 'uTime', 'uWarped']
+      ['uH', 'uResolution', 'uView', 'uTex', 'uMaskTex', 'uUVMat', 'uOpacity', 'uMask', 'uFeather', 'uMode', 'uPattern', 'uTime', 'uWarped']
         .map((n) => [n, gl.getUniformLocation(prog, n)]),
     );
 
@@ -165,6 +169,7 @@ export class Renderer {
     gl.uniform3f(this.#u['uView']!, view.scale, view.tx, view.ty);
     gl.uniform1f(this.#u['uTime']!, (performance.now() - this.#t0) / 1000);
     gl.uniform1i(this.#u['uTex']!, 0);
+    gl.uniform1i(this.#u['uMaskTex']!, 1);
     gl.activeTexture(gl.TEXTURE0);
     // A fresh frame knows nothing about what the last one left bound.
     this.#boundTexture = null;
@@ -222,7 +227,15 @@ export class Renderer {
     // loading, without the surface changing at all.
     gl.uniformMatrix3fv(this.#u['uUVMat']!, false, uvMatrix(surface, source, this.#uvScratch));
     gl.uniform1f(this.#u['uOpacity']!, surface.opacity);
-    gl.uniform1i(this.#u['uMask']!, surface.shape.kind === 'ellipse' ? 1 : 0);
+    // A polygon is normally its own geometry. On a warped surface the geometry
+    // is the mesh, so the cutout moves into a texture instead.
+    const texturedMask = mesh !== undefined && surface.shape.kind === 'polygon';
+    if (texturedMask) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.#maskTexture(surface.shape));
+      gl.activeTexture(gl.TEXTURE0);
+    }
+    gl.uniform1i(this.#u['uMask']!, texturedMask ? 2 : surface.shape.kind === 'ellipse' ? 1 : 0);
     gl.uniform1f(this.#u['uFeather']!, surface.shape.kind === 'ellipse' ? surface.shape.feather : 0);
     gl.uniform1i(this.#u['uMode']!, mode);
     gl.uniform1i(this.#u['uPattern']!, patternId);
@@ -282,6 +295,47 @@ export class Renderer {
       this.#numbering = { project, order: surfaceOrder(project) };
     }
     return this.#numbering.order.get(surface) ?? 1;
+  }
+
+  /**
+   * Rasterises a polygon into an alpha mask, in frame space.
+   *
+   * ponytail: a 2D canvas, not a stencil buffer or a compute pass. It runs once
+   * per shape edit, the result is cached, and 512 square is more resolution than
+   * a projector edge can show.
+   */
+  #maskTexture(shape: Shape): WebGLTexture {
+    const cached = this.#maskTextures.get(shape);
+    if (cached) return cached;
+
+    const gl = this.gl;
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const c2d = canvas.getContext('2d')!;
+    c2d.clearRect(0, 0, size, size);
+    if (shape.kind === 'polygon' && shape.points.length >= 3) {
+      c2d.fillStyle = '#fff';
+      c2d.beginPath();
+      shape.points.forEach((p, i) => {
+        const x = p.x * size;
+        const y = p.y * size;
+        if (i === 0) c2d.moveTo(x, y);
+        else c2d.lineTo(x, y);
+      });
+      c2d.closePath();
+      c2d.fill();
+    }
+
+    const tex = createTexture(gl);
+    uploadTexture(gl, tex, canvas);
+    // The upload flips Y, which the sampler must not do here: the mask is
+    // addressed with the frame coordinate, where v = 0 is the top.
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    this.#maskTextures.set(shape, tex);
+    return tex;
   }
 
   /** DECISION: the surface-number pattern needs glyphs, and the cheapest way to

@@ -8,7 +8,7 @@
   import SourcePanel from './SourcePanel.svelte';
   import AboutPage from './AboutPage.svelte';
   import DocsPage from './DocsPage.svelte';
-  import { store, tools, session, duplicateSelected, flash, getEngine, selected } from './state.svelte.ts';
+  import { store, tools, session, duplicateSelected, flash, getEngine, selected, framePixelStep } from './state.svelte.ts';
   import { scheduleSave, localProject, hasFileSystemAccess, setMemoryLabel } from './project-folder.ts';
   import { initTheme } from './theme.svelte.ts';
   import { initLocale, i18n, t } from './i18n/index.svelte.ts';
@@ -77,7 +77,7 @@
       if (session.page !== 'editor') { session.page = 'editor'; return; }
       tools.pendingPolygon = [];
       tools.tool = 'select';
-      store.setView({ selectedCorner: null });
+      store.setView({ selectedCorner: null, selectedWarpPoint: null });
       return;
     }
     if (e.key.toLowerCase() === 'h') { store.setView({ uiHidden: !$store.view.uiHidden }); return; }
@@ -90,9 +90,18 @@
     const d = delta[e.key];
     if (d && s) {
       e.preventDefault();
+      const warpPoint = $store.view.selectedWarpPoint;
       const corner = $store.view.selectedCorner;
-      if (corner !== null) store.nudgeCorner(s.id, corner, d[0], d[1]);
-      else store.moveSurface(s.id, d[0], d[1]);
+      if (warpPoint !== null && s.warp) {
+        // O ponto de malha vive em 0..1 dentro do frame: o passo tem que ser
+        // convertido, senão "1 px" significa coisas diferentes em cada tamanho.
+        const step = framePixelStep(s);
+        store.nudgeWarpPoint(s.id, warpPoint, d[0] * step.x, d[1] * step.y, tools.warpFalloff);
+      } else if (corner !== null) {
+        store.nudgeCorner(s.id, corner, d[0], d[1]);
+      } else {
+        store.moveSurface(s.id, d[0], d[1]);
+      }
     }
   }
 
