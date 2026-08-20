@@ -52,6 +52,16 @@ arquivo único anexado.
 - Exemplo executável em `examples/embed/`: um canvas, um `Project`, e frames saindo
   em trinta linhas.
 
+**Descoberta**
+- Título, descrição, Open Graph, Twitter card e cartão de compartilhamento 1200×630.
+- Dados estruturados `SoftwareApplication` declarando `price: 0` e
+  `isAccessibleForFree` — é assim que uma ferramenta realmente gratuita evita ser
+  arquivada junto com os testes grátis e os planos freemium.
+- Conteúdo legível por rastreador dentro do `#app`, substituído quando o editor monta:
+  a página servida deixou de ser um `div` vazio de duas palavras.
+- `robots.txt`, `sitemap.xml` e URL canônica.
+- Título e descrição acompanham o idioma escolhido.
+
 **Distribuição**
 - Build de arquivo único que abre por `file://`, sem servidor e sem rede.
 - Instalação como aplicativo (PWA) com service worker versionado pelo hash do build.
