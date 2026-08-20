@@ -202,6 +202,7 @@ export const en = {
   'color.magenta': 'magenta',
   'color.pink': 'pink',
   'color.edit': 'pick the colour',
+  'color.done': 'done',
   'color.square': 'saturation and brightness',
   'color.hue': 'hue',
   'color.hex': 'hex code',

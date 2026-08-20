@@ -603,6 +603,18 @@ a chave no JSON.
 > passagem vale só para o corpo da superfície, que é gesto grosso, nunca para a
 > alça de 1 px.
 
+### AC-72 — O seletor de cor não empurra a página
+
+**Dado** o seletor de cor aberto
+**Quando** a página é medida
+**Então** a altura dela não mudou, o painel cabe inteiro na tela, e ele fecha por
+**Esc**, por clique fora e pelo botão.
+
+> Aberto dentro da lista, o seletor empurrava o painel para baixo e obrigava a
+> rolar até achá-lo — escondendo justamente a parede, que é o que se olha
+> enquanto se escolhe uma cor. Três saídas porque a primeira que a pessoa tenta
+> varia, e nenhuma delas pode não funcionar.
+
 ### AC-55 — O guia manda clicar em botões que existem
 
 **Dado** o guia e o catálogo de mensagens da mesma língua
@@ -703,6 +715,7 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-69 | provado | `store.test.ts` (2 testes) |
 | AC-70 | provado | `smoke.mjs` (pixels da saída depois de afastar e arrastar) |
 | AC-71 | provado | `smoke.mjs` (ponteiro real) |
+| AC-72 | provado | `smoke.mjs` (2 checagens: layout e fechamento) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o
