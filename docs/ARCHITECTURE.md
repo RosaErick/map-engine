@@ -419,6 +419,16 @@ O "sobre", num `<dialog>` nativo (foco, camada e `Esc` de graça). Tipografia de
 coluna estreita, serifa, fios finos, capitular, citação com fio à esquerda — usando só
 fontes do sistema, porque carregar fonte externa quebraria o uso offline.
 
+#### [`packages/editor/i18n/`](../packages/editor/i18n)
+
+`en.ts` é a fonte da verdade e de onde saem os tipos (`MessageKey = keyof typeof en`);
+`pt.ts` e `es.ts` são `Record<MessageKey, string>`, então uma chave que falta é erro de
+compilação. `index.svelte.ts` traz `t(key, params)` — interpolação `{nome}` e plural por
+`Intl.PluralRules`, com a chave base servindo de forma geral e o sufixo `_one` de
+singular —, a detecção por `navigator.languages`, a persistência da escolha e o
+`document.documentElement.lang`. `t` lê `i18n.locale` dentro de um rune, e é isso que faz
+a interface inteira trocar de idioma sem store, sem adaptador e sem recarregar a página.
+
 #### [`packages/editor/Icon.svelte`](../packages/editor/Icon.svelte) e [`links.ts`](../packages/editor/links.ts)
 
 Ícones em SVG inline (sem fonte de ícone, sem CDN: um ícone que não carrega vira botão
