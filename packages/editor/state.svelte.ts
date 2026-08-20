@@ -18,6 +18,14 @@ export const ui = $state({
   pendingPolygon: [] as Vec2[],
   status: '' as string,
   folderName: '' as string,
+  /** Uma pasta de projeto de verdade foi aberta — diferente de ter salvo na
+   *  memória do navegador, que acontece sozinho no primeiro autosave. */
+  hasFolder: false,
+  /** Momento do último autosave, zerado por um timer. A barra de cima usa isso
+   *  para responder "meu trabalho está salvo?" sem ninguém precisar perguntar. */
+  savedAt: 0,
+  outputOpen: false,
+  outputScreen: '',
 });
 
 let engineRef: Engine | null = null;
