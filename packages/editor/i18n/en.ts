@@ -200,9 +200,9 @@ export const en = {
 
   // About
   'about.kicker': 'Tool · Projection',
-  'about.headline': 'Light that dresses',
+  'about.headline': 'Project onto',
   'about.headlineEmphasis': 'real objects',
-  'about.lede': 'A projector, a wall with picture frames, a stack of boxes. You draw shapes over the projection that line up with the real things, and put content inside each one: video, images, GIFs, colour, the capture of any window on the machine, or the live camera.',
+  'about.lede': 'Point a projector at a wall, a box, a piece of furniture. Mark the corners of the object on screen, and whatever you put there — video, an image, whatever is on your screen — takes its shape.',
   'about.quote': 'Black is transparency.',
   'about.quoteBody': 'Every black pixel is an absence of light, and the physical surface shows through it. Outside the mapped shapes nothing is drawn — no grey, no border, no pixel of interface. It is the one rule that governs all the others.',
   'about.whyTitle': 'Why it exists',
