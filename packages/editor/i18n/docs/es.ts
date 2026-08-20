@@ -20,7 +20,7 @@ export const guideEs: Guide = [
         items: [
           '<b>Abrir carpeta</b> — elige una carpeta vacía. El archivo del proyecto y tus medios quedan ahí, y todo se guarda solo.',
           '<b>Igualar esta pantalla</b> — elige el proyector en la lista y haz clic. Así la aplicación trabaja en su resolución nativa.',
-          '<b>+ superficie</b> — aparece un rectángulo. Arrastra sus cuatro esquinas hasta cubrir el objeto real.',
+          '<b>Superficie</b> — aparece un rectángulo. Arrastra sus cuatro esquinas hasta cubrir el objeto real.',
           'Arrastra un video o una imagen <b>encima de la superficie</b> para llenarla.',
           '<b>Enviar al proyector</b> — la proyección va a la segunda pantalla y los controles se quedan en tu portátil.',
           'Presiona <b>H</b> para ocultar la interfaz. Presiona H otra vez para recuperarla.',
@@ -65,6 +65,24 @@ export const guideEs: Guide = [
     ],
   },
   {
+    id: 'mesh',
+    title: 'Superficies curvas',
+    blocks: [
+      { kind: 'p', text: 'Cuatro esquinas mapean un plano. En una columna, un arco o una pared abombada aciertan el contorno y fallan en el medio — el contenido se desliza a medida que la superficie se aleja. La <b>malla libre</b> lo resuelve.' },
+      {
+        kind: 'list',
+        items: [
+          'Abre <b>malla libre</b> en el panel de la superficie y crea una. Todavía no cambia nada: una malla nueva nace perfectamente plana.',
+          'Arrastra los puntos violeta hasta que el contenido se apoye en el objeto. Haz clic en uno y las flechas lo mueven 1 px, como una esquina.',
+          '<b>Arrastrar vecinos</b> decide cuánto acompañan los puntos de alrededor al que arrastras. Bájalo para ajustar un solo punto, súbelo para moldear una curva amplia.',
+          '<b>Curvo</b> pasa una superficie suave entre los puntos — es la opción para cualquier cosa redonda. <b>Recto</b> mantiene pliegues duros, para un doblez.',
+          'Más puntos de control es más control fino. Cambiar la cantidad conserva la forma que ya ajustaste.',
+        ],
+      },
+      { kind: 'note', text: '<b>Aplanar</b> deshace todas las curvas sin quitar la malla, y una superficie bloqueada rechaza editar la malla igual que rechaza una esquina.' },
+    ],
+  },
+  {
     id: 'content',
     title: 'Contenido',
     blocks: [
@@ -79,7 +97,7 @@ export const guideEs: Guide = [
           '<b>Módulo JS</b> — tu propio dibujo generativo. Mira más abajo.',
         ],
       },
-      { kind: 'p', text: 'Con contenido en la superficie, cuatro controles lo moldean: <b>encaje</b> (estirar ignora la proporción, contener muestra todo y deja negro alrededor, cubrir llena y recorta), <b>rotación</b>, <b>opacidad</b> y <b>mezcla</b>.' },
+      { kind: 'p', text: 'Con contenido en la superficie, cuatro controles lo moldean: <b>encaje</b> (estirar ignora la proporción, contener muestra todo y deja negro alrededor, cubrir llena y recorta), <b>rotación</b>, <b>opacidad</b> y <b>mezcla</b>. En <b>recorte dentro de la fuente</b> usas solo un trozo del archivo, y <b>orden de dibujo</b> decide quién queda encima cuando dos superficies se solapan — ambas quedan plegadas hasta que las necesites.' },
       { kind: 'note', text: 'La rotación gira el contenido, nunca el marco — así que es segura en una superficie que ya alineaste y bloqueaste.' },
     ],
   },
@@ -151,7 +169,7 @@ export function draw(ctx, t) {
         items: [
           'El guardado es automático, instantes después de cada cambio.',
           'Los archivos que sueltas se copian a la carpeta, así que el proyecto lleva sus propios medios.',
-          'Si un archivo desaparece, la superficie muestra franjas magenta bien visibles — nunca silencio, y nunca luz sobre un objeto físico sin nada detrás.',
+          'Si un archivo desaparece, la superficie muestra franjas magenta bien visibles — nunca silencio, y nunca luz sobre un objeto físico sin nada detrás. Usa <b>revincular</b> en el panel Contenido para apuntar la fuente al archivo en su nuevo lugar, sin rehacer la alineación.',
           'Sin acceso a la carpeta, el proyecto queda en la memoria del navegador y los medios no sobreviven a un reinicio. La aplicación avisa cuando pasa.',
         ],
       },
@@ -164,7 +182,7 @@ export function draw(ctx, t) {
       {
         kind: 'keys',
         rows: [
-          ['↑ ↓ ← →', 'Mueve la esquina seleccionada 1 px — o toda la superficie, sin ninguna seleccionada'],
+          ['↑ ↓ ← →', 'Mueve 1 px la esquina o el punto de malla seleccionado — o toda la superficie, sin nada seleccionado'],
           ['Shift + flechas', 'Lo mismo, 10 px'],
           ['Ctrl (mantener)', 'Desactiva el imán mientras se mantiene'],
           ['Ctrl+Z / Ctrl+Shift+Z', 'Deshacer / rehacer'],
@@ -176,6 +194,7 @@ export function draw(ctx, t) {
           ['Botón central, o Alt + arrastrar', 'Desplazar'],
         ],
       },
+      { kind: 'note', text: 'El zoom y el paneo mueven solo la vista del editor, nunca la proyección. Si te pierdes, <b>encuadrar</b> en la barra superior devuelve toda la salida a la pantalla.' },
     ],
   },
 ];

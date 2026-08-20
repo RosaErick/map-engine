@@ -57,7 +57,11 @@ const browser = await chromium.launch({
   // SwiftShader gives headless chromium a real WebGL2 implementation.
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--use-gl=angle'],
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+// O idioma é fixado aqui, e não herdado da máquina: o editor escolhe o catálogo
+// por `navigator.languages`, então um runner em inglês renderiza "surface" e os
+// cliques abaixo, escritos em português, não acham nada. Rodou verde por meses
+// só porque o laptop de quem rodava estava em pt-BR.
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, locale: 'pt-BR' });
 
 const consoleErrors = [];
 page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
@@ -317,6 +321,125 @@ await page.evaluate((ids) => {
   store.setSurfacePattern(ids[0], null);
   store.removeSurface(ids[1]);
 }, spots.ids);
+
+// The mesh path is a different code path, a different shader branch and a
+// different vertex layout. Two things must hold: an identity warp must not
+// change the picture, and no mesh may show its seams — a dark line between
+// cells would be the exact artifact this project refuses, since black is
+// transparency and a seam is a stripe of wall showing through the content.
+const mesh = await page.evaluate(() => {
+  const engine = window.mapEngine;
+  const store = engine.store;
+  const gl = engine.renderer.gl;
+  const w = gl.drawingBufferWidth;
+  const h = gl.drawingBufferHeight;
+
+  const surface = store.project.surfaces[0];
+  store.setSurfaceShape(surface.id, { kind: 'quad' });
+  store.setSurfaceFrame(surface.id, [
+    { x: 300, y: 200 }, { x: 1500, y: 260 }, { x: 1450, y: 850 }, { x: 260, y: 800 },
+  ]);
+  store.setSurfaceSource(surface.id, store.project.sources[0].id);
+  store.setTestPattern('none');
+
+  /** Lit pixels, plus the longest run and the number of gaps on a mid scanline. */
+  const measure = () => {
+    engine.renderFrame();
+    const buf = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+
+    let lit = 0;
+    for (let i = 0; i < buf.length; i += 4) if (buf[i] > 200) lit++;
+
+    const row = Math.round(h / 2);
+    let runs = 0;
+    let inRun = false;
+    let longest = 0;
+    let current = 0;
+    for (let x = 0; x < w; x++) {
+      const on = buf[(row * w + x) * 4] > 200;
+      if (on) {
+        current++;
+        if (!inRun) { runs++; inRun = true; }
+      } else {
+        longest = Math.max(longest, current);
+        current = 0;
+        inRun = false;
+      }
+    }
+    return { lit, runs, longest: Math.max(longest, current) };
+  };
+
+  const plain = measure();
+  store.enableWarp(surface.id);
+  const identity = measure();
+  store.setWarpPoint(surface.id, 4, { x: 0.5, y: 0.2 }, 1.5);
+  store.endGesture();
+  const bent = measure();
+  store.disableWarp(surface.id);
+
+  return { plain, identity, bent, id: surface.id };
+});
+
+const drift = Math.abs(mesh.identity.lit - mesh.plain.lit) / mesh.plain.lit;
+check('AC-44: malha identidade desenha o mesmo que nenhuma malha',
+  drift < 0.005 && mesh.identity.runs === mesh.plain.runs,
+  `desvio=${(drift * 100).toFixed(3)}% trechos=${mesh.plain.runs}/${mesh.identity.runs}`);
+
+check('AC-49: a malha não mostra costura entre células',
+  mesh.identity.runs === 1 && mesh.bent.runs === 1,
+  `identidade=${mesh.identity.runs} trecho(s), deformada=${mesh.bent.runs}`);
+
+check('AC-49: mover um ponto de controle muda o que chega na parede',
+  mesh.bent.lit !== mesh.identity.lit && mesh.bent.lit > 0,
+  `identidade=${mesh.identity.lit} deformada=${mesh.bent.lit}`);
+
+await page.selectOption('#pattern', 'none');
+
+// A warped surface still has to respect its cutout. The polygon stops being the
+// geometry once a mesh is drawing, so it moves into a mask texture — and the
+// test is the same one that mattered for the ellipse: the corners of the frame
+// have to stay dark while the middle stays lit.
+const maskedMesh = await page.evaluate(() => {
+  const engine = window.mapEngine;
+  const store = engine.store;
+  const gl = engine.renderer.gl;
+  const surface = store.project.surfaces[0];
+
+  store.setSurfaceFrame(surface.id, [
+    { x: 500, y: 250 }, { x: 1400, y: 250 }, { x: 1400, y: 830 }, { x: 500, y: 830 },
+  ]);
+  store.setSurfaceSource(surface.id, store.project.sources[0].id);
+  store.setTestPattern('none');
+  // Losango: os quatro cantos do frame ficam de fora.
+  store.setSurfaceShape(surface.id, {
+    kind: 'polygon',
+    points: [{ x: 0.5, y: 0 }, { x: 1, y: 0.5 }, { x: 0.5, y: 1 }, { x: 0, y: 0.5 }],
+  });
+  store.enableWarp(surface.id);
+
+  const v = engine.view;
+  const dpr = window.devicePixelRatio;
+  const at = (x, y) => {
+    engine.renderFrame();
+    const out = new Uint8Array(4);
+    gl.readPixels(
+      Math.round((x * v.scale + v.tx) * dpr),
+      gl.drawingBufferHeight - Math.round((y * v.scale + v.ty) * dpr),
+      1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out,
+    );
+    return [...out];
+  };
+
+  const centre = at(950, 540);
+  const corner = at(520, 270);
+  store.disableWarp(surface.id);
+  store.setSurfaceShape(surface.id, { kind: 'quad' });
+  return { centre, corner };
+});
+check('AC-52: máscara de polígono continua recortando numa superfície deformada',
+  maskedMesh.centre[0] > 200 && maskedMesh.corner.slice(0, 3).every((v) => v < 20),
+  `centro=${maskedMesh.centre} canto=${maskedMesh.corner}`);
 
 // Undo must walk the geometry back.
 const undoOk = await page.evaluate(() => {

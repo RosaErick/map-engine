@@ -173,6 +173,74 @@ renderizada com `{@html}`. Os dois são silenciosos em produção e barulhentos 
 
 ---
 
+### ADR-0019 — Malha livre é uma camada, não mais uma forma
+
+**Status:** aceita
+
+**Contexto.** Uma superfície plana é bem descrita por quatro cantos e uma homografia. Uma
+coluna, um arco ou uma parede abaulada não são: a homografia acerta o contorno e erra o
+meio. O brief lista malha como fora da v1 **e** como ponto de extensão preparado — a
+união `Shape` foi desenhada com isso em mente.
+
+O caminho óbvio seria acrescentar `{ kind: 'mesh' }` a `Shape`. É também o caminho errado:
+`Shape` é o **recorte**, e uma superfície deformada continua podendo ser recortada em
+elipse ou em polígono. Como membro da união, "malha com máscara de elipse" viraria
+irrepresentável.
+
+**Decisão.** Três camadas ortogonais: `frame` (onde está, 4 cantos em pixels de saída),
+`warp` (como entorta, opcional) e `shape` (o que fica aceso). `Surface.warp` é opcional,
+então projeto salvo antes continua idêntico e não há migração.
+
+**Consequências.** Máscara, recorte, encaixe e rotação operam sobre a coordenada do frame
+**antes** da deformação — então todos atravessaram a malha sem uma linha de código novo,
+e o conteúdo entorta com o recorte junto. É a evidência de que a camada foi posta no
+lugar certo.
+
+Dois pontos de controle merecem registro:
+
+**Ponto de controle é posição, não coordenada de textura.** Você arrasta para levar aquele
+pedaço da projeção até o objeto, e a textura acompanha a geometria. Eles vivem em espaço
+do frame, então mexer no frame carrega a malha junto — a mesma regra que já valia para a
+forma.
+
+**Grade de controle não é a tesselação.** Poucas alças para arrastar, malha fina para
+desenhar. Entre os pontos, `curvo` roda uma superfície Catmull-Rom e `reto` mantém o vinco.
+`reto` nunca subdivide além da própria grade: cada célula já é exata sob a própria
+homografia, e subdividi-la bilinearmente introduziria justamente o erro que o caminho
+projetivo evita.
+
+---
+
+### ADR-0020 — Uma homografia por célula, e vértices não compartilhados
+
+**Status:** aceita
+
+**Contexto.** Com pontos movidos livremente não existe mais uma homografia única para a
+superfície — e o brief proíbe em negrito "subdividir a malha para disfarçar o problema",
+que é como a maioria das ferramentas resolve isso.
+
+**Decisão.** Cada célula desenhada resolve a **própria** homografia e emite o próprio `w`
+por vértice, o mesmo truque de `gl_Position` que já dava a correção de perspectiva no
+quad. Vértices **não** são compartilhados entre células: um canto pertence a até quatro
+delas e carrega um `w` diferente em cada.
+
+**Consequências.** A textura fica projetivamente exata **dentro** de cada célula, e
+contínua em posição entre elas — o que o AC-49 verifica varrendo uma linha de pixels
+atrás de costura. Posição e `w` passam a ser calculados na CPU e chegam como atributo, o
+que exigiu um segundo formato de vértice e um ramo no vertex shader.
+
+**O caminho sem malha não foi tocado.** Dois VAOs, dois buffers, um `uniform` escolhendo o
+ramo. Unificar seria mais bonito e colocaria em risco o AC-20, que é a garantia mais cara
+do projeto. O preço é um pouco de duplicação; a compra é que a feature nova não pode
+quebrar a antiga.
+
+**Pendência resolvida junto.** Polígono era desenhado *como geometria*, e numa superfície
+deformada a geometria passou a ser a malha. O recorte virou uma máscara rasterizada uma
+vez num canvas 2D e amostrada pela coordenada do frame — só no caminho de malha, deixando
+o caminho antigo intacto.
+
+---
+
 ### ADR-0002 — WebGL2 puro, sem biblioteca gráfica
 
 **Status:** aceita (herdada do brief)

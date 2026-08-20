@@ -1,4 +1,7 @@
 import {
+  DEFAULT_CELLS, identityWarp, resampleWarp, type WarpInterpolation,
+} from './warp.ts';
+import {
   emptyProject, newSurface, newId, parseProject, sanitizeSurfacePatch,
   type Project, type Source, type Surface, type Shape, type Vec2, type ViewState, type TestPattern,
 } from './project.ts';
@@ -43,6 +46,7 @@ export class Store {
         soloId: null,
         selectedSurfaceId: null,
         selectedCorner: null,
+        selectedWarpPoint: null,
         testPattern: 'none',
         surfacePatterns: {},
         uiHidden: false,
@@ -101,7 +105,13 @@ export class Store {
     this.#lastCoalesce = null;
     this.#state = {
       project,
-      view: { ...this.#state.view, selectedSurfaceId: null, selectedCorner: null, soloId: null },
+      view: {
+        ...this.#state.view,
+        selectedSurfaceId: null,
+        selectedCorner: null,
+        selectedWarpPoint: null,
+        soloId: null,
+      },
     };
     this.#emit();
   }
@@ -140,7 +150,7 @@ export class Store {
   addSurface(surface?: Surface): Surface {
     const s = surface ?? newSurface(this.#state.project);
     this.mutate((p) => { p.surfaces.push(s); });
-    this.setView({ selectedSurfaceId: s.id, selectedCorner: null });
+    this.setView({ selectedSurfaceId: s.id, selectedCorner: null, selectedWarpPoint: null });
     return s;
   }
 
@@ -152,6 +162,7 @@ export class Store {
     if (this.#state.view.selectedSurfaceId === id) {
       patch.selectedSurfaceId = null;
       patch.selectedCorner = null;
+      patch.selectedWarpPoint = null;
     }
     if (this.#state.view.soloId === id) patch.soloId = null;
     this.setView(patch);
@@ -252,6 +263,87 @@ export class Store {
       if (!target) return;
       s.shape.points[index] = { x: point.x, y: point.y };
     }, { coalesce: `poly:${id}:${index}` });
+  }
+
+  // --- warp ----------------------------------------------------------------
+
+  /** Liga a malha, começando na grade identidade — que desenha exatamente o
+   *  mesmo que não ter malha nenhuma. */
+  enableWarp(id: string, cols = DEFAULT_CELLS, rows = DEFAULT_CELLS): void {
+    if (this.#surface(id)?.warp) return;
+    this.patchSurface(id, { warp: identityWarp(cols, rows) });
+  }
+
+  /** Remover é a única operação de malha que o patch genérico não expressa —
+   *  `Partial<Surface>` sabe dizer "este valor", não "nenhum valor". */
+  disableWarp(id: string): void {
+    if (!this.#editable(id)) return;
+    this.mutate((p) => {
+      const surface = p.surfaces.find((x) => x.id === id);
+      if (surface) delete surface.warp;
+    });
+  }
+
+  /** Volta à grade identidade sem desligar a malha. */
+  resetWarp(id: string): void {
+    const warp = this.#surface(id)?.warp;
+    if (!warp) return;
+    this.patchSurface(id, { warp: identityWarp(warp.cols, warp.rows, warp.interpolation) });
+  }
+
+  /** Empurra um ponto de controle em unidades do frame — o equivalente de malha
+   *  ao ajuste de 1 px que as setas fazem num canto. */
+  nudgeWarpPoint(id: string, index: number, dx: number, dy: number, falloff = 0): void {
+    const current = this.#surface(id)?.warp?.points[index];
+    if (!current) return;
+    this.setWarpPoint(id, index, { x: current.x + dx, y: current.y + dy }, falloff);
+  }
+
+  /**
+   * Move um ponto de controle, em espaço do frame.
+   *
+   * `falloff` arrasta os vizinhos junto, com peso que cai com a distância na
+   * grade. Sem isso, moldar uma curva vira um ponto de cada vez — que é o que
+   * separa uma malha usável de uma malha que existe.
+   */
+  setWarpPoint(id: string, index: number, point: Vec2, falloff = 0): void {
+    const warp = this.#surface(id)?.warp;
+    if (!warp || !warp.points[index]) return;
+
+    const cols = warp.cols + 1;
+    const target = { col: index % cols, row: Math.floor(index / cols) };
+    const dx = point.x - warp.points[index]!.x;
+    const dy = point.y - warp.points[index]!.y;
+
+    const points = warp.points.map((p, i) => {
+      if (i === index) return { x: point.x, y: point.y };
+      if (falloff <= 0) return p;
+      const distance = Math.hypot((i % cols) - target.col, Math.floor(i / cols) - target.row);
+      if (distance > falloff) return p;
+      // Smoothstep so the pulled area has no hard edge at the radius.
+      const t = 1 - distance / falloff;
+      const weight = t * t * (3 - 2 * t);
+      return { x: p.x + dx * weight, y: p.y + dy * weight };
+    });
+
+    this.patchSurface(id, { warp: { ...warp, points } }, { coalesce: `warp:${id}:${index}` });
+  }
+
+  /** Troca a subdivisão preservando a superfície já ajustada. */
+  setWarpGrid(id: string, cols: number, rows: number): void {
+    const warp = this.#surface(id)?.warp;
+    if (!warp) return;
+    this.patchSurface(id, { warp: resampleWarp(warp, cols, rows) });
+  }
+
+  setWarpInterpolation(id: string, interpolation: WarpInterpolation): void {
+    const warp = this.#surface(id)?.warp;
+    if (!warp) return;
+    this.patchSurface(id, { warp: { ...warp, interpolation } });
+  }
+
+  #surface(id: string): Surface | undefined {
+    return this.#state.project.surfaces.find((s) => s.id === id);
   }
 
   setSurfaceShape(id: string, shape: Shape): void {

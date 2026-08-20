@@ -84,10 +84,13 @@ for (const file of walk(editor)) {
     continue;
   }
 
-  // Markup only: script and style hold logic and selectors, not copy.
+  // Markup only: script and style hold logic and selectors, not copy. Comments
+  // go too — an apostrophe inside one ("the corner's handle") opens a quote that
+  // swallows the next real string, and the report lands on the wrong line.
   let markup = source
     .replace(/<script[\s\S]*?<\/script>/g, blank)
-    .replace(/<style[\s\S]*?<\/style>/g, blank);
+    .replace(/<style[\s\S]*?<\/style>/g, blank)
+    .replace(/<!--[\s\S]*?-->/g, blank);
 
   // Svelte expressions usually hold translated content — but not always: a
   // template literal inside an attribute expression is copy too, and blanking
