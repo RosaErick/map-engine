@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Store, visibleSurfaces, patternFor } from './store.ts';
-import { emptyProject } from './project.ts';
+import { anchorId, emptyProject } from './project.ts';
 import { surfaceOrder } from './surface-math.ts';
 import { isIdentity, evaluateWarp } from './warp.ts';
 
@@ -325,4 +325,122 @@ test('AC-44: a project without a warp is untouched by the feature existing', () 
   const reloaded = new Store(emptyProject());
   reloaded.load(json);
   assert.equal(reloaded.project.surfaces[0]!.warp, undefined);
+});
+
+/** Três superfícies num store novo, devolvidas na ordem em que foram criadas. */
+function threeSurfaces(): { store: Store; ids: [string, string, string] } {
+  const store = new Store();
+  const a = store.addSurface();
+  const b = store.addSurface();
+  const c = store.addSurface();
+  return { store, ids: [a.id, b.id, c.id] };
+}
+
+test('AC-65: o clique com modificador acrescenta e tira da seleção', () => {
+  const { store, ids: [a, b] } = threeSurfaces();
+  store.setSelection([a]);
+  store.toggleSelection(b);
+  assert.deepEqual(store.view.selectedIds, [a, b]);
+  store.toggleSelection(a);
+  assert.deepEqual(store.view.selectedIds, [b], 'tirar da seleção deixa o resto');
+});
+
+test('AC-65: um arrasto de grupo é um só desfazer', () => {
+  const { store, ids: [a, b] } = threeSurfaces();
+  store.setSelection([a, b]);
+  const before = store.project.surfaces.map((s) => s.frame[0].x);
+
+  // Um arrasto real dispara dezenas de mutações, como o ponteiro faz.
+  for (let i = 0; i < 20; i++) store.moveSelection(5, 0);
+  store.endGesture();
+  const moved = store.project.surfaces.map((s) => s.frame[0].x);
+  assert.equal(moved[0], (before[0] ?? 0) + 100);
+  assert.equal(moved[1], (before[1] ?? 0) + 100, 'as duas andaram juntas');
+
+  store.undo();
+  assert.deepEqual(store.project.surfaces.map((s) => s.frame[0].x), before,
+    'um desfazer devolve o gesto inteiro, não uma superfície');
+});
+
+test('AC-66: o âncora é o último escolhido', () => {
+  const { store, ids: [a, b] } = threeSurfaces();
+  store.setSelection([a]);
+  assert.equal(anchorId(store.view), a);
+  store.toggleSelection(b);
+  assert.equal(anchorId(store.view), b, 'o recém-acrescentado passa a ser o âncora');
+});
+
+test('AC-67: superfícies ligadas se selecionam e se movem juntas', () => {
+  const { store, ids: [a, b, c] } = threeSurfaces();
+  store.setSelection([a, b]);
+  store.linkSelected();
+
+  store.setSelection([a]);
+  assert.deepEqual(store.view.selectedIds.sort(), [a, b].sort(), 'pegar uma traz o grupo');
+
+  const cBefore = store.project.surfaces.find((s) => s.id === c)?.frame[0].x;
+  store.moveSelection(10, 0);
+  store.endGesture();
+  const moved = new Map(store.project.surfaces.map((s) => [s.id, s.frame[0].x]));
+  assert.equal(moved.get(a), moved.get(b), 'as ligadas andaram o mesmo tanto');
+  assert.equal(moved.get(c), cBefore, 'a de fora do vínculo não se mexeu');
+});
+
+test('AC-67: o vínculo sobrevive a salvar e recarregar', () => {
+  const { store, ids: [a, b] } = threeSurfaces();
+  store.setSelection([a, b]);
+  store.linkSelected();
+
+  const reloaded = new Store();
+  reloaded.load(store.toJSON());
+  const links = reloaded.project.surfaces.map((s) => s.link);
+  assert.ok(links[0] && links[0] === links[1], 'as duas voltaram no mesmo grupo');
+  assert.equal(links[2], undefined, 'e a terceira voltou sem vínculo nenhum');
+});
+
+test('AC-67: projeto sem vínculo continua sem a chave no JSON', () => {
+  const { store } = threeSurfaces();
+  assert.ok(!store.toJSON().includes('link'), 'nada de `link` para quem nunca ligou nada');
+});
+
+test('AC-68: numa seleção com uma travada, as destravadas andam e a travada não', () => {
+  const { store, ids: [a, b] } = threeSurfaces();
+  store.toggleLock(b);
+  store.setSelection([a, b]);
+  const before = new Map(store.project.surfaces.map((s) => [s.id, s.frame[0].x]));
+
+  store.moveSelection(25, 0);
+  store.endGesture();
+  const after = new Map(store.project.surfaces.map((s) => [s.id, s.frame[0].x]));
+  assert.equal(after.get(a), (before.get(a) ?? 0) + 25);
+  assert.equal(after.get(b), before.get(b), 'travar fala sobre ela, não sobre o grupo');
+});
+
+test('AC-69: apagar uma superfície selecionada não deixa id órfão', () => {
+  const { store, ids: [a, b] } = threeSurfaces();
+  store.setSelection([a, b]);
+  store.removeSurface(a);
+  assert.deepEqual(store.view.selectedIds, [b]);
+
+  const ids = new Set(store.project.surfaces.map((s) => s.id));
+  assert.ok(store.view.selectedIds.every((id) => ids.has(id)));
+});
+
+test('AC-69: id que não existe nunca entra na seleção', () => {
+  const { store, ids: [a] } = threeSurfaces();
+  store.setSelection([a, 'surf_fantasma', a]);
+  assert.deepEqual(store.view.selectedIds, [a], 'sem órfão e sem repetido');
+});
+
+test('AC-66: o âncora é a superfície clicada, não a que o vínculo trouxe', () => {
+  const { store, ids: [a, b, c] } = threeSurfaces();
+  store.setSelection([a, b]);
+  store.linkSelected();
+
+  store.setSelection([a, c]);
+  assert.equal(anchorId(store.view), c, 'o último pedido continua sendo o âncora');
+  assert.equal(store.view.selectedIds.length, 3, 'e o vínculo entrou junto');
+
+  store.setSelection([a]);
+  assert.equal(anchorId(store.view), a, 'clicar numa ligada mostra ela no painel, não a irmã');
 });

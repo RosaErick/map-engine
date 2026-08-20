@@ -2,7 +2,7 @@
   import { store, tools } from './state.svelte.ts';
   import { PATTERNS } from './patterns.ts';
   import { t, type MessageKey } from './i18n/index.svelte.ts';
-  import type { Blend, Fit, TestPattern } from '../engine/index.ts';
+  import { anchorId, type Blend, type Fit, type TestPattern } from '../engine/index.ts';
 
   /**
    * The fit and blend options, in the order the selects show them.
@@ -36,7 +36,7 @@
   const BLENDS = Object.entries(BLEND_OPTIONS);
 
   const s = $derived(
-    $store.project.surfaces.find((x) => x.id === $store.view.selectedSurfaceId) ?? null,
+    $store.project.surfaces.find((x) => x.id === anchorId($store.view)) ?? null,
   );
 
   /** The keyboard hint carries its keys as markup, so it goes through `{@html}`
