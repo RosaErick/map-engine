@@ -16,7 +16,7 @@ export {
 } from './warp.ts';
 export { triangulate, pointInPolygon, pointInUnitEllipse, closestOnSegment, bounds, signedArea, UNIT_QUAD } from './geometry.ts';
 export { Renderer, IDENTITY_VIEW, type ViewTransform } from './renderer.ts';
-export { frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf } from './surface-math.ts';
+export { frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf, surfaceOrder } from './surface-math.ts';
 export { SourcePool, createSource } from './sources/index.ts';
 export { listCameras } from './sources/video.ts';
 export type { TextureSource, SourceContext, CanvasModule, SourceError, SourceErrorCode } from './sources/types.ts';
