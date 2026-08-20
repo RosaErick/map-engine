@@ -59,6 +59,8 @@ export const es: Messages = {
   'project.title': 'Proyecto',
   'project.blurb': 'Un proyecto es una carpeta: el archivo del proyecto y los medios quedan uno al lado del otro, y todo se guarda solo.',
   'project.openFolder': 'abrir carpeta',
+  'project.reopen': 'reabrir {name}',
+  'project.reopened': 'carpeta {name} reabierta',
   'project.saveNow': 'guardar ahora',
   'project.downloadJson': 'descargar json',
   'project.projector': 'Proyector (salida)',
