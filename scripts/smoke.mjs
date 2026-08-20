@@ -318,6 +318,80 @@ await page.evaluate((ids) => {
   store.removeSurface(ids[1]);
 }, spots.ids);
 
+// The mesh path is a different code path, a different shader branch and a
+// different vertex layout. Two things must hold: an identity warp must not
+// change the picture, and no mesh may show its seams — a dark line between
+// cells would be the exact artifact this project refuses, since black is
+// transparency and a seam is a stripe of wall showing through the content.
+const mesh = await page.evaluate(() => {
+  const engine = window.mapEngine;
+  const store = engine.store;
+  const gl = engine.renderer.gl;
+  const w = gl.drawingBufferWidth;
+  const h = gl.drawingBufferHeight;
+
+  const surface = store.project.surfaces[0];
+  store.setSurfaceShape(surface.id, { kind: 'quad' });
+  store.setSurfaceFrame(surface.id, [
+    { x: 300, y: 200 }, { x: 1500, y: 260 }, { x: 1450, y: 850 }, { x: 260, y: 800 },
+  ]);
+  store.setSurfaceSource(surface.id, store.project.sources[0].id);
+  store.setTestPattern('none');
+
+  /** Lit pixels, plus the longest run and the number of gaps on a mid scanline. */
+  const measure = () => {
+    engine.renderFrame();
+    const buf = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+
+    let lit = 0;
+    for (let i = 0; i < buf.length; i += 4) if (buf[i] > 200) lit++;
+
+    const row = Math.round(h / 2);
+    let runs = 0;
+    let inRun = false;
+    let longest = 0;
+    let current = 0;
+    for (let x = 0; x < w; x++) {
+      const on = buf[(row * w + x) * 4] > 200;
+      if (on) {
+        current++;
+        if (!inRun) { runs++; inRun = true; }
+      } else {
+        longest = Math.max(longest, current);
+        current = 0;
+        inRun = false;
+      }
+    }
+    return { lit, runs, longest: Math.max(longest, current) };
+  };
+
+  const plain = measure();
+  store.enableWarp(surface.id);
+  const identity = measure();
+  store.setWarpPoint(surface.id, 4, { x: 0.5, y: 0.2 }, 1.5);
+  store.endGesture();
+  const bent = measure();
+  store.disableWarp(surface.id);
+
+  return { plain, identity, bent, id: surface.id };
+});
+
+const drift = Math.abs(mesh.identity.lit - mesh.plain.lit) / mesh.plain.lit;
+check('AC-44: malha identidade desenha o mesmo que nenhuma malha',
+  drift < 0.005 && mesh.identity.runs === mesh.plain.runs,
+  `desvio=${(drift * 100).toFixed(3)}% trechos=${mesh.plain.runs}/${mesh.identity.runs}`);
+
+check('AC-49: a malha não mostra costura entre células',
+  mesh.identity.runs === 1 && mesh.bent.runs === 1,
+  `identidade=${mesh.identity.runs} trecho(s), deformada=${mesh.bent.runs}`);
+
+check('AC-49: mover um ponto de controle muda o que chega na parede',
+  mesh.bent.lit !== mesh.identity.lit && mesh.bent.lit > 0,
+  `identidade=${mesh.identity.lit} deformada=${mesh.bent.lit}`);
+
+await page.selectOption('#pattern', 'none');
+
 // Undo must walk the geometry back.
 const undoOk = await page.evaluate(() => {
   const engine = window.mapEngine;

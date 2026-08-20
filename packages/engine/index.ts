@@ -10,6 +10,10 @@ export {
   solveUnitToQuad, quadToUnit, invert, apply, applyH,
   type Mat3, type Quad,
 } from './homography.ts';
+export {
+  identityWarp, isIdentity, evaluateWarp, unwarp, resampleWarp, tessellate, parseWarp, pointIndex,
+  DEFAULT_CELLS, type Warp, type WarpCell, type WarpInterpolation,
+} from './warp.ts';
 export { triangulate, pointInPolygon, pointInUnitEllipse, closestOnSegment, bounds, signedArea, UNIT_QUAD } from './geometry.ts';
 export { Renderer, IDENTITY_VIEW, type ViewTransform } from './renderer.ts';
 export { frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf } from './surface-math.ts';

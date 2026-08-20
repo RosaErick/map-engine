@@ -1,6 +1,6 @@
 import {
   Store, emptyProject, newSurface, quadToUnit, solveUnitToQuad, apply, frameToPixel,
-  pointInPolygon, pointInUnitEllipse, closestOnSegment,
+  pointInPolygon, pointInUnitEllipse, closestOnSegment, evaluateWarp, unwarp,
   type Mat3, type Surface, type Vec2,
 } from '../engine/index.ts';
 import { t } from './i18n/index.svelte.ts';
@@ -158,10 +158,60 @@ export function frameToOutput(surface: Surface, u: number, v: number): Vec2 | nu
   return forward ? frameToPixel(forward, u, v) : null;
 }
 
-/** Pixels de saída de volta para o espaço do frame. Devolve null num frame degenerado. */
+/**
+ * Pixels de saída de volta para o espaço do frame, atravessando a malha.
+ *
+ * A homografia do frame desfaz a perspectiva; a malha, quando existe, precisa
+ * ser desfeita depois — senão clicar numa superfície deformada acerta o lugar
+ * errado, e a máscara é testada contra uma coordenada que não é aquela.
+ */
 export function outputToFrame(surface: Surface, p: Vec2): Vec2 | null {
   const { inverse } = transformsFor(surface);
-  return inverse ? apply(inverse, p) : null;
+  if (!inverse) return null;
+  const framePoint = apply(inverse, p);
+  if (!framePoint) return null;
+  return surface.warp ? unwarp(surface.warp, framePoint) : framePoint;
+}
+
+/** Onde um ponto de controle está na tela. */
+export function warpPointToScreen(surface: Surface, index: number): Vec2 | null {
+  const point = surface.warp?.points[index];
+  if (!point) return null;
+  const output = frameToOutput(surface, point.x, point.y);
+  return output ? toScreen(output) : null;
+}
+
+/** Um ponto da tela em espaço do frame, sem passar pela malha — é assim que se
+ *  arrasta um ponto de controle, que vive antes da deformação. */
+export function screenToFramePoint(surface: Surface, screen: Vec2): Vec2 | null {
+  const { inverse } = transformsFor(surface);
+  return inverse ? apply(inverse, toOutput(screen)) : null;
+}
+
+/** Onde a linha da malha passa, para desenhar a grade por cima do canvas. */
+export function warpGridPath(surface: Surface, samples = 12): string[] {
+  const warp = surface.warp;
+  if (!warp) return [];
+  const paths: string[] = [];
+  const line = (points: Vec2[]): string =>
+    points
+      .map((p, i) => {
+        const output = frameToOutput(surface, p.x, p.y);
+        if (!output) return '';
+        const s = toScreen(output);
+        return `${i === 0 ? 'M' : 'L'}${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+      })
+      .join(' ');
+
+  for (let row = 0; row <= warp.rows; row++) {
+    const v = row / warp.rows;
+    paths.push(line(Array.from({ length: samples + 1 }, (_, i) => evaluateWarp(warp, i / samples, v))));
+  }
+  for (let col = 0; col <= warp.cols; col++) {
+    const u = col / warp.cols;
+    paths.push(line(Array.from({ length: samples + 1 }, (_, i) => evaluateWarp(warp, u, i / samples))));
+  }
+  return paths.filter((p) => p.length > 0);
 }
 
 export function selected(): Surface | null {

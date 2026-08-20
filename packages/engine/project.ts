@@ -1,4 +1,5 @@
 import type { Vec2 } from './homography.ts';
+import { parseWarp, type Warp } from './warp.ts';
 
 export type { Vec2 };
 
@@ -28,6 +29,15 @@ export interface Surface {
   shape: Shape;
   sourceId: string | null;
   crop: { x: number; y: number; w: number; h: number }; // 0..1 inside the source
+  /**
+   * Optional free-form deformation between the frame and the shape.
+   *
+   * Absent means "no warp", which is the common case and keeps every project
+   * ever saved byte-identical. It is a layer of its own rather than another
+   * `Shape`, so that a warped surface can still carry an ellipse or a polygon
+   * mask — those live in the same undeformed frame space and ride along.
+   */
+  warp?: Warp;
   fit: Fit;
   /** Content rotation inside the frame, in degrees clockwise. The frame keeps
    *  the perspective; this only spins what is sampled into it. */
@@ -53,6 +63,8 @@ export interface ViewState {
   soloId: string | null;
   selectedSurfaceId: string | null;
   selectedCorner: number | null;
+  /** Índice do ponto de controle selecionado, para as setas do teclado. */
+  selectedWarpPoint: number | null;
   /** Applies to every surface without one of its own. */
   testPattern: TestPattern;
   /** Per-surface override, by id. Absence means "follow the global one", and an
@@ -150,6 +162,12 @@ export function sanitizeSurfacePatch(
   if (patch.rotation !== undefined) out.rotation = normalizeAngle(num(patch.rotation, 0));
   if (patch.z !== undefined) out.z = num(patch.z, 0);
   if (patch.crop !== undefined) out.crop = parseCrop(patch.crop);
+  // A warp is geometry: the lock exists to stop exactly this from moving.
+  if (!locked && patch.warp !== undefined) {
+    const warp = patch.warp === null ? null : parseWarp(patch.warp);
+    if (warp) out.warp = warp;
+    else if (patch.warp === null) out.warp = undefined;
+  }
 
   // Geometry is the one thing the lock exists to protect.
   if (!locked && patch.frame !== undefined) {
@@ -269,12 +287,20 @@ function parseSurface(raw: unknown, sourceIds: ReadonlySet<string>): Surface | n
     crop: parseCrop(raw['crop']),
     fit: oneOf(raw['fit'], FITS, 'stretch'),
     rotation: normalizeAngle(num(raw['rotation'], 0)),
+    ...parseOptionalWarp(raw['warp']),
     opacity: clamp(num(raw['opacity'], 1), 0, 1),
     blend: oneOf(raw['blend'], BLENDS, 'normal'),
     locked: bool(raw['locked'], false),
     visible: bool(raw['visible'], true),
     z: num(raw['z'], 0),
   };
+}
+
+/** Spread-friendly: an absent or unrecoverable warp adds no key at all. */
+function parseOptionalWarp(raw: unknown): { warp?: Warp } {
+  if (raw === undefined || raw === null) return {};
+  const warp = parseWarp(raw);
+  return warp ? { warp } : {};
 }
 
 function parseFrame(raw: unknown): [Vec2, Vec2, Vec2, Vec2] | null {
