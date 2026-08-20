@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Store, visibleSurfaces } from './store.ts';
+import { Store, visibleSurfaces, patternFor } from './store.ts';
 import { emptyProject } from './project.ts';
 import { surfaceNumber } from './renderer.ts';
 
@@ -112,4 +112,42 @@ test('AC-11: the projected surface number follows the editor list order', () => 
   const surfaces = store.project.surfaces;
   const top = surfaces.find((s) => s.id === b.id)!;
   assert.equal(surfaceNumber(store.project, top), 1);
+});
+
+test('AC-32: a surface without an override follows the global test pattern', () => {
+  const store = new Store(emptyProject());
+  const a = store.addSurface();
+  const b = store.addSurface();
+  store.setTestPattern('grid');
+  assert.equal(patternFor(store.state, a.id), 'grid');
+  assert.equal(patternFor(store.state, b.id), 'grid');
+});
+
+test('AC-32: a per-surface pattern wins over the global one, in both directions', () => {
+  const store = new Store(emptyProject());
+  const a = store.addSurface();
+  const b = store.addSurface();
+
+  store.setTestPattern('grid');
+  store.setSurfacePattern(a.id, 'number');
+  assert.equal(patternFor(store.state, a.id), 'number');
+  assert.equal(patternFor(store.state, b.id), 'grid');
+
+  // An explicit 'none' clears the pattern on one surface while the rest keep it.
+  store.setSurfacePattern(b.id, 'none');
+  assert.equal(patternFor(store.state, b.id), 'none');
+
+  // null hands control back to the global pattern.
+  store.setSurfacePattern(a.id, null);
+  assert.equal(patternFor(store.state, a.id), 'grid');
+});
+
+test('AC-32: removing a surface drops its pattern override and its solo', () => {
+  const store = new Store(emptyProject());
+  const a = store.addSurface();
+  store.setSurfacePattern(a.id, 'bars');
+  store.toggleSolo(a.id);
+  store.removeSurface(a.id);
+  assert.deepEqual(store.view.surfacePatterns, {});
+  assert.equal(store.view.soloId, null);
 });
