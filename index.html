@@ -37,6 +37,18 @@
       machine can read: `price: 0` on the offer is what stops it being filed
       next to the trials and the freemium tiers.
     -->
+    <!--
+      O bloco legível por rastreador fica escondido desde a primeira pintura, e
+      não removido: esconder por CSS no <head> acontece antes de qualquer paint,
+      então o editor aparece direto, sem o lampejo da página de texto. O
+      <noscript> devolve a visibilidade para quem não executa JS — que é
+      exatamente quem precisa dele.
+    -->
+    <style>
+      #fallback { display: none; }
+    </style>
+    <noscript><style>#fallback { display: block; }</style></noscript>
+
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -68,12 +80,14 @@
   </head>
   <body>
     <!--
-      Conteúdo real dentro de #app, e não em <noscript>.
-      Sem isto o rastreador lê duas palavras: o app é renderizado por JS e a
-      página servida é um div vazio. `main.ts` limpa este bloco antes de montar,
-      então ele também é o que aparece se o JS falhar ou demorar.
+      Conteúdo legível por rastreador. Sem ele a página servida é um div vazio:
+      o app é renderizado por JS e o rastreador lê duas palavras.
+
+      Vem ANTES de #app de propósito. Sem JS ele é a única coisa na tela, e #app
+      tem altura total com `overflow: hidden` no body — depois dele, o fallback
+      renderizaria fora do campo de visão.
     -->
-    <div id="app">
+    <div id="fallback">
       <main style="max-width: 42rem; margin: 0 auto; padding: 4rem 1.5rem; color: #f4f4f4; background: #161616; font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.6;">
         <h1 style="font-size: 2rem; line-height: 1.2; margin: 0 0 1rem;">
           Projection mapping in the browser
@@ -101,6 +115,7 @@
         </p>
       </main>
     </div>
+    <div id="app"></div>
     <script type="module" src="/packages/editor/main.ts"></script>
   </body>
 </html>
