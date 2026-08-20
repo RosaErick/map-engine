@@ -1,5 +1,6 @@
 <script lang="ts">
   import { drag } from './actions.ts';
+  import { t } from './i18n/index.svelte.ts';
   import { store, ui, toScreen, toOutput, snapPoint, frameToOutput, outputToFrame } from './state.svelte.ts';
   import type { Surface, Vec2 } from '../engine/index.ts';
 
@@ -14,6 +15,13 @@
 
   function pickCorner(s: Surface, i: number): void {
     store.setView({ selectedSurfaceId: s.id, selectedCorner: i });
+  }
+
+  // Selecting the surface without a corner: the arrow keys then move the whole
+  // surface. Shared by the pointer gestures and by keyboard focus, so reaching a
+  // handle with Tab selects exactly what grabbing it with the mouse selects.
+  function pickSurface(s: Surface): void {
+    store.setView({ selectedSurfaceId: s.id, selectedCorner: null });
   }
 
   const outline = $derived($store.project.output);
@@ -39,7 +47,7 @@
         aria-label={surface.name}
         use:drag={{
           disabled: surface.locked,
-          onStart: () => store.setView({ selectedSurfaceId: surface.id, selectedCorner: null }),
+          onStart: () => pickSurface(surface),
           onMove: (_p, d) => store.moveSurface(surface.id, d.x / ui.scale, d.y / ui.scale),
           onEnd: () => store.endGesture(),
         }}
@@ -64,10 +72,11 @@
               r={HANDLE - 2}
               class="vertex"
               role="button"
-              tabindex="-1"
-              aria-label={`${surface.name} — ${i + 1}`}
+              tabindex="0"
+              aria-label={t('overlay.vertex', { name: surface.name, number: i + 1 })}
+              onfocus={() => pickSurface(surface)}
               use:drag={{
-                onStart: () => store.setView({ selectedSurfaceId: surface.id, selectedCorner: null }),
+                onStart: () => pickSurface(surface),
                 onMove: (p) => {
                   const local = outputToFrame(surface, toOutput(p));
                   if (local) store.setPolygonPoint(surface.id, i, local);
@@ -88,8 +97,9 @@
             class="handle"
             class:active={$store.view.selectedCorner === i}
             role="button"
-            tabindex="-1"
-            aria-label={`Canto ${i + 1}`}
+            tabindex="0"
+            aria-label={t('overlay.corner', { number: i + 1 })}
+            onfocus={() => pickCorner(surface, i)}
             use:drag={{
               onStart: () => pickCorner(surface, i),
               onMove: (p) => store.setCorner(surface.id, i, snapPoint(toOutput(p), surface.id)),
@@ -148,6 +158,17 @@
     transition: fill 100ms ease;
   }
   .vertex:hover { fill: #ffb86c; }
+  /* Keyboard focus ring. It has to read against the black work area and against
+     both handle colours, so it is white and sits outside the handle instead of
+     recolouring it: the accent still says "frame corner" and the orange still
+     says "polygon vertex" while focused. The wider stroke is a second cue for
+     engines that do not paint an outline on SVG shapes. */
+  .handle:focus-visible,
+  .vertex:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 3px;
+    stroke-width: 3;
+  }
   .pending { fill: none; stroke: #52bdff; stroke-width: 1.5; stroke-dasharray: 5 3; }
   .pending-dot { fill: #52bdff; }
 </style>
