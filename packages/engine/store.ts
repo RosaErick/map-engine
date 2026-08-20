@@ -1,5 +1,5 @@
 import {
-  emptyProject, newSurface, newId, parseProject, clamp, normalizeAngle,
+  emptyProject, newSurface, newId, parseProject, sanitizeSurfacePatch,
   type Project, type Source, type Surface, type Shape, type Vec2, type ViewState, type TestPattern,
 } from './project.ts';
 
@@ -179,20 +179,18 @@ export class Store {
   }
 
   /**
-   * Generic patch. Geometry is stripped for a locked surface: the lock has to
-   * hold for every caller, including the external-control adapter that this
-   * class exists to make possible — that adapter would otherwise walk straight
-   * through the one affordance nobody can afford to lose. Name, visibility and
-   * `locked` itself still apply, or a locked surface could never be unlocked.
+   * The single write path for a surface.
+   *
+   * Every field goes through `sanitizeSurfacePatch`, so a clamp cannot depend on
+   * which method the caller reached for — including the external-control bridge
+   * this class exists to make possible.
    */
   patchSurface(id: string, patch: Partial<Surface>, opts?: MutateOpts): void {
-    const geometryBlocked = !this.#editable(id);
+    const locked = !this.#editable(id);
     this.mutate((p) => {
       const s = p.surfaces.find((x) => x.id === id);
       if (!s) return;
-      const applied = { ...patch };
-      if (geometryBlocked) delete applied.frame;
-      Object.assign(s, applied);
+      Object.assign(s, sanitizeSurfacePatch(patch, { locked }));
     }, opts);
   }
 
@@ -230,20 +228,12 @@ export class Store {
     });
   }
 
-  /** Recorte dentro da fonte, em 0..1. */
+  /** Recorte dentro da fonte, em 0..1. Mescla com o que já existe, para o
+   *  editor poder mandar um campo só. */
   setCrop(id: string, crop: Partial<Surface['crop']>): void {
-    this.mutate((p) => {
-      const s = p.surfaces.find((x) => x.id === id);
-      if (!s) return;
-      const next = { ...s.crop, ...crop };
-      // A window with no width or height would sample nothing at all.
-      s.crop = {
-        x: clamp(next.x, 0, 1),
-        y: clamp(next.y, 0, 1),
-        w: clamp(next.w, 0.01, 1),
-        h: clamp(next.h, 0.01, 1),
-      };
-    }, { coalesce: `crop:${id}` });
+    const current = this.#state.project.surfaces.find((x) => x.id === id)?.crop;
+    if (!current) return;
+    this.patchSurface(id, { crop: { ...current, ...crop } }, { coalesce: `crop:${id}` });
   }
 
   /**
@@ -265,17 +255,11 @@ export class Store {
   }
 
   setSurfaceShape(id: string, shape: Shape): void {
-    this.mutate((p) => {
-      const s = p.surfaces.find((x) => x.id === id);
-      if (s) s.shape = shape;
-    });
+    this.patchSurface(id, { shape });
   }
 
   setSurfaceSource(id: string, sourceId: string | null): void {
-    this.mutate((p) => {
-      const s = p.surfaces.find((x) => x.id === id);
-      if (s) s.sourceId = sourceId;
-    });
+    this.patchSurface(id, { sourceId });
   }
 
   toggleLock(id: string): void {
@@ -296,11 +280,11 @@ export class Store {
    *  alignment with the physical object, is untouched — so this is safe on a
    *  locked surface, unlike anything that moves a corner. */
   setRotation(id: string, degrees: number): void {
-    this.patchSurface(id, { rotation: normalizeAngle(degrees) }, { coalesce: `rotation:${id}` });
+    this.patchSurface(id, { rotation: degrees }, { coalesce: `rotation:${id}` });
   }
 
   setOpacity(id: string, opacity: number): void {
-    this.patchSurface(id, { opacity: clamp(opacity, 0, 1) }, { coalesce: `opacity:${id}` });
+    this.patchSurface(id, { opacity }, { coalesce: `opacity:${id}` });
   }
 
   reorder(id: string, z: number): void {

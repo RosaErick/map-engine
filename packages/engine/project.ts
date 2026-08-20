@@ -121,6 +121,48 @@ const DEFAULT_SURFACE = {
 };
 
 /**
+ * The one place a partial edit to a surface is made legal.
+ *
+ * Before this existed the class had two kinds of write path: methods that
+ * clamped (`setOpacity`, `setCrop`, `setRotation`) and a generic patch that did
+ * not — so the same field was safe or unsafe depending on which method the
+ * caller happened to pick. The external-control bridge the store exists for
+ * would have used exactly the unsafe one.
+ *
+ * `locked` drops geometry only. Changing the clipping shape or the name of a
+ * locked surface is a deliberate click, not the accidental bump the lock is
+ * there to prevent.
+ */
+export function sanitizeSurfacePatch(
+  patch: Partial<Surface>,
+  { locked }: { locked: boolean },
+): Partial<Surface> {
+  const out: Partial<Surface> = {};
+
+  if (patch.name !== undefined && patch.name.trim() !== '') out.name = patch.name;
+  if (patch.sourceId !== undefined) out.sourceId = patch.sourceId;
+  if (patch.shape !== undefined) out.shape = parseShape(patch.shape);
+  if (patch.fit !== undefined) out.fit = oneOf(patch.fit, FITS, 'stretch');
+  if (patch.blend !== undefined) out.blend = oneOf(patch.blend, BLENDS, 'normal');
+  if (patch.locked !== undefined) out.locked = patch.locked;
+  if (patch.visible !== undefined) out.visible = patch.visible;
+  if (patch.opacity !== undefined) out.opacity = clamp(num(patch.opacity, 1), 0, 1);
+  if (patch.rotation !== undefined) out.rotation = normalizeAngle(num(patch.rotation, 0));
+  if (patch.z !== undefined) out.z = num(patch.z, 0);
+  if (patch.crop !== undefined) out.crop = parseCrop(patch.crop);
+
+  // Geometry is the one thing the lock exists to protect.
+  if (!locked && patch.frame !== undefined) {
+    const frame = parseFrame(patch.frame);
+    if (frame) out.frame = frame;
+  }
+  return out;
+}
+
+const FITS = ['stretch', 'contain', 'cover'] as const;
+const BLENDS = ['normal', 'add', 'screen', 'multiply'] as const;
+
+/**
  * Parse untrusted JSON into a Project, filling defaults and dropping garbage.
  *
  * This is a trust boundary: the input is a file on disk that a user may have
@@ -144,10 +186,32 @@ export function parseProject(raw: unknown): Project {
     surfaces: [],
   };
 
-  const sourceIds = new Set(project.sources.map((s) => s.id));
+  // Duplicate source ids would collide in the texture pool, which is keyed by
+  // id: the second one silently wins and both surfaces draw the same thing.
+  // Later duplicates lose, because surfaces already reference the id.
+  const sourceIds = new Set<string>();
+  project.sources = project.sources.filter((s) => {
+    if (sourceIds.has(s.id)) return false;
+    sourceIds.add(s.id);
+    return true;
+  });
+
+  const surfaceIds = new Set<string>();
   project.surfaces = asArray(raw['surfaces'])
     .map((s) => parseSurface(s, sourceIds))
-    .filter((s): s is Surface => s !== null);
+    .filter((s): s is Surface => s !== null)
+    .map((surface) => {
+      // A duplicate surface id makes every lookup hit the wrong one and
+      // `removeSurface` delete both. Nothing references a surface by id from
+      // inside the file, so renaming the clash is lossless — unlike dropping it.
+      if (!surfaceIds.has(surface.id)) {
+        surfaceIds.add(surface.id);
+        return surface;
+      }
+      const fresh = { ...surface, id: newId('surf') };
+      surfaceIds.add(fresh.id);
+      return fresh;
+    });
   return project;
 }
 
@@ -203,10 +267,10 @@ function parseSurface(raw: unknown, sourceIds: ReadonlySet<string>): Surface | n
     // the missing-media pattern instead of stale content.
     sourceId: sourceId && sourceIds.has(sourceId) ? sourceId : null,
     crop: parseCrop(raw['crop']),
-    fit: oneOf(raw['fit'], ['stretch', 'contain', 'cover'] as const, 'stretch'),
+    fit: oneOf(raw['fit'], FITS, 'stretch'),
     rotation: normalizeAngle(num(raw['rotation'], 0)),
     opacity: clamp(num(raw['opacity'], 1), 0, 1),
-    blend: oneOf(raw['blend'], ['normal', 'add', 'screen', 'multiply'] as const, 'normal'),
+    blend: oneOf(raw['blend'], BLENDS, 'normal'),
     locked: bool(raw['locked'], false),
     visible: bool(raw['visible'], true),
     z: num(raw['z'], 0),
@@ -238,13 +302,17 @@ function parseShape(raw: unknown): Shape {
   return { kind: 'quad' };
 }
 
+/** Minimum sampling window. Zero width or height samples nothing at all, so the
+ *  surface would go dark for a reason no one could see in the file. */
+const MIN_CROP = 0.01;
+
 function parseCrop(raw: unknown): { x: number; y: number; w: number; h: number } {
   if (!isRecord(raw)) return { x: 0, y: 0, w: 1, h: 1 };
   return {
     x: clamp(num(raw['x'], 0), 0, 1),
     y: clamp(num(raw['y'], 0), 0, 1),
-    w: clamp(num(raw['w'], 1), 0, 1),
-    h: clamp(num(raw['h'], 1), 0, 1),
+    w: clamp(num(raw['w'], 1), MIN_CROP, 1),
+    h: clamp(num(raw['h'], 1), MIN_CROP, 1),
   };
 }
 
