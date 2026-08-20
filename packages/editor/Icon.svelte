@@ -15,13 +15,23 @@
     <path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.23 0 4.63-2.8 5.65-5.48 5.95.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"/>
   </svg>
 {:else if name === 'mark'}
-  <!-- A marca do app: um quad em perspectiva com as quatro alças. -->
-  <svg viewBox="0 0 24 24" fill="none" class={klass} aria-hidden="true">
-    <path d="M5.5 4.5 19 6.8 17.6 19 3.6 17.3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" opacity="0.9"/>
-    <circle cx="5.5" cy="4.5" r="1.8" fill="currentColor"/>
-    <circle cx="19" cy="6.8" r="1.8" fill="currentColor"/>
-    <circle cx="17.6" cy="19" r="1.8" fill="currentColor"/>
-    <circle cx="3.6" cy="17.3" r="1.8" fill="currentColor"/>
+  <!--
+    A marca: um grid de pixels deformado pela mesma homografia que a ferramenta
+    aplica. Um quadrado girado seria um grid girado; um que converge é um grid
+    *jogado em cima de alguma coisa* — e essa diferença é a marca inteira.
+    A célula acesa usa currentColor para contrastar no tema claro e no escuro;
+    as outras são vermelhas em qualquer um.
+  -->
+  <svg viewBox="0 0 24 24" fill="#ff3b30" class={klass} aria-hidden="true">
+      <polygon points="7.39,3.57 10.12,3.57 9.77,6.25 6.54,6.25"/>
+      <polygon points="10.64,3.57 13.36,3.57 13.61,6.25 10.39,6.25"/>
+      <polygon points="13.88,3.57 16.61,3.57 17.46,6.25 14.23,6.25"/>
+      <polygon points="6.35,6.88 9.69,6.88 9.15,11.08 5.02,11.08"/>
+      <polygon points="10.33,6.88 13.67,6.88 14.06,11.08 9.94,11.08" fill="currentColor"/>
+      <polygon points="14.31,6.88 17.65,6.88 18.98,11.08 14.85,11.08"/>
+      <polygon points="4.69,12.12 9.02,12.12 8.04,19.66 2.31,19.66"/>
+      <polygon points="9.84,12.12 14.16,12.12 14.87,19.66 9.13,19.66"/>
+      <polygon points="14.98,12.12 19.31,12.12 21.69,19.66 15.96,19.66"/>
   </svg>
 {:else}
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
