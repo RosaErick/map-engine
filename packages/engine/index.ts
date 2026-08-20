@@ -14,6 +14,7 @@ export {
   identityWarp, isIdentity, evaluateWarp, unwarp, resampleWarp, tessellate, parseWarp, pointIndex,
   DEFAULT_CELLS, type Warp, type WarpCell, type WarpInterpolation,
 } from './warp.ts';
+export { hexOf, parseHex, rgbToHsv, hsvToRgb, colorKey, type Rgb, type ColorKey } from './color.ts';
 export { triangulate, pointInPolygon, pointInUnitEllipse, closestOnSegment, bounds, signedArea, UNIT_QUAD } from './geometry.ts';
 export { Renderer, IDENTITY_VIEW, type ViewTransform } from './renderer.ts';
 export { frameToPixel, uvTransform, uvMatrix, isQuarterTurned, frameAspectOf, surfaceOrder } from './surface-math.ts';

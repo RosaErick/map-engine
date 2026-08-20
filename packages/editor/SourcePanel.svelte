@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { store, flash, getEngine } from './state.svelte.ts';
-  import { newId, listCameras, type Source } from '../engine/index.ts';
+  import { colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../engine/index.ts';
+  import ColorPicker from './ColorPicker.svelte';
   import { importFile } from './project-folder.ts';
   import { t } from './i18n/index.svelte.ts';
 
@@ -18,14 +19,32 @@
     void listCameras().then((list) => { cameras = list; });
   });
 
+  /** Qual fonte está com o seletor de cor aberto. Uma por vez: são linhas de
+   *  uma lista, e duas abertas é uma lista que ninguém lê. */
+  let editingColor = $state<string | null>(null);
+
   function add(source: Source): void {
     store.addSource(source);
     if (s) store.setSurfaceSource(s.id, source.id);
   }
 
+  // Sem nome: o nome de uma fonte de cor é a cor, e derivá-lo é o que impede
+  // uma lista de cinco "branco" com cinco cores diferentes. Um nome escrito à
+  // mão continua ganhando, porque `labelOf` só deriva quando não há nenhum.
   function addColor(): void {
-    add({ id: newId('src'), name: t('sources.white'), kind: 'color', rgb: [255, 255, 255] });
+    add({ id: newId('src'), name: '', kind: 'color', rgb: [255, 255, 255] });
   }
+  /** O que a lista mostra. Cor sem nome vira o tom mais o hex — a palavra sai
+   *  do catálogo, o código sai da engine. */
+  function labelOf(source: Source): string {
+    if (source.name) return source.name;
+    if (source.kind === 'color') {
+      const rgb = source.rgb as Rgb;
+      return `${t(`color.${colorKey(rgb)}`)} ${hexOf(rgb)}`;
+    }
+    return source.id;
+  }
+
   function addCapture(): void {
     add({ id: newId('src'), name: t('sources.screenCapture'), kind: 'capture' });
   }
@@ -186,7 +205,7 @@
             class="min-w-0 flex-1 px-1 py-0.5 text-left"
             onclick={() => s ? store.setSurfaceSource(s.id, source.id) : flash(t('surfaces.selectFirst'))}
           >
-            <span class="block truncate text-[13px] leading-tight">{source.name}</span>
+            <span class="block truncate text-[13px] leading-tight">{labelOf(source)}</span>
             <span class="block truncate text-[10px] leading-tight {status.bad ? 'text-error' : 'text-base-content/45'}">
               {source.kind}{status.text ? ` · ${status.text}` : ''}
             </span>
@@ -206,16 +225,16 @@
           {/if}
 
           {#if source.kind === 'color'}
-            <input
-              type="color"
-              class="h-6 w-7 shrink-0 cursor-pointer rounded border border-base-300 bg-base-100"
-              value={`#${source.rgb.map((v) => v.toString(16).padStart(2, '0')).join('')}`}
-              oninput={(e) => {
-                const hex = e.currentTarget.value;
-                const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-                store.setSourceColor(source.id, [r ?? 0, g ?? 0, b ?? 0]);
-              }}
-            />
+            <!-- A amostra abre o seletor. Recolhido por padrão: o painel de
+                 fontes é uma lista, e um seletor aberto por fonte de cor a
+                 empurraria para fora da tela. -->
+            <button
+              class="h-6 w-7 shrink-0 cursor-pointer rounded border border-base-300"
+              style:background-color={hexOf(source.rgb as Rgb)}
+              aria-label={t('color.edit')}
+              title={t('color.edit')}
+              onclick={() => (editingColor = editingColor === source.id ? null : source.id)}
+            ></button>
           {/if}
 
           {#if RELINKABLE.has(source.kind)}
@@ -241,6 +260,16 @@
           >
             <Icon name="trash" class="size-3.5" />
           </button>
+
+          {#if source.kind === 'color' && editingColor === source.id}
+            <div class="mt-2 w-full basis-full rounded-md border border-base-300 bg-base-200 p-2">
+              <ColorPicker
+                rgb={source.rgb as Rgb}
+                onpick={(next) => store.setSourceColor(source.id, next)}
+                onend={() => store.endGesture()}
+              />
+            </div>
+          {/if}
         </li>
       {/each}
     </ul>
