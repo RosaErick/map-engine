@@ -1,34 +1,41 @@
 import { en, type MessageKey, type Messages } from './en.ts';
+import { es } from './es.ts';
 import { pt } from './pt.ts';
 
-export type Locale = 'en' | 'pt';
+export type Locale = 'en' | 'pt' | 'es';
 export type { MessageKey };
 
 export const LOCALES: { id: Locale; label: string; short: string }[] = [
   { id: 'pt', label: 'Português', short: 'PT' },
+  { id: 'es', label: 'Español', short: 'ES' },
   { id: 'en', label: 'English', short: 'EN' },
 ];
 
-const CATALOGUES: Record<Locale, Messages> = { en, pt };
+const CATALOGUES: Record<Locale, Messages> = { en, es, pt };
 const KEY = 'map-engine:locale';
+
+function isLocale(value: string | null | undefined): value is Locale {
+  return LOCALES.some((l) => l.id === value);
+}
 
 /**
  * Locale picked from the browser, overridable by the user and remembered.
  *
  * `navigator.languages` is ordered by preference, so the first entry that maps
- * to a locale we ship wins — `pt-BR`, `pt-PT` and `pt` all land on Portuguese.
- * English is the fallback because it is the base catalogue: an untranslated
- * string is still a readable string.
+ * to a locale we ship wins, matching on the base tag only. English is the
+ * fallback because it is the base catalogue: an untranslated string is still a
+ * readable string.
  */
 function detect(): Locale {
   try {
     const saved = localStorage.getItem(KEY);
-    if (saved === 'en' || saved === 'pt') return saved;
+    if (isLocale(saved)) return saved;
   } catch { /* private mode without storage */ }
 
   for (const tag of navigator.languages ?? [navigator.language]) {
+    // `pt-BR`, `pt-PT` and `pt` all land on Portuguese; same for `es-419`.
     const base = tag.toLowerCase().split('-')[0];
-    if (base === 'pt' || base === 'en') return base;
+    if (isLocale(base)) return base;
   }
   return 'en';
 }
