@@ -59,17 +59,69 @@
     input.value = '';
   }
 
-  /** Status vindo direto do pool: arquivo faltando aparece aqui e não só como
-   *  retângulo magenta na parede. */
-  function statusOf(id: string): { text: string; bad: boolean } {
-    const src = getEngine()?.pool.get(id);
-    if (!src) return { text: '', bad: false };
-    if (src.status === 'error') {
-      return { text: src.error ? t(`sourceError.${src.error.code}`) : t('sources.error'), bad: true };
-    }
-    if (src.status === 'loading') return { text: t('sources.loading'), bad: false };
-    return { text: `${src.size[0]}×${src.size[1]}`, bad: false };
+  /**
+   * Status vindo do pool, espelhado em estado do Svelte.
+   *
+   * O pool é da engine e não é reativo: lido direto na renderização, o texto de
+   * status congelava em "carregando…" até outra coisa forçar um redesenho. A
+   * cópia é atualizada por um relógio lento e só quando algo muda de verdade,
+   * então a lista não pisca a cada tique.
+   */
+  type SourceStatus = { text: string; bad: boolean };
+  let statuses = $state<Record<string, SourceStatus>>({});
+
+  $effect(() => {
+    const ids = $store.project.sources.map((src) => src.id);
+    const read = (): Record<string, SourceStatus> => {
+      const pool = getEngine()?.pool;
+      const next: Record<string, SourceStatus> = {};
+      for (const id of ids) {
+        const src = pool?.get(id);
+        if (!src) continue;
+        if (src.status === 'error') {
+          next[id] = { text: src.error ? t(`sourceError.${src.error.code}`) : t('sources.error'), bad: true };
+        } else if (src.status === 'loading') {
+          next[id] = { text: t('sources.loading'), bad: false };
+        } else {
+          next[id] = { text: `${src.size[0]}×${src.size[1]}`, bad: false };
+        }
+      }
+      return next;
+    };
+
+    const sync = (): void => {
+      const next = read();
+      if (JSON.stringify(next) !== JSON.stringify(statuses)) statuses = next;
+    };
+    sync();
+    const timer = setInterval(sync, 400);
+    return () => clearInterval(timer);
+  });
+
+  function statusOf(id: string): SourceStatus {
+    return statuses[id] ?? { text: '', bad: false };
   }
+
+  /**
+   * Aponta uma fonte de arquivo para outro arquivo.
+   *
+   * O brief pede oferecer religar quando a mídia sumir, e até aqui só existia o
+   * padrão magenta avisando que sumiu. Também é a saída de quem abriu sem pasta:
+   * a mídia em memória não sobrevive a um reinício, e religar reconstrói o
+   * projeto sem apagar e recriar as fontes.
+   */
+  async function relink(e: Event, source: Source): Promise<void> {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const path = await importFile(file);
+    // Um módulo generativo é apontado por `moduleId`, não por `path`.
+    const patch = source.kind === 'canvas' ? { moduleId: path } : { path };
+    store.patchSource(source.id, patch as Partial<Source>);
+  }
+
+  const RELINKABLE = new Set(['image', 'video', 'gif', 'canvas']);
 </script>
 
 <section class="px-4 py-3">
@@ -145,6 +197,21 @@
                 store.patchSource(source.id, { rgb: [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) } as Partial<Source>);
               }}
             />
+          {/if}
+
+          {#if RELINKABLE.has(source.kind)}
+            <label
+              class="btn btn-xs btn-ghost h-auto min-h-0 px-1 py-0.5 font-normal text-[10px] {status.bad ? 'text-warning' : 'text-base-content/40'}"
+              title={t('sources.relinkHint')}
+            >
+              {t('sources.relink')}
+              <input
+                type="file"
+                accept={source.kind === 'canvas' ? '.js,.mjs,text/javascript' : 'image/*,video/*'}
+                class="hidden"
+                onchange={(e) => relink(e, source)}
+              />
+            </label>
           {/if}
 
           <button
