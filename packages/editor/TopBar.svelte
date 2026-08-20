@@ -29,33 +29,40 @@
 
   <!-- O meio da barra responde, sem ninguém perguntar, o que uma pessoa quer
        saber de relance no meio de uma montagem. Informação, não mais botões. -->
+  <!-- Contexto do editor: onde salvou, em que resolução e quantas superfícies.
+       Numa página de texto isso não descreve nada do que está na tela, então sai —
+       mas o container fica, porque é ele que empurra as ações para a direita. -->
   <div class="mx-2 hidden min-w-0 flex-1 items-center justify-center gap-3 text-[11px] text-base-content/50 md:flex">
-    {#if session.folderName}
-      <span class="flex min-w-0 items-center gap-1.5" title={t('topbar.savedTo')}>
-        <span
-          class="size-1.5 shrink-0 rounded-full transition-colors duration-500 {session.savedAt
-            ? 'bg-success'
-            : 'bg-base-content/20'}"
-        ></span>
-        <span class="truncate">{session.savedAt ? t('topbar.saved') : session.folderName}</span>
-      </span>
-      <span class="h-3 w-px bg-base-content/10"></span>
-    {/if}
+    {#if session.page === 'editor'}
 
-    <span class="whitespace-nowrap tabular-nums" title={t('topbar.outputResolution')}>
-      {$store.project.output.width}×{$store.project.output.height}
-    </span>
-    <span class="h-3 w-px bg-base-content/10"></span>
-    <span class="whitespace-nowrap">{t('topbar.surfaces', { count: surfaces })}</span>
-
-    {#if session.outputOpen}
-      <span class="h-3 w-px bg-base-content/10"></span>
-      <span class="flex items-center gap-1.5 text-primary" title={t('topbar.outputOpen')}>
-        <span class="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"></span>
-        <span class="truncate">
-          {t('topbar.onProjector')}{session.outputScreen ? ` · ${session.outputScreen}` : ''}
+      {#if session.folderName}
+        <span class="flex min-w-0 items-center gap-1.5" title={t('topbar.savedTo')}>
+          <span
+            class="size-1.5 shrink-0 rounded-full transition-colors duration-500 {session.savedAt
+              ? 'bg-success'
+              : 'bg-base-content/20'}"
+          ></span>
+          <span class="truncate">{session.savedAt ? t('topbar.saved') : session.folderName}</span>
         </span>
+        <span class="h-3 w-px bg-base-content/10"></span>
+      {/if}
+
+      <span class="whitespace-nowrap tabular-nums" title={t('topbar.outputResolution')}>
+        {$store.project.output.width}×{$store.project.output.height}
       </span>
+      <span class="h-3 w-px bg-base-content/10"></span>
+      <span class="whitespace-nowrap">{t('topbar.surfaces', { count: surfaces })}</span>
+
+      {#if session.outputOpen}
+        <span class="h-3 w-px bg-base-content/10"></span>
+        <span class="flex items-center gap-1.5 text-primary" title={t('topbar.outputOpen')}>
+          <span class="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"></span>
+          <span class="truncate">
+            {t('topbar.onProjector')}{session.outputScreen ? ` · ${session.outputScreen}` : ''}
+          </span>
+        </span>
+      {/if}
+  
     {/if}
   </div>
 
