@@ -454,6 +454,39 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// Toda fonte de cor nascia chamada "branco" e continuava assim depois de trocar
+// a cor: cinco fontes "branco" de cores diferentes numa lista é o que sobra
+// depois de calibrar um projetor. E o que o hex diz tem que ser o que acende.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.sources]) store.removeSource(s.id);
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  store.addSurface();
+  store.addSource({ id: 'c1', name: '', kind: 'color', rgb: [255, 255, 255] });
+  store.setSurfaceSource(store.project.surfaces[0].id, 'c1');
+});
+await page.waitForTimeout(120);
+
+const colour = await page.evaluate(() => {
+  const { store, renderer } = window.mapEngine;
+  const label = () => [...document.querySelectorAll('span.truncate')]
+    .map((s) => s.textContent.trim()).find((x) => x.includes('#')) ?? '';
+  const asWhite = label();
+  store.setSourceColor('c1', [208, 43, 43]);
+  return { asWhite, asRed: label() };
+});
+await page.waitForTimeout(120);
+const named = await page.evaluate(() => [...document.querySelectorAll('span.truncate')]
+  .map((s) => s.textContent.trim()).find((x) => x.includes('#')) ?? '');
+check('AC-63: o nome da fonte de cor acompanha a cor',
+  colour.asWhite.includes('#ffffff') && named.includes('#d02b2b') && named !== colour.asWhite,
+  `${colour.asWhite} -> ${named}`);
+
+const litColour = await pixel(Math.round(W / 2), Math.round(H / 2));
+check('AC-64: o que o hex diz é o que a superfície acende',
+  litColour[0] === 208 && litColour[1] === 43 && litColour[2] === 43,
+  `rgb=${litColour.slice(0, 3)}`);
+
 // O guia da malha só serve se for visível sobre o conteúdo — e é sobre a imagem
 // que se julga o alinhamento. Medido no elemento renderizado de verdade, com o
 // CSS aplicado, e não na folha de estilo.
