@@ -105,6 +105,11 @@ idêntico, byte a byte.
   é configurada: **Projetor (saída)**.
 
 ### Corrigido
+- O `smoke` herdava o idioma da máquina. O editor escolhe o catálogo por
+  `navigator.languages`, então os cliques — escritos em português — só achavam os botões
+  porque quem rodava tinha o laptop em pt-BR. Numa máquina em inglês a suíte inteira
+  morria no primeiro clique. O idioma passou a ser fixado no contexto do navegador.
+  Encontrado ao pôr o `smoke` no CI pela primeira vez.
 - O guia mandava clicar em botões com nomes que não existiam mais depois do redesenho da
   barra (`Igualar esta tela`, `+ superfície`). Os rótulos citados agora batem com os
   reais nos três idiomas.
@@ -131,6 +136,9 @@ idêntico, byte a byte.
 - CSS de 105 KB para 80 KB restringindo daisyUI aos componentes realmente usados.
 
 ### Verificação
+- Integração contínua num pipeline só: `testes → tipos → idioma → build → smoke →
+  deploy`, com a publicação no Pages dependente de tudo que vem antes. Antes o deploy
+  saía depois de apenas `npm test`, e pull request nenhum era verificado.
 - 81 testes de unidade sem framework (`node:test`).
 - 23 checagens de integração em chromium headless, lendo pixels do build real.
 - `npm run i18n` reprova string fixa no editor e tradução que perdeu placeholder ou
