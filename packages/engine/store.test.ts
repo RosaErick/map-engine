@@ -151,3 +151,31 @@ test('AC-32: removing a surface drops its pattern override and its solo', () => 
   assert.deepEqual(store.view.surfacePatterns, {});
   assert.equal(store.view.soloId, null);
 });
+
+test('AC-37: crop is clamped to a window that samples something', () => {
+  const store = new Store(emptyProject());
+  const s = store.addSurface();
+  store.setCrop(s.id, { x: 0.25, w: 0.5 });
+  assert.deepEqual(store.project.surfaces[0]!.crop, { x: 0.25, y: 0, w: 0.5, h: 1 });
+  store.setCrop(s.id, { w: 0, h: -3 });
+  const { w, h } = store.project.surfaces[0]!.crop;
+  assert.ok(w > 0 && h > 0, `janela vazia: ${w}x${h}`);
+});
+
+test('AC-38: a polygon vertex moves, and a locked surface refuses', () => {
+  const store = new Store(emptyProject());
+  const s = store.addSurface();
+  store.setSurfaceShape(s.id, {
+    kind: 'polygon',
+    points: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0.5, y: 1 }],
+  });
+  store.setPolygonPoint(s.id, 2, { x: 0.8, y: 0.9 });
+  const moved = store.project.surfaces[0]!.shape;
+  assert.equal(moved.kind, 'polygon');
+  assert.deepEqual(moved.kind === 'polygon' ? moved.points[2] : null, { x: 0.8, y: 0.9 });
+
+  store.toggleLock(s.id);
+  store.setPolygonPoint(s.id, 2, { x: 0.1, y: 0.1 });
+  const after = store.project.surfaces[0]!.shape;
+  assert.deepEqual(after.kind === 'polygon' ? after.points[2] : null, { x: 0.8, y: 0.9 });
+});
