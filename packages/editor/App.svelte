@@ -6,14 +6,12 @@
   import SurfaceList from './SurfaceList.svelte';
   import Inspector from './Inspector.svelte';
   import SourcePanel from './SourcePanel.svelte';
-  import About from './About.svelte';
+  import AboutPage from './AboutPage.svelte';
   import DocsPage from './DocsPage.svelte';
   import { store, tools, session, duplicateSelected, flash, getEngine, selected } from './state.svelte.ts';
   import { scheduleSave, localProject, hasFileSystemAccess, setMemoryLabel } from './project-folder.ts';
   import { initTheme } from './theme.svelte.ts';
   import { initLocale, i18n, t } from './i18n/index.svelte.ts';
-
-  let aboutOpen = $state(false);
 
   initTheme();
   initLocale();
@@ -49,8 +47,10 @@
   $effect(() => {
     const engine = getEngine();
     if (!engine) return;
-    if (session.page === 'docs') engine.stop();
-    else engine.start();
+    // Nada a ver, nada a desenhar: o loop para enquanto uma página de texto
+    // estiver por cima do editor.
+    if (session.page === 'editor') engine.start();
+    else engine.stop();
   });
 
   /** O acerto de 1 px é o que separa "quase encaixado" de encaixado. As setas
@@ -73,7 +73,8 @@
     if (mod && e.key.toLowerCase() === 'd' && s) { e.preventDefault(); duplicateSelected(); return; }
 
     if (e.key === 'Escape') {
-      if (aboutOpen) return;
+      // Fora do editor, Esc é o caminho de volta.
+      if (session.page !== 'editor') { session.page = 'editor'; return; }
       tools.pendingPolygon = [];
       tools.tool = 'select';
       store.setView({ selectedCorner: null });
@@ -105,7 +106,7 @@
 
 <div class="flex h-full flex-col bg-base-100">
   {#if !$store.view.uiHidden}
-    <TopBar onAbout={() => (aboutOpen = true)} />
+    <TopBar />
     {#if session.page === 'editor'}
       <Toolbar />
     {/if}
@@ -118,6 +119,8 @@
   <div class="relative flex min-h-0 flex-1 flex-col lg:flex-row">
     {#if session.page === 'docs'}
       <DocsPage />
+    {:else if session.page === 'about'}
+      <AboutPage />
     {/if}
     <Stage />
     {#if !$store.view.uiHidden}
@@ -138,5 +141,3 @@
     </div>
   </div>
 {/if}
-
-<About bind:open={aboutOpen} />

@@ -11,7 +11,7 @@ import type { Engine } from '../engine/engine.ts';
 export const store = new Store(emptyProject(1920, 1080));
 
 export type Tool = 'select' | 'polygon';
-export type Page = 'editor' | 'docs';
+export type Page = 'editor' | 'docs' | 'about';
 
 /**
  * Estado só do editor: nunca salvo, nunca visto pela engine.

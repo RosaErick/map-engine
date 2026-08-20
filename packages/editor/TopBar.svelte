@@ -5,8 +5,6 @@
   import { theme, applyTheme, type Theme } from './theme.svelte.ts';
   import { t, i18n, setLocale, LOCALES, type Locale, type MessageKey } from './i18n/index.svelte.ts';
 
-  let { onAbout }: { onAbout: () => void } = $props();
-
   const themes: { id: Theme; icon: 'laptop' | 'sun' | 'moon'; key: MessageKey }[] = [
     { id: 'system', icon: 'laptop', key: 'topbar.themeSystem' },
     { id: 'light', icon: 'sun', key: 'topbar.themeLight' },
@@ -68,7 +66,11 @@
       onclick={() => (session.page = session.page === 'docs' ? 'editor' : 'docs')}
     >{session.page === 'docs' ? t('topbar.backToEditor') : t('topbar.guide')}</button>
 
-    <button class="btn btn-ghost btn-xs font-normal" onclick={onAbout}>{t('topbar.about')}</button>
+    <button
+      class="btn btn-ghost btn-xs font-normal"
+      class:btn-active={session.page === 'about'}
+      onclick={() => (session.page = session.page === 'about' ? 'editor' : 'about')}
+    >{t('topbar.about')}</button>
 
     <a
       href={REPO_URL}

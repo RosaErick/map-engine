@@ -413,11 +413,13 @@ aberto e se fecha quando existe pasta: é trabalho de começo e de fim de montag
 pode empurrar as superfícies para fora da tela durante o alinhamento. Enumera as telas na
 montagem, nunca no clique, pelo motivo descrito em `output.ts`.
 
-#### [`packages/editor/About.svelte`](../packages/editor/About.svelte)
+#### [`packages/editor/AboutPage.svelte`](../packages/editor/AboutPage.svelte)
 
-O "sobre", num `<dialog>` nativo (foco, camada e `Esc` de graça). Tipografia de jornal —
-coluna estreita, serifa, fios finos, capitular, citação com fio à esquerda — usando só
-fontes do sistema, porque carregar fonte externa quebraria o uso offline.
+O "sobre", como página inteira ao lado do guia — foi um `<dialog>` até virar longo demais
+para um modal. Tipografia de jornal: coluna estreita, serifa, fios finos, capitular,
+citação com fio à esquerda, e só fontes do sistema, porque carregar fonte externa
+quebraria o uso offline. O texto conta por que a ferramenta existe e o que a licença
+garante; como usar é assunto do guia.
 
 #### [`packages/editor/i18n/`](../packages/editor/i18n)
 
@@ -437,7 +439,8 @@ catálogo, e sim uma estrutura tipada (`Section` com blocos `p`, `steps`, `list`
 `note`, `code`) — texto longo pede estrutura, não cem chaves planas. Um teste compara as
 três línguas seção a seção. A página **cobre** o editor em vez de substituí-lo:
 desmontar a `Stage` destruiria o contexto WebGL e faria a captura de tela pedir
-permissão de novo na volta; enquanto o guia está aberto o loop de render é pausado.
+permissão de novo na volta; enquanto uma página de texto está aberta — guia ou sobre —
+o loop de render é pausado, e `Esc` volta para o editor.
 
 A seção ativa do índice vem da geometria, não da primeira interseção do
 `IntersectionObserver` — escolher pela primeira marca a seção anterior, justamente
