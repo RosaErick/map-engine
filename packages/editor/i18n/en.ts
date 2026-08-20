@@ -68,12 +68,12 @@ export const en = {
   'stage.unsupportedFile': 'Unsupported file type: {name}',
 
   // Project panel
-  'project.title': 'Project and output',
+  'project.title': 'Project',
   'project.blurb': 'A project is a folder: the project file and the media sit side by side, and everything is saved on its own.',
   'project.openFolder': 'open folder',
   'project.saveNow': 'save now',
   'project.downloadJson': 'download json',
-  'project.projector': 'Projector',
+  'project.projector': 'Projector (output)',
   'project.resolutionBlurb': 'The resolution has to be the projector native one.',
   'project.matchScreen': 'match this screen resolution',
   'project.widthLabel': 'Output width',
@@ -122,6 +122,7 @@ export const en = {
   'inspector.polygonHint': 'Traced with the polygon tool',
   'inspector.feather': 'soft edge',
   'inspector.rotation': 'content rotation',
+  'inspector.look': 'look and order',
   'inspector.opacity': 'opacity',
   'inspector.crop': 'crop inside the source',
   'inspector.cropActive': 'in use',
