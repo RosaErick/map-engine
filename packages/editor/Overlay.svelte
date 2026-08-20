@@ -112,7 +112,13 @@
       {#if isSelected(surface) && !surface.locked && surface.warp}
         {@const warp = surface.warp}
         {#if tools.showWarpGrid}
-          {#each warpGridPath(surface) as line, i (i)}
+          {@const lines = warpGridPath(surface)}
+          <!-- Duas passadas, e não capa-e-linha por vez: a grade se cruza, e uma
+               capa pintada depois abriria buraco escuro na linha já desenhada. -->
+          {#each lines as line, i (i)}
+            <path d={line} class="warp-casing" />
+          {/each}
+          {#each lines as line, i (i)}
             <path d={line} class="warp-line" />
           {/each}
         {/if}
@@ -248,12 +254,27 @@
   /* A malha tem cor própria — violeta, nem o ciano do canto do frame nem o
      laranja do vértice — porque as três alças podem estar na tela ao mesmo
      tempo e mexer na errada custa caro. */
+  /* Contorno escuro sob o traço claro — o que a cartografia faz com estrada
+     sobre qualquer fundo. A alternativa que o backlog sugeria, medir a
+     luminância sob cada ponto, custa `readPixels`: uma parada sincronizada da
+     GPU por ponto e por frame, dentro do laço que este projeto mais protege.
+     Aqui não se lê nada: as duas camadas juntas resolvem branco e preto pelo
+     mesmo motivo. */
+  .warp-casing {
+    fill: none; stroke: #0b0b10; stroke-width: 2.5; opacity: 0.45;
+    pointer-events: none;
+  }
   .warp-line {
-    fill: none; stroke: #be95ff; stroke-width: 0.75; opacity: 0.4;
+    fill: none; stroke: #be95ff; stroke-width: 0.75; opacity: 0.85;
     pointer-events: none;
   }
   .warp-point {
     fill: #1a1230; stroke: #be95ff; stroke-width: 1.5;
+    /* O anel escuro por fora faz o violeta sobreviver a conteúdo claro, pelo
+       mesmo motivo da capa das linhas. `paint-order` desenha o traço antes do
+       preenchimento, então o halo não come o miolo do ponto. */
+    paint-order: stroke;
+    filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.85));
     cursor: grab; pointer-events: auto;
     transition: fill 100ms ease;
   }
