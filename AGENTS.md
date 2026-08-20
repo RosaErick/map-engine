@@ -61,6 +61,79 @@ erro de tipo óbvio, então ela está coberta por AC-10.
 
 ---
 
+### ADR-0014 — AGPL-3.0
+
+**Status:** aceita
+
+**Contexto.** O espaço de projection mapping grátis no navegador já tem um líder
+maduro (Map Club) e um freemium (4mapper), e **os dois são de código fechado**. A
+pesquisa de arte anterior deixou uma conclusão desconfortável: quase tudo o que este
+projeto faz existe em algum lugar, de graça. A única vantagem que um concorrente não
+consegue neutralizar por decisão de produto é ser aberto.
+
+Uma licença permissiva (MIT, CC0) permitiria exatamente o cenário que o mercado atual
+sugere: alguém pega o código, fecha e publica como produto próprio. E como este é um
+app de navegador, um concorrente pode se servir dele **sem distribuir binário nenhum** —
+basta hospedar.
+
+**Decisão.** AGPL-3.0-only. A cláusula de rede fecha a brecha do "só hospedei, não
+distribuí". Contribuição é *inbound = outbound*: quem contribui licencia sob a mesma
+licença, sem CLA e sem cessão de direitos.
+
+**Consequências.** Fork fechado deixa de ser possível, hospedado ou não. Em troca,
+embutir a engine dentro de um produto de código fechado também deixa de ser
+possível — o que custa parte do público do ponto de extensão "engine como
+biblioteca". Foi uma troca consciente: impedir o fork fechado era o requisito, o
+embutimento comercial não era. `MPL-2.0` seria o caminho do meio (copyleft por
+arquivo, embutimento permitido) se essa prioridade se inverter.
+
+**Nota prática.** Enquanto houver um único autor, relicenciar é possível. Depois do
+primeiro PR aceito de outra pessoa, não é — sem pedir permissão a cada contribuinte.
+Se a licença for mudar, é agora.
+
+---
+
+### ADR-0017 — Tailwind v4 e daisyUI no editor, nada disso na engine
+
+**Status:** aceita
+
+**Contexto.** A interface começou com CSS escrito à mão e variáveis próprias.
+Funcionava, mas o espaçamento era irregular, não havia tema claro e cada componente
+reinventava botão, campo e painel. Adicionar um sistema de UI custa bytes num projeto
+cujo diferencial declarado é caber num arquivo pequeno.
+
+**Decisão.** Tailwind v4 + daisyUI no **editor**. A engine continua sem tocar em CSS,
+sem framework e sem DOM fora do próprio canvas — a fronteira da ADR-0001 não se move.
+Dois temas apenas, `light` e `dark`, com 'seguir o sistema' implementado pela ausência
+do atributo `data-theme` (o `--prefersdark` do daisyUI já faz o resto, sem uma linha de
+JS).
+
+**Consequências.** O build foi de ~104 KB para ~208 KB (gzip: 37 KB → 57 KB). É o dobro,
+e é o custo real desta decisão — ainda assim é um arquivo de 208 KB que abre de um
+pendrive, então o argumento de distribuição continua de pé. Em troca: espaçamento
+consistente, tema claro, componentes acessíveis de graça e muito menos CSS próprio para
+manter.
+
+**O tema escuro é Carbonfox**, a variante IBM Carbon do nightfox: base `#161616`,
+controles `#262626`, fios `#393939`. O escuro padrão do daisyUI fica perto de `#1d232a`,
+que numa sala apagada ainda é cinza aceso ao lado de uma área de trabalho que é preto
+absoluto — a interface tem que encostar no preto do canvas, não brigar com ele.
+
+Uma armadilha na tradução do Carbon para o daisyUI: **Carbon empilha clareando**. A
+superfície é o fundo, e controle e borda sobem a partir dela. O escuro padrão do daisyUI
+faz o contrário — `base-200` e `base-300` são mais escuros que `base-100` —, e copiar
+essa direção com uma base já quase preta afunda todo botão dentro do painel. Por isso as
+barras usam `base-100` e o que sobe (botão, campo, hover) usa `base-200`.
+
+**A regra que não pode ser esquecida:** a área de trabalho é **sempre preta**, nos dois
+temas. Ela não é fundo de interface, é pré-visualização do que sai do projetor, e no
+projetor preto é ausência de luz. Pelo mesmo motivo, a paleta das alças do overlay é
+fixa e escolhida para contraste contra preto — seguir o tema claro deixaria as alças
+invisíveis. A cor primária da interface foi igualada à das alças para as duas metades
+falarem a mesma língua.
+
+---
+
 ### ADR-0002 — WebGL2 puro, sem biblioteca gráfica
 
 **Status:** aceita (herdada do brief)
@@ -161,9 +234,54 @@ vez de 60. Dez superfícies com a mesma fonte custam um upload. O loop de render
 dorme quando nada mudou e nenhuma fonte animada está ativa (`SourcePool.hasAnimated`),
 então instalação parada não segura a GPU a 60fps por nada.
 
-**Pendência conhecida.** Editor e saída têm cada um seu `SourcePool`, porque contexto
-GL não atravessa janela — então com a saída aberta cada vídeo decodifica duas vezes e
-`capture` pede permissão duas vezes. Registrado em [`docs/TASKS.md`](docs/TASKS.md).
+**Resolvido depois, por ADR-0015.** Editor e saída começaram com um `SourcePool` cada,
+e o resultado foi decode dobrado e dois prompts de captura.
+
+---
+
+### ADR-0015 — Textura por contexto, fonte compartilhada
+
+**Status:** aceita — refina ADR-0006
+
+**Contexto.** Uma textura GL não atravessa janela, então a primeira versão deu à
+janela de saída a sua própria `SourcePool`. O custo apareceu na prática: cada vídeo
+decodificado duas vezes, e — pior — `getDisplayMedia` pedindo permissão de captura uma
+segunda vez ao abrir a saída, no meio de uma demonstração.
+
+O que não atravessa janela é a *textura*. O `<video>`, o `ImageDecoder` e o
+`MediaStream` atravessam sem problema.
+
+**Decisão.** Uma fonte, várias texturas. `ContextTextures` guarda um `WebGLTexture` por
+contexto e a versão de conteúdo que cada contexto subiu pela última vez. O antigo
+`isDirty` booleano virou um getter derivado disso, porque um flag único não sobrevive a
+dois consumidores: quem subisse primeiro zeraria o flag e a outra janela ficaria com o
+frame velho para sempre. `Engine` aceita um pool emprestado e, ao ser destruída, libera
+só as texturas do seu contexto (`SourcePool.releaseContext`) em vez de matar as fontes.
+
+**Consequências.** Um decode, um prompt de captura, e fechar a saída não interrompe
+nada no editor. O módulo de canvas generativo ganhou um guard de tempo para desenhar
+uma vez por frame e não uma vez por contexto, senão um sketch andaria em dobro. Coberto
+por AC-29.
+
+---
+
+### ADR-0016 — Sem `requestVideoFrameCallback`, todo render é um frame novo
+
+**Status:** aceita
+
+**Contexto.** O upload de vídeo é guiado por `requestVideoFrameCallback`, que dispara
+na taxa do vídeo e não na do monitor. Onde a API não existe — Firefox e Safari mais
+antigo — o fallback marcava a textura como suja **uma única vez**, na construção.
+Resultado: vídeo, GIF, captura e webcam congelavam no primeiro frame nesses
+navegadores, silenciosamente, e só ali.
+
+**Decisão.** O fallback não tenta imitar o callback. Enquanto o vídeo estiver tocando e
+não houver rVFC, cada `update()` invalida a textura — todo render vira um frame novo.
+
+**Consequências.** Correto em todo navegador, ao custo de subir a textura na taxa do
+monitor onde a API falta. É desperdício conhecido e medido em uma linha, contra um
+congelamento invisível. A verificação nesses navegadores é manual (AC-30), porque o
+smoke roda em chromium, que tem a API.
 
 ---
 

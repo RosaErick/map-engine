@@ -1,7 +1,7 @@
 # Backlog — Projection Mapping Engine
 
 Base: `prompt-mapping-engine.md`. Este documento descreve o que **está no código hoje**
-(29 testes de unidade + 14 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
+(34 testes de unidade + 14 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
 limpos, `dist/index.html` de ~100 KB gerado como arquivo único) e o que falta. Os ids
 `AC-n` citados aqui são os de [`SPEC.md`](SPEC.md).
 
@@ -23,7 +23,7 @@ deixado no código.
 | 5 | Elipse com feather sobre objeto redondo | ✅ implementado | Máscara radial em espaço de frame com `smoothstep` no fragment shader (`packages/engine/renderer.ts:111-118`); botão e slider em `packages/editor/Inspector.svelte:233-245`. |
 | 6 | Polígono livre recorta corretamente | ✅ implementado | Traçado em `packages/editor/Stage.svelte:188-208` (bbox vira frame, pontos passam pela homografia inversa), triangulação por ear clipping em `packages/engine/geometry.ts:46`, geometria como máscara em `renderer.ts:286-292`. Depois de traçado os pontos não podem mais ser editados (ver backlog). |
 | 7 | Grade sem dobra diagonal | ✅ implementado | `gl_Position = vec4(clip * w, 0.0, w)` em `packages/engine/renderer.ts` deixa o rasterizador interpolar `vUV` projetivamente. Medido, não olhado: AC-20 ajusta uma reta à borda entre barras num quadrilátero fortemente deformado e mede **0,50 px** de desvio máximo em 414 amostras (limite 1,5 px). |
-| 8 | `capture` mapeando a janela de outro programa, ao vivo | 🟡 parcial | `CaptureSource` usa `getDisplayMedia`. Fim de track agora vira `status: 'error'` e cai no padrão de mídia faltando em vez de congelar. Continua pendente: abrir a saída dispara um **segundo** prompt de captura, porque cada janela tem seu próprio pool. |
+| 8 | `capture` mapeando a janela de outro programa, ao vivo | 🟡 parcial | `CaptureSource` usa `getDisplayMedia`. Fim de track agora vira `status: 'error'` e cai no padrão de mídia faltando em vez de congelar. Abrir a saída não pede mais permissão duas vezes: as duas janelas compartilham o pool de fontes (AC-29). Falta o teste com projetor. |
 | 9 | Superfície travada não se move | ✅ implementado | Guard `#editable` em `packages/engine/store.ts:167` cobre `setCorner`/`nudgeCorner`/`moveSurface`/`setSurfaceFrame`; `disabled` na action de drag (`Overlay.svelte:151`); coberto por teste (`store.test.ts:103`). |
 | 10 | Saída na segunda tela, editor no laptop | 🟡 parcial | `openOutput` posiciona a janela pelos bounds da tela e chama `requestFullscreen({ screen })`. Agora é totalmente síncrona: as telas são enumeradas na montagem da toolbar, não no clique, então nada é `await`-ado antes de `window.open` e a ativação transitória sobrevive (Fullscreen Companion Window). `hasWindowManagement()` checa `screen.isExtended` e escolhe a mensagem de degradação. Falta a verificação com duas telas físicas. |
 | 11 | Saída limpa: só as superfícies acesas, resto preto absoluto | ✅ implementado | Janela de saída sem UI, `cursor:none`, body `#000` (`output.ts:245-248`); `clearColor(0,0,0,1)`, `alpha:false`, sem gama nem tone mapping (`renderer.ts:157-198`); superfície sem fonte faz `discard` em vez de pintar preto (`renderer.ts:99-102`). Falta a verificação física da mão em frente ao projetor. |
@@ -57,13 +57,12 @@ projetor apontado para uma parede.
   degradação; o fullscreen é fixado na tela do projetor pela opção `{ screen }`.
   Onde: `packages/output/output.ts`.
 
-- [ ] **Uma fonte, um decode: compartilhar o `SourcePool` entre editor e saída** — `M`
-  Cada janela instancia sua própria `Engine`, logo seu próprio pool: um vídeo 1080p é
-  decodificado duas vezes, e `capture`/`camera` pedem permissão duas vezes. A regra do
-  brief é cache por fonte, não por superfície — nem por janela. O contexto GL não
-  atravessa janela, mas o `<video>`/`ImageDecoder` atravessa.
-  Onde: `packages/engine/engine.ts:41-57` (aceitar um pool injetado),
-  `packages/output/output.ts:251`, `packages/engine/sources/index.ts`.
+- [x] ~~**Uma fonte, um decode: compartilhar o `SourcePool` entre editor e saída**~~ — feito
+  `ContextTextures` guarda uma textura por contexto GL e a versão que cada um subiu;
+  `Engine` aceita um pool emprestado e libera só o próprio contexto ao morrer. Um
+  decode, um prompt de captura. AC-29, 5 testes. Ver ADR-0015.
+  Onde: `packages/engine/sources/types.ts`, `packages/engine/sources/index.ts`,
+  `packages/engine/engine.ts`, `packages/output/output.ts`.
 
 - [x] ~~**Rotação do conteúdo dentro da superfície**~~ — feito
   `Surface.rotation` (graus, horário) entra na amostragem por `uvMatrix`, que compõe
@@ -99,11 +98,25 @@ projetor apontado para uma parede.
   apontar a fonte para outro arquivo sem apagar e recriar.
   Onde: `packages/editor/SourcePanel.svelte`, `packages/editor/project-folder.ts:161`.
 
-- [ ] **`ponytail:` upload de vídeo sem `requestVideoFrameCallback`** — `P`
-  Fallback marca dirty todo frame de render. Correto, só desperdiça. Verificar se o
-  alvo (Chromium desktop) alguma vez cai nesse caminho; se não cair, trocar o fallback
-  por um aviso claro em vez de manter o caminho lento.
-  Onde: `packages/engine/sources/video.ts:47-59`.
+- [x] ~~**Upload de vídeo sem `requestVideoFrameCallback`**~~ — feito, e era bug, não desperdício
+  O fallback marcava a textura suja **uma vez só**, na construção: vídeo, GIF, captura e
+  webcam **congelavam no primeiro frame** em Firefox e Safari mais antigo. Agora cada
+  render invalida a textura enquanto o vídeo toca. Ver ADR-0016.
+  Onde: `packages/engine/sources/video.ts`.
+
+- [ ] **Verificar a matriz de navegadores** — `M`
+  AC-30 é `not-tested`: o smoke roda em chromium, que tem `requestVideoFrameCallback`.
+  O caminho de fallback só se prova em Firefox e Safari, e é onde o congelamento vivia.
+  Anotar também o que degrada (pasta de projeto, GIF por `ImageDecoder`, posicionamento
+  da saída) e publicar uma tabela de compatibilidade honesta.
+  Onde: verificação manual + `README.md`.
+
+- [ ] **Escolher a câmera pelo `deviceId` sobrevive à máquina errada?** — `P`
+  A constraint virou `ideal` em vez de `exact`, então um projeto aberto noutra máquina
+  pega qualquer câmera em vez de falhar. Falta decidir se isso é o certo: numa
+  instalação com duas câmeras, pegar "qualquer uma" em silêncio pode ser pior que o
+  erro. Reavaliar depois do primeiro uso real.
+  Onde: `packages/engine/sources/video.ts` (`CameraSource`).
 
 ### 3. Projeto em disco
 
@@ -154,6 +167,42 @@ projetor apontado para uma parede.
   com uma dúzia de pontos; só vira problema se alguém importar SVG. Manter como está e
   só trocar por earcut se aparecer o caso — item registrado para não ser redescoberto.
 
+### 4b. Interface
+
+- [x] ~~**Padrão de teste por superfície**~~ — feito
+  O brief pede padrões "sobrepondo tudo", e era só isso que existia. Agora há o global
+  (barra de trabalho) e um override por superfície (inspetor), com `'none'` próprio
+  servindo para apagar o padrão só numa. Alinhar é uma superfície por vez. AC-32.
+  Onde: `packages/engine/project.ts` (`ViewState.surfacePatterns`),
+  `packages/engine/store.ts` (`patternFor`, `setSurfacePattern`),
+  `packages/engine/renderer.ts` (recebe função, não valor),
+  `packages/editor/Inspector.svelte`, `packages/editor/Toolbar.svelte`.
+
+- [ ] **Numerar as linhas da lista de superfícies** — `P`
+  O padrão "número" projeta a posição na lista (ordem z decrescente), mas a lista mostra
+  só nomes — então uma superfície chamada "Superfície 2" pode aparecer projetada como
+  "1" e confundir. Mostrar o número na linha da lista fecha a ambiguidade sem mexer no
+  renderer.
+  Onde: `packages/editor/SurfaceList.svelte`.
+
+- [x] ~~**Redesenho: espaçamento, temas, responsividade, sobre**~~ — feito
+  Tailwind v4 + daisyUI no editor (ADR-0017), tema claro/escuro/sistema com persistência,
+  layout que empilha o painel abaixo da área de trabalho em tela estreita, painel de
+  projeto recolhível, estado vazio que ensina o primeiro passo, ícone e link do
+  repositório, e um "sobre" com tipografia de jornal.
+  Onde: `packages/editor/*.svelte`, `packages/editor/app.css`,
+  `packages/editor/theme.svelte.ts`.
+
+- [ ] **Enxugar o CSS do daisyUI** — `P`
+  O build dobrou de ~104 KB para ~208 KB (gzip 37 → 57 KB) ao adotar o sistema de UI.
+  Não é urgente — 208 KB continuam cabendo num pendrive — mas o arquivo pequeno é
+  diferencial declarado. Vale medir quanto é tema, quanto é componente não usado, e se
+  a opção `exclude:` do daisyUI corta algo relevante.
+  Onde: `packages/editor/app.css`.
+
+- [ ] **Prints do `sobre` e do tema claro no `INSTALAR.md`** — `P`
+  Some com os marcadores `📷 print:` agora que existe uma interface para fotografar.
+
 ### 5. Testes
 
 - [ ] **Testar `parseProject` como fronteira de confiança** — `P`
@@ -177,11 +226,34 @@ projetor apontado para uma parede.
   dobra diagonal.
   Onde: `scripts/smoke.mjs`, `package.json` (`smoke`, `verify`).
 
-- [ ] **Falhar se o build deixar referência externa** — `P`
-  O smoke prova que o arquivo abre, mas não que ele é autocontido: um `src=`/`href=`
-  apontando para fora passaria despercebido se o recurso estivesse em cache. Dez linhas
-  grepando o `dist/index.html`.
+- [x] ~~**Falhar se o build deixar referência externa**~~ — feito
+  O smoke grepa `src=`/`href=` no `dist/index.html` e só aceita `data:` e os arquivos
+  opcionais de instalação como aplicativo. Pegou uma referência de verdade na primeira
+  execução. AC-14.
   Onde: `scripts/smoke.mjs`.
+
+- [x] ~~**Instalação como aplicativo (PWA) e Release com o arquivo avulso**~~ — feito
+  `manifest.webmanifest` + ícones gerados por `scripts/make-icons.mjs` + service worker
+  **gerado no build e versionado pelo hash do HTML** (AC-31 — versão constante serve o
+  app do mês passado para sempre). Registro é guardado por protocolo, então o arquivo
+  avulso continua abrindo por `file://` sem tentar registrar nada. Release por tag anexa
+  `projection-mapping.html`. Guia em `INSTALAR.md`.
+  Onde: `vite.config.ts`, `public/`, `packages/editor/main.ts`,
+  `.github/workflows/release.yml`, `INSTALAR.md`.
+
+- [ ] **Prints reais no `INSTALAR.md`** — `P`
+  O guia está escrito com marcadores `📷 print:` nos quatro pontos onde uma imagem
+  resolve mais que um parágrafo: o ícone de instalar na barra de endereço, o arquivo
+  baixado, os quatro cantos sendo arrastados. Precisa de alguém com um projetor e uma
+  tela para tirar.
+  Onde: `INSTALAR.md`.
+
+- [ ] **Confirmar o que `file://` bloqueia** — `M`
+  Segue sem resposta e é o que decide o peso do caminho 2 do `INSTALAR.md`: origem
+  opaca não persiste permissão, então `getDisplayMedia`, câmera e `showDirectoryPicker`
+  podem pedir autorização toda vez — ou nem funcionar. O guia já avisa disso como
+  possibilidade; falta virar fato verificado.
+  Onde: verificação manual em Chrome limpo.
 
 ### 6. Verificação física — precisa de projetor de verdade
 
@@ -217,6 +289,13 @@ depois do item de resolução de saída.
 - [ ] **Critério 12 — fechar o navegador e reabrir a pasta** — `P`
   Incluindo um arquivo de mídia renomeado de propósito, para ver o padrão de mídia
   faltando aparecer em vez de um silêncio.
+
+---
+
+## Ideias além da v1
+
+Não são tarefas e não têm dono. Ficam em [`FUTURO.md`](FUTURO.md) para não se perderem
+nem virarem escopo por acidente — hoje: auto-calibração por câmera com Rust/WASM.
 
 ---
 

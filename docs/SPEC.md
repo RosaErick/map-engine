@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 29 testes de unidade (node:test, sem framework)
+npm test              # 37 testes de unidade (node:test, sem framework)
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
 ```
@@ -162,6 +162,27 @@ na leitura, em vez de chegar ao renderer
 
 ---
 
+## 3b. Uma fonte, duas janelas
+
+Seam: `ContextTextures` em `packages/engine/sources/types.ts` e `SourcePool`.
+
+### AC-29 — Um decode, várias telas
+
+**Dado** uma fonte alimentando o editor e a janela de saída ao mesmo tempo
+**Quando** o conteúdo muda
+**Então**
+- cada contexto GL recebe a sua própria textura, porque textura não atravessa janela;
+- subir a textura numa janela **não** marca a outra como atualizada — as duas veem
+  o frame novo;
+- fechar uma das janelas libera só as texturas daquela janela: a fonte continua viva,
+  o vídeo não recomeça e a captura de tela **não pede permissão de novo**;
+- uma fonte que ninguém desenhou ainda conta como pendente.
+
+> A regra do brief é cache por fonte, não por superfície. Duas janelas mostraram que
+> ela também não pode ser por janela.
+
+---
+
 ## 4. Saída — o que a parede recebe
 
 Seam: o build real (`dist/index.html`) rodando em chromium headless, com leitura de
@@ -171,7 +192,17 @@ pixels via `gl.readPixels`. Provado por [`scripts/smoke.mjs`](../scripts/smoke.m
 
 **Dado** o build de arquivo único
 **Quando** ele é aberto por `file://`, sem servidor e sem rede
-**Então** a engine monta e nenhum erro aparece no console
+**Então** a engine monta, nenhum erro aparece no console, e o HTML não referencia
+nada fora de si além dos arquivos opcionais de instalação como aplicativo
+
+### AC-31 — A instalação como aplicativo não serve app velho
+
+**Dado** um build publicado
+**Quando** o service worker é gerado
+**Então** a versão do cache é derivada do hash do HTML construído
+
+> Service worker só atualiza quando os próprios bytes mudam. Versão constante é o
+> jeito clássico de servir o app do mês passado para sempre.
 
 ### AC-15 — Preto é transparente
 
@@ -207,6 +238,19 @@ sem cinza, sem gradiente, sem vinheta, sem borda
 **Quando** um frame é renderizado
 **Então** o padrão aparece dentro das superfícies, e só dentro delas
 
+### AC-32 — Padrão por superfície
+
+**Dado** um padrão global e uma superfície com padrão próprio
+**Quando** um frame é renderizado
+**Então**
+- a superfície com padrão próprio desenha o dela, e as outras seguem o global;
+- um `'none'` próprio apaga o padrão só naquela superfície, mesmo com o global ligado;
+- devolver o controle ao global restaura o comportamento anterior;
+- apagar a superfície descarta o padrão próprio dela.
+
+> Alinhar é uma superfície por vez: grade numa, número em outra, nada nas demais. O
+> global continua existindo porque "grade em tudo" é o caso mais comum.
+
 ### AC-20 — UV com correção de perspectiva
 
 **Dado** um quadrilátero fortemente deformado em perspectiva e um padrão com bordas retas
@@ -234,12 +278,13 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-25 | Saída na segunda tela com o editor no laptop | Exige segunda tela física e a Window Management API. |
 | AC-26 | Fechar, reabrir a pasta do projeto e tudo voltar | `showDirectoryPicker` exige gesto do usuário; não roda headless. |
 | AC-27 | 30 superfícies com 4 vídeos 1080p a 60fps | Meta de performance nunca medida. Ver [TASKS.md](TASKS.md). |
+| AC-30 | Conteúdo animado continua animando em navegador **sem** `requestVideoFrameCallback` | O smoke roda em chromium, que tem a API. Este é o caminho de Firefox e Safari mais antigo, onde o upload passa a ser marcado a cada render — precisa de verificação manual nesses navegadores. |
 
 ---
 
 ## 6. Estado da verificação
 
-Última execução: `npm test` (29/29) + `npm run smoke` (14/14), build de ~100 KB.
+Última execução: `npm test` (37/37) + `npm run smoke` (18/18), build de ~212 KB.
 
 | Critério | Estado | Prova |
 |---|---|---|
@@ -264,6 +309,9 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-19 | provado | `smoke.mjs` |
 | AC-20 | provado | `smoke.mjs` (0,50 px de 1,5 px permitidos) + `renderer.test.ts` |
 | AC-28 | provado | `renderer.test.ts` (5 testes) + `smoke.mjs` (2 checagens de pixel) |
+| AC-29 | provado | `sources/textures.test.ts` (5 testes) |
+| AC-31 | provado | `smoke.mjs` |
+| AC-32 | provado | `store.test.ts` (3 testes) + `smoke.mjs` (2 checagens de pixel) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o
