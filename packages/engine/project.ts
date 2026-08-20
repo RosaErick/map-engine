@@ -107,19 +107,21 @@ export function anchorId(view: ViewState): string | null {
  */
 export function expandSelection(project: Project, ids: readonly string[]): string[] {
   const byId = new Map(project.surfaces.map((s) => [s.id, s]));
-  const links = new Set<string>();
   const out: string[] = [];
-
   const push = (id: string): void => { if (!out.includes(id)) out.push(id); };
 
   for (const id of ids) {
     const surface = byId.get(id);
     if (!surface) continue; // id órfão nunca entra na seleção
+    // As ligadas entram antes da pedida, para que a **pedida** fique por último
+    // e vire o âncora: quem clicou numa superfície espera ver aquela no painel,
+    // não uma irmã que o vínculo trouxe junto.
+    if (surface.link) {
+      for (const other of project.surfaces) {
+        if (other.id !== id && other.link === surface.link) push(other.id);
+      }
+    }
     push(id);
-    if (surface.link) links.add(surface.link);
-  }
-  for (const surface of project.surfaces) {
-    if (surface.link && links.has(surface.link)) push(surface.id);
   }
   return out;
 }
