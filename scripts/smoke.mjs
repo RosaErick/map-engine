@@ -57,7 +57,11 @@ const browser = await chromium.launch({
   // SwiftShader gives headless chromium a real WebGL2 implementation.
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--use-gl=angle'],
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+// O idioma é fixado aqui, e não herdado da máquina: o editor escolhe o catálogo
+// por `navigator.languages`, então um runner em inglês renderiza "surface" e os
+// cliques abaixo, escritos em português, não acham nada. Rodou verde por meses
+// só porque o laptop de quem rodava estava em pt-BR.
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, locale: 'pt-BR' });
 
 const consoleErrors = [];
 page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
