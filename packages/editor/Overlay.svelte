@@ -18,6 +18,39 @@
   }
   function fmt(p: Vec2): string { return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }
 
+  /**
+   * A região que responde ao clique: a silhueta da superfície, não a caixa dela.
+   *
+   * O contorno do frame continua sendo desenhado como frame — é o guia de
+   * alinhamento. Mas quem captura o ponteiro é esta trilha, senão o canto vazio
+   * da caixa de um polígono pega o clique e a superfície é selecionada por uma
+   * área onde ela não acende nada. Para `quad` as duas coincidem, e aí nada
+   * muda.
+   */
+  function hitPath(s: Surface): string {
+    if (s.shape.kind === 'polygon') return framePath(s, s.shape.points);
+    if (s.shape.kind === 'ellipse') return framePath(s, ELLIPSE);
+    return screenPath(s.frame);
+  }
+
+  /** A elipse inscrita, amostrada em espaço de frame: assim ela atravessa a
+   *  perspectiva junto com a superfície em vez de virar um círculo na tela. */
+  const ELLIPSE: Vec2[] = Array.from({ length: 48 }, (_, i) => {
+    const a = (i / 48) * Math.PI * 2;
+    return { x: 0.5 + Math.cos(a) * 0.5, y: 0.5 + Math.sin(a) * 0.5 };
+  });
+
+  /** Pontos em espaço de frame -> trilha em pixels de tela. */
+  function framePath(s: Surface, points: readonly Vec2[]): string {
+    let d = '';
+    for (const point of points) {
+      const output = frameToOutput(s, point.x, point.y);
+      if (!output) return screenPath(s.frame); // frame degenerado: cai no de sempre
+      d += `${d ? 'L' : 'M'}${fmt(toScreen(output))}`;
+    }
+    return d ? `${d} Z` : '';
+  }
+
   function isSelected(s: Surface): boolean { return $store.view.selectedSurfaceId === s.id; }
 
   function pickCorner(s: Surface, i: number): void {
@@ -52,9 +85,10 @@
 
   {#each $store.project.surfaces as surface (surface.id)}
     <g class:selected={isSelected(surface)} class:locked={surface.locked}>
+      <path d={screenPath(surface.frame)} class="frame" />
       <path
-        d={screenPath(surface.frame)}
-        class="frame"
+        d={hitPath(surface)}
+        class="hit"
         role="button"
         tabindex="-1"
         aria-label={surface.name}
@@ -181,11 +215,14 @@
   .overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .canvas-bounds { fill: none; stroke: #333; stroke-width: 1; stroke-dasharray: 4 4; }
   .frame {
-    fill: transparent; stroke: #6e6e85; stroke-width: 1;
-    cursor: move; pointer-events: fill;
+    fill: none; stroke: #6e6e85; stroke-width: 1;
+    pointer-events: none;
     transition: stroke 120ms ease;
   }
-  .frame:hover { stroke: #52bdff; }
+  /* A área que responde ao ponteiro. Invisível: quem o usuário vê é o frame. */
+  .hit { fill: transparent; stroke: none; cursor: move; pointer-events: fill; }
+  g.locked .hit { cursor: not-allowed; }
+  g:hover .frame { stroke: #52bdff; }
   g.selected .frame { stroke: #52bdff; stroke-width: 1.5; }
   g.locked .frame { stroke: #55556a; stroke-dasharray: 6 3; cursor: not-allowed; }
   .label {

@@ -454,6 +454,59 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// O clique tem que respeitar a silhueta, e não a caixa. Um polígono ocupa uma
+// fração da própria bbox, então o canto vazio dela é o lugar exato onde
+// selecionar a superfície errada custa caro: acontece em cima de uma escada,
+// mirando outra coisa.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  store.addSurface();
+  const s = store.project.surfaces[0];
+  store.setSurfaceShape(s.id, { kind: 'polygon', points: [{ x: 0.05, y: 0.05 }, { x: 0.75, y: 0.25 }, { x: 0.2, y: 0.8 }] });
+  store.setView({ selectedSurfaceId: null });
+  window.__xy = (u, v) => {
+    const rect = document.querySelector('canvas').getBoundingClientRect();
+    const { width: W, height: H } = window.mapEngine.store.project.output;
+    const scale = Math.min(rect.width / W, rect.height / H) * 0.9;
+    const f = window.mapEngine.store.project.surfaces[0].frame;
+    const ox = f[0].x + (f[1].x - f[0].x) * u + (f[3].x - f[0].x) * v;
+    const oy = f[0].y + (f[1].y - f[0].y) * u + (f[3].y - f[0].y) * v;
+    return { x: rect.left + ox * scale + (rect.width - W * scale) / 2,
+             y: rect.top + oy * scale + (rect.height - H * scale) / 2 };
+  };
+});
+const at = (u, v) => page.evaluate(([u, v]) => window.__xy(u, v), [u, v]);
+const selected = () => page.evaluate(() => window.mapEngine.store.view.selectedSurfaceId);
+
+let spot = await at(0.9, 0.9);
+await page.mouse.click(spot.x, spot.y);
+const emptyCorner = await selected();
+spot = await at(0.3, 0.3);
+await page.mouse.click(spot.x, spot.y);
+const insideShape = await selected();
+check('AC-59: o clique respeita o polígono, não a caixa dele',
+  emptyCorner === null && insideShape !== null,
+  `cantoVazio=${emptyCorner} dentro=${insideShape}`);
+
+// Vértice interno de propósito: num canto do frame a alça do canto fica por cima.
+const vertex = () => page.evaluate(() => {
+  const p = window.mapEngine.store.project.surfaces[0].shape.points[1];
+  return { x: p.x, y: p.y };
+});
+const vBefore = await vertex();
+const grab = await at(vBefore.x, vBefore.y);
+await page.mouse.move(grab.x, grab.y);
+await page.mouse.down();
+await page.mouse.move(grab.x - 150, grab.y + 60, { steps: 12 });
+await page.mouse.up();
+const vAfter = await vertex();
+await page.evaluate(() => window.mapEngine.store.undo());
+const vUndone = await vertex();
+check('AC-60: vértice de polígono se move e volta num só desfazer',
+  Math.abs(vAfter.x - vBefore.x) > 0.005 && Math.abs(vUndone.x - vBefore.x) < 1e-9,
+  `${vBefore.x.toFixed(3)} -> ${vAfter.x.toFixed(3)} -> ${vUndone.x.toFixed(3)}`);
+
 // A pasta guardada entre sessões depende de IndexedDB funcionar numa página
 // `file://`, que é uma origem opaca — vale provar no artefato construído, e não
 // no laptop de quem escreveu. Um handle de verdade não cabe aqui: ele só sai de
