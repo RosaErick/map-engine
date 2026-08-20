@@ -1,5 +1,5 @@
 import {
-  Store, emptyProject, newSurface, quadToUnit, solveUnitToQuad, apply, frameToPixel,
+  Store, anchorId, emptyProject, newSurface, quadToUnit, solveUnitToQuad, apply, frameToPixel,
   pointInPolygon, pointInUnitEllipse, closestOnSegment, evaluateWarp, unwarp,
   type Mat3, type Surface, type Vec2,
 } from '../engine/index.ts';
@@ -77,6 +77,31 @@ export function fitView(stageW: number, stageH: number): void {
   viewport.scale = scale;
   viewport.tx = (stageW - width * scale) / 2;
   viewport.ty = (stageH - height * scale) / 2;
+}
+
+/**
+ * Impede que a área de trabalho perca a saída de vista.
+ *
+ * O zoom era preso entre 0,05 e 8 e o pan não era preso em nada, então bastava
+ * arrastar longe o bastante para a saída sair inteira da tela — e aí a roda do
+ * mouse ampliava o vazio, sem nada na tela para orientar a volta. "Enquadrar"
+ * resolvia, mas exigia saber que aquele botão existia.
+ *
+ * Não é uma trava no gesto: é um limite no resultado, aplicado depois, então o
+ * arrasto continua fluido e só para de andar quando encosta.
+ */
+const KEEP_VISIBLE = 48;
+
+export function clampView(stageW: number, stageH: number): void {
+  const { width, height } = store.project.output;
+  const w = width * viewport.scale;
+  const h = height * viewport.scale;
+  // Uma faixa da saída sempre alcançável, ou a saída inteira quando ela é menor
+  // que a margem — senão um zoom muito distante ficaria impossível de arrastar.
+  const marginX = Math.min(KEEP_VISIBLE, w);
+  const marginY = Math.min(KEEP_VISIBLE, h);
+  viewport.tx = Math.min(stageW - marginX, Math.max(marginX - w, viewport.tx));
+  viewport.ty = Math.min(stageH - marginY, Math.max(marginY - h, viewport.ty));
 }
 
 /** Snap radius in output pixels — a fixed screen distance, so zooming in makes
@@ -236,9 +261,17 @@ export function warpGridPath(surface: Surface, samples = 12): string[] {
   return paths.filter((p) => p.length > 0);
 }
 
+/** O âncora: a superfície que o inspetor edita e cujo canto as setas movem.
+ *  Editar vale para uma, mover vale para todas — ver `selectedSurfaces`. */
 export function selected(): Surface | null {
-  const id = store.view.selectedSurfaceId;
+  const id = anchorId(store.view);
   return id ? store.project.surfaces.find((s) => s.id === id) ?? null : null;
+}
+
+/** Tudo que está selecionado, na ordem em que foi escolhido. */
+export function selectedSurfaces(): Surface[] {
+  const byId = new Map(store.project.surfaces.map((s) => [s.id, s]));
+  return store.view.selectedIds.map((id) => byId.get(id)).filter((s): s is Surface => !!s);
 }
 
 /**

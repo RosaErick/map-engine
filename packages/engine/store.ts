@@ -2,7 +2,7 @@ import {
   DEFAULT_CELLS, identityWarp, resampleWarp, type WarpInterpolation,
 } from './warp.ts';
 import {
-  emptyProject, newSurface, newId, parseProject, sanitizeSurfacePatch,
+  emptyProject, expandSelection, newSurface, newId, parseProject, sanitizeSurfacePatch,
   type Project, type Source, type Surface, type Shape, type Vec2, type ViewState, type TestPattern,
 } from './project.ts';
 
@@ -44,7 +44,7 @@ export class Store {
       project,
       view: {
         soloId: null,
-        selectedSurfaceId: null,
+        selectedIds: [],
         selectedCorner: null,
         selectedWarpPoint: null,
         testPattern: 'none',
@@ -107,7 +107,7 @@ export class Store {
       project,
       view: {
         ...this.#state.view,
-        selectedSurfaceId: null,
+        selectedIds: [],
         selectedCorner: null,
         selectedWarpPoint: null,
         soloId: null,
@@ -150,8 +150,77 @@ export class Store {
   addSurface(surface?: Surface): Surface {
     const s = surface ?? newSurface(this.#state.project);
     this.mutate((p) => { p.surfaces.push(s); });
-    this.setView({ selectedSurfaceId: s.id, selectedCorner: null, selectedWarpPoint: null });
+    this.setView({ selectedIds: [s.id], selectedCorner: null, selectedWarpPoint: null });
     return s;
+  }
+
+  // --- seleção -------------------------------------------------------------
+
+  /**
+   * Troca a seleção inteira. Ids inexistentes caem fora e vínculos são puxados
+   * para dentro, então nada além deste método precisa saber que vínculo existe.
+   */
+  setSelection(ids: readonly string[]): void {
+    const next = expandSelection(this.#state.project, ids);
+    this.setView({ selectedIds: next, selectedCorner: null, selectedWarpPoint: null });
+  }
+
+  /**
+   * Acrescenta ou tira uma superfície da seleção — o clique com modificador.
+   *
+   * Tirar remove o grupo inteiro quando a superfície é ligada: metade de um
+   * vínculo selecionado é um estado que o operador não pediu e não consegue ver.
+   */
+  toggleSelection(id: string): void {
+    const current = this.#state.view.selectedIds;
+    const group = expandSelection(this.#state.project, [id]);
+    if (group.length === 0) return;
+
+    const inside = group.every((x) => current.includes(x));
+    const next = inside
+      ? current.filter((x) => !group.includes(x))
+      : [...current.filter((x) => !group.includes(x)), ...group];
+    this.setView({ selectedIds: next, selectedCorner: null, selectedWarpPoint: null });
+  }
+
+  /**
+   * Move tudo que está selecionado, numa mutação só.
+   *
+   * Uma só porque um arrasto de grupo é um gesto, e desfazer tem que devolver o
+   * gesto inteiro — não uma superfície por vez. Superfície travada não anda e
+   * também não segura as outras: travar fala sobre ela, nunca sobre o grupo.
+   */
+  moveSelection(dx: number, dy: number): void {
+    const ids = this.#state.view.selectedIds.filter((id) => this.#editable(id));
+    if (ids.length === 0) return;
+    this.mutate((p) => {
+      for (const s of p.surfaces) {
+        if (!ids.includes(s.id)) continue;
+        for (const c of s.frame) { c.x += dx; c.y += dy; }
+      }
+    }, { coalesce: `move:${ids.join(',')}` });
+  }
+
+  // --- vínculo -------------------------------------------------------------
+
+  /** Liga as superfícies selecionadas num grupo só. Menos de duas não é grupo. */
+  linkSelected(): void {
+    const ids = [...this.#state.view.selectedIds];
+    if (ids.length < 2) return;
+    const link = newId('link');
+    this.mutate((p) => {
+      for (const s of p.surfaces) if (ids.includes(s.id)) s.link = link;
+    });
+  }
+
+  /** Desfaz o vínculo das selecionadas, deixando a seleção como está: quem
+   *  desagrupa normalmente quer continuar mexendo nas mesmas superfícies. */
+  unlinkSelected(): void {
+    const ids = [...this.#state.view.selectedIds];
+    if (ids.length === 0) return;
+    this.mutate((p) => {
+      for (const s of p.surfaces) if (ids.includes(s.id)) delete s.link;
+    });
   }
 
   removeSurface(id: string): void {
@@ -159,8 +228,9 @@ export class Store {
     const { [id]: _dropped, ...surfacePatterns } = this.#state.view.surfacePatterns;
     const patch: Partial<ViewState> = { surfacePatterns };
     // An orphan override would resurface on a future surface reusing the id.
-    if (this.#state.view.selectedSurfaceId === id) {
-      patch.selectedSurfaceId = null;
+    const selectedIds = this.#state.view.selectedIds.filter((x) => x !== id);
+    if (selectedIds.length !== this.#state.view.selectedIds.length) {
+      patch.selectedIds = selectedIds;
       patch.selectedCorner = null;
       patch.selectedWarpPoint = null;
     }

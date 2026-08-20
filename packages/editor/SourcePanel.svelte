@@ -1,13 +1,13 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { store, flash, getEngine } from './state.svelte.ts';
-  import { colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../engine/index.ts';
+  import { anchorId, colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../engine/index.ts';
   import ColorPicker from './ColorPicker.svelte';
   import { importFile } from './project-folder.ts';
   import { t } from './i18n/index.svelte.ts';
 
   const s = $derived(
-    $store.project.surfaces.find((x) => x.id === $store.view.selectedSurfaceId) ?? null,
+    $store.project.surfaces.find((x) => x.id === anchorId($store.view)) ?? null,
   );
 
   let cameras = $state<{ deviceId: string; label: string }[]>([]);

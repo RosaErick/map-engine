@@ -2,6 +2,15 @@ import type { Vec2 } from '../engine/index.ts';
 
 export interface DragParams {
   onStart?: (p: Vec2, e: PointerEvent) => void;
+  /**
+   * Deixa passar o gesto de reenquadrar em vez de agarrar o ponteiro.
+   *
+   * Ligado só no corpo da superfície, nunca numa alça: Ctrl segurado durante um
+   * arrasto de canto desliga o ímã, e essa é a tecla de ajuste fino mais usada
+   * que existe. Reenquadrar disputa com mover a superfície inteira, que é gesto
+   * grosso — não com o de 1 px.
+   */
+  reframable?: boolean;
   onMove: (p: Vec2, delta: Vec2, e: PointerEvent) => void;
   onEnd?: () => void;
   /** Skip the gesture entirely — used for locked surfaces. */
@@ -33,6 +42,8 @@ export function drag(node: Element, params: DragParams) {
   function onDown(e: PointerEvent): void {
     if (current.disabled) return;
     if (current.button !== undefined && e.button !== current.button) return;
+    // Sem `stopPropagation`: quem trata é o `panZoom` do palco, uma camada acima.
+    if (current.reframable && (e.button === 1 || (e.button === 0 && (e.altKey || e.ctrlKey)))) return;
     e.preventDefault();
     e.stopPropagation();
     (e.target as Element).setPointerCapture?.(e.pointerId);
@@ -88,7 +99,11 @@ export function panZoom(node: HTMLElement, params: PanZoomParams) {
   }
 
   function onDown(e: PointerEvent): void {
-    if (e.button !== 1 && !(e.button === 0 && e.altKey)) return;
+    // Botão do meio, Alt, ou Ctrl/Cmd: três caminhos para o mesmo gesto, porque
+    // nem todo mouse tem botão do meio e nem todo teclado tem Alt livre. Ctrl é
+    // o que a pessoa tenta primeiro quando a vista se perdeu.
+    const reframing = e.button === 0 && (e.altKey || e.ctrlKey);
+    if (e.button !== 1 && !reframing) return;
     e.preventDefault();
     panning = true;
     last = { x: e.clientX, y: e.clientY };
