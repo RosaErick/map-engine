@@ -9,7 +9,7 @@
   import AboutPage from './AboutPage.svelte';
   import DocsPage from './DocsPage.svelte';
   import { store, tools, session, duplicateSelected, flash, getEngine, selected, framePixelStep } from './state.svelte.ts';
-  import { scheduleSave, localProject, hasFileSystemAccess, setMemoryLabel } from './project-folder.ts';
+  import { scheduleSave, localProject, hasFileSystemAccess, restoreFolder, setMemoryLabel } from './project-folder.ts';
   import { initTheme } from './theme.svelte.ts';
   import { initLocale, i18n, t } from './i18n/index.svelte.ts';
 
@@ -34,6 +34,27 @@
       session.savedAt = Date.now();
       setTimeout(() => { session.savedAt = 0; }, 2200);
     }, flash);
+  });
+
+  // Volta para a pasta da sessão anterior. Roda uma vez, antes de qualquer
+  // edição: um handle recuperado nunca pode passar por cima de trabalho vivo.
+  // Se a permissão não sobreviveu, o nome vai para `pendingFolder` e o painel
+  // oferece o clique que pode pedi-la — pedir aqui seria rejeitado.
+  $effect(() => {
+    if (!hasFileSystemAccess) return;
+    void restoreFolder().then((restored) => {
+      if (!restored) return;
+      if (restored.state === 'prompt') {
+        session.pendingFolder = restored.name;
+        return;
+      }
+      if (restored.json) {
+        try { store.load(restored.json); } catch { flash(t('warn.folderFailed')); return; }
+      }
+      session.hasFolder = true;
+      session.folderName = restored.name;
+      flash(t('project.reopened', { name: restored.name }));
+    }).catch(() => { /* sem memória de pasta, segue como antes */ });
   });
 
   $effect(() => {
