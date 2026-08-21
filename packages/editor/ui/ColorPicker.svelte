@@ -11,9 +11,13 @@
    * por `onpick`. O único estado local é o matiz, porque cinza e preto não têm
    * matiz para lembrar e a trilha ficaria pulando para zero enquanto a pessoa
    * arrasta pelo fundo do quadro.
+   *
+   * Flutuar, fechar e redimensionar são do `Popover`: aqui fica só o que é de
+   * escolher cor.
    */
   import { colorKey, hexOf, hsvToRgb, parseHex, rgbToHsv, type Rgb, type Vec2 } from '../../engine/index.ts';
   import { drag } from './actions.ts';
+  import Popover from './Popover.svelte';
   import { t } from '../i18n/index.svelte.ts';
 
   interface Props {
@@ -74,81 +78,14 @@
   }
 
   const CHANNELS = ['R', 'G', 'B'] as const;
-
-  /**
-   * Posição na tela, calculada a partir da amostra que o abriu.
-   *
-   * `fixed` e fora do fluxo de propósito: aberto dentro da lista, o seletor
-   * empurrava o painel inteiro para baixo e obrigava a rolar até achá-lo — e o
-   * que a pessoa queria ver, a cor mudando na parede, ficava fora da tela.
-   *
-   * Vira para cima quando não cabe abaixo, e encosta na margem quando não cabe
-   * à direita: numa tela de laptop com o painel colado na borda, os dois casos
-   * acontecem sempre.
-   */
-  const MARGIN = 8;
-  let size = $state({ w: 248, h: 232 });
-  let panel = $state<HTMLElement | null>(null);
-
-  const place = $derived.by(() => {
-    const box = anchor.getBoundingClientRect();
-    const left = Math.max(MARGIN, Math.min(box.left, window.innerWidth - size.w - MARGIN));
-    const below = box.bottom + 6;
-    const top = below + size.h + MARGIN <= window.innerHeight
-      ? below
-      : Math.max(MARGIN, box.top - size.h - 6);
-    return { left, top };
-  });
-
-  /** O seletor é redimensionável, então a posição precisa acompanhar o tamanho
-   *  novo — senão arrastar o canto para baixo o empurra para fora da tela. */
-  $effect(() => {
-    if (!panel) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) size = { w: entry.contentRect.width, h: entry.contentRect.height };
-    });
-    observer.observe(panel);
-    return () => observer.disconnect();
-  });
-
-  /** Fechar por fora do painel e por Esc, além do botão: três saídas, porque a
-   *  primeira que a pessoa tenta varia e nenhuma delas pode não funcionar. */
-  $effect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onclose(); };
-    const onDown = (e: PointerEvent): void => {
-      const target = e.target as Node;
-      if (!panel?.contains(target) && !anchor.contains(target)) onclose();
-    };
-    window.addEventListener('keydown', onKey);
-    // `capture` para chegar antes dos gestos do palco, que param a propagação.
-    window.addEventListener('pointerdown', onDown, true);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('pointerdown', onDown, true);
-    };
-  });
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div
-  bind:this={panel}
-  class="picker"
-  style:left="{place.left}px"
-  style:top="{place.top}px"
-  role="dialog"
-  aria-label={t('color.edit')}
->
-  <header class="head">
+<Popover {anchor} {onclose} label={t('color.edit')}>
+  {#snippet head()}
     <span class="chip" style:background-color={hexOf(rgb)}></span>
     <span class="name">{t(`color.${colorKey(rgb)}`)}</span>
-    <button class="close" onclick={onclose} aria-label={t('color.done')} title={t('color.done')}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3.5">
-        <path d="M18 6 6 18M6 6l12 12" />
-      </svg>
-    </button>
-  </header>
+  {/snippet}
 
-  <div class="body">
   <!-- Quadro saturação × valor. O fundo é o matiz puro; as duas camadas por
        cima trazem o branco na horizontal e o preto na vertical. -->
   <div
@@ -225,69 +162,17 @@
       ></button>
     {/each}
   </div>
-  </div>
-</div>
+</Popover>
 
 <style>
-  /*
-   * Flutua: aberto dentro da lista, empurrava o painel para baixo e escondia
-   * justamente o que se quer olhar enquanto escolhe a cor — a parede.
-   *
-   * `resize` nativo em vez de uma alça própria: o navegador já desenha o canto,
-   * já trata o arrasto e já respeita o mínimo. Uma alça escrita à mão seria mais
-   * código para chegar no mesmo lugar.
-   */
-  .picker {
-    position: fixed;
-    z-index: 50;
-    width: 248px;
-    min-width: 200px;
-    max-width: min(92vw, 420px);
-    min-height: 200px;
-    max-height: min(86vh, 520px);
-    resize: both;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    border-radius: 8px;
-    border: 1px solid var(--color-base-300, #393939);
-    background: var(--color-base-100, #161616);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-    animation: pop 120ms ease-out;
-  }
-  @keyframes pop {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: none; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .picker { animation: none; }
-  }
-
-  .head {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 6px 6px 8px;
-    border-bottom: 1px solid var(--color-base-300, #393939);
-  }
   .chip {
     width: 14px; height: 14px; border-radius: 3px; flex: none;
     border: 1px solid rgba(255, 255, 255, 0.2);
   }
   .name { flex: 1; font-size: 11px; opacity: 0.7; }
-  .close {
-    display: grid; place-items: center;
-    width: 20px; height: 20px; border-radius: 4px;
-    opacity: 0.55; cursor: pointer;
-  }
-  .close:hover { opacity: 1; background: var(--color-base-200, #262626); }
 
-  /* O corpo cresce com o painel, e é o quadro que fica com a sobra: é ele que
-     ganha precisão quando alguém aumenta o seletor. */
-  .body {
-    flex: 1; min-height: 0;
-    display: flex; flex-direction: column; gap: 8px;
-    padding: 8px;
-  }
-
+  /* O quadro é quem fica com a sobra do corpo: é ele que ganha precisão quando
+     alguém aumenta o seletor. */
   .sv-square {
     position: relative; width: 100%; flex: 1; min-height: 72px; border-radius: 4px;
     cursor: crosshair; touch-action: none; overflow: hidden;
