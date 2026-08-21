@@ -47,6 +47,7 @@ export const guidePt: Guide = [
         ],
       },
       { kind: 'p', text: 'Cada linha da lista traz três chaves: <b>S</b> deixa a superfície em solo e apaga todas as outras, o <b>olho</b> apaga esta, e o <b>cadeado</b> trava.' },
+      { kind: 'note', text: 'O <b>raio-x</b> (tecla <b>X</b>) apaga o conteúdo e acende a estrutura: a silhueta, o número e a malha de cada superfície, inclusive as escondidas. É como se acha a superfície que alguém silenciou. Ele nunca chega ao projetor.' },
       { kind: 'note', text: 'Trave a superfície assim que ela estiver alinhada. Esbarrar num canto já alinhado é o acidente mais caro que existe, e uma superfície travada recusa qualquer movimento — mouse, setas, tudo.' },
     ],
   },
@@ -96,6 +97,7 @@ export const guidePt: Guide = [
           '<b>Cor</b> — uma cor sólida, o jeito mais rápido de conferir uma borda. A amostra abre um seletor com as cores de conferir projetor à mão: branco, cinza 50%, preto e as três primárias puras.',
           '<b>Captura de tela</b> — qualquer janela da máquina, ao vivo. Um jogo, um player, outra aba.',
           '<b>Câmera</b> — uma webcam ao vivo.',
+          '<b>Texto</b> — escrito no próprio app. O fundo é preto, então só as letras acendem.',
           '<b>Módulo JS</b> — o seu próprio desenho generativo. Veja abaixo.',
         ],
       },
@@ -145,6 +147,25 @@ export function draw(ctx, t) {
     ],
   },
   {
+    id: 'timeline',
+    title: 'Cenas e timeline',
+    blocks: [
+      { kind: 'p', text: 'Numa instalação, o que muda com o tempo é <b>o que está tocando</b>. O que nunca muda é onde as coisas estão — o alinhamento custou horas em cima de uma escada. Daí a regra que rege tudo aqui: <b>uma cena guarda o que cada superfície está mostrando, nunca onde ela está</b>.' },
+      {
+        kind: 'steps',
+        items: [
+          'Monte um visual: escolha o conteúdo de cada superfície e ajuste as opacidades.',
+          'Abra a barra no rodapé e clique em <b>capturar cena</b>. Ela guarda esse visual inteiro.',
+          'Mude o visual e capture de novo. Duas cenas já são um show.',
+          'Ajuste <b>segura</b> (quanto tempo a cena dura) e <b>transição</b> (quanto tempo leva para entrar).',
+          'Aperte <b>tocar</b>. Com <b>repetir</b> ligado, a última volta para a primeira.',
+        ],
+      },
+      { kind: 'p', text: 'Uma cena com <b>segura</b> em zero não avança sozinha: ela espera o GO. É assim que se para num ponto até alguém mandar seguir.' },
+      { kind: 'note', text: 'Como cena não guarda geometria, <b>dá para corrigir alinhamento com o show rodando</b>. E mexer na opacidade ou na fonte de uma superfície tira a timeline do comando na hora — o controle volta para a sua mão, e a barra avisa.' },
+    ],
+  },
+  {
     id: 'output',
     title: 'Saída e telas',
     blocks: [
@@ -191,6 +212,7 @@ export function draw(ctx, t) {
           ['Ctrl+D', 'Duplicar a superfície selecionada'],
           ['Delete', 'Apagar a superfície selecionada'],
           ['H', 'Esconder ou mostrar a interface'],
+          ['X', 'Raio-x: apaga o conteúdo e acende a estrutura'],
           ['Esc', 'Cancelar o polígono, largar a seleção de canto'],
           ['Roda do mouse', 'Zoom no ponto do cursor'],
           ['Botão do meio, Ctrl, ou Alt + arrastar', 'Reenquadrar a vista'],
