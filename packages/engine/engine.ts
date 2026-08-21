@@ -1,7 +1,7 @@
 import { Renderer, IDENTITY_VIEW, type ViewTransform } from './render/renderer.ts';
 import { SourcePool } from './sources/index.ts';
 import type { CanvasModule } from './sources/types.ts';
-import { Store, visibleSurfaces, patternFor, type StoreState } from './model/store.ts';
+import { Store, visibleSurfaces, patternFor, presentationOf, isFading, type StoreState } from './model/store.ts';
 import { emptyProject, type Project, type Source, type TestPattern, type Vec2 } from './model/project.ts';
 
 export interface EngineOptions {
@@ -117,7 +117,10 @@ export class Engine {
     const uploaded = this.pool.update(gl);
 
     // An idle installation must not hold the GPU at 60fps for nothing.
-    if (!this.#dirty && !uploaded && !this.pool.hasAnimated) return;
+    // Uma transição muda a opacidade continuamente sem escrever no store, então
+    // ela precisa acordar o laço explicitamente. "Tocando" não bastaria nem
+    // seria certo: cena parada com conteúdo parado não tem por que segurar a GPU.
+    if (!this.#dirty && !uploaded && !this.pool.hasAnimated && !isFading(state)) return;
     this.#dirty = false;
     this.renderFrame(state);
   }
@@ -137,6 +140,7 @@ export class Engine {
       this.pool,
       v,
       (surface) => patternFor(state, surface.id),
+      (surface) => presentationOf(state, surface),
     );
   }
 
