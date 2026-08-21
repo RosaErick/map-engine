@@ -516,6 +516,68 @@ milissegundos.
 
 ---
 
+### ADR-0022 — A timeline é projeção de leitura, não mutação
+
+**Status:** aceita
+
+**Contexto.** "Timeline e cues" estava **explicitamente fora de escopo** no brief, e
+`DIFERENCIAIS.md` registrava a decisão de não perseguir. A decisão foi revertida de
+propósito, o que torna o desenho mais importante, não menos: é justamente a feature que
+transformaria a ferramenta em outro produto se fosse feita errado.
+
+O caminho óbvio seria o playhead escrever `opacity` e `sourceId` nas superfícies. Isso
+passaria por `Store.mutate`, que clona o projeto inteiro e empilha histórico — sessenta
+vezes por segundo. O desfazer viraria lixo, o autosave escreveria no disco a noite toda, e
+uma instalação de quatro horas morreria de escrita.
+
+**Decisão.** A timeline sobrepõe na **leitura**, pelo mesmo lugar por onde solo e padrão de
+teste já passam: `presentationOf(state, surface)` devolve o que a superfície está mostrando
+agora, e o renderer a recebe **como função**, do mesmo jeito que já recebe `patternFor`.
+
+O relógio guarda o **instante de início** (`playback.since`), nunca o tempo decorrido — que
+é calculado na hora de desenhar. Uma escrita por cena, não sessenta por segundo. E
+`Date.now()` em vez de `performance.now()`, porque o editor e a janela de saída são duas
+janelas com origens de tempo diferentes lendo o mesmo store.
+
+**Função, e não superfícies clonadas.** A geometria derivada vive num `WeakMap<Surface, …>`
+com a identidade do objeto como chave — foi ela que fez o trabalho de JS por frame cair de
+0,3 ms para 0,1 ms. Clonar superfícies por frame para injetar a opacidade da cena furaria
+esse cache em todos os frames. O AC-92 tranca isso.
+
+**Uma cena guarda apresentação, nunca geometria.** O alinhamento custou horas em cima de
+uma escada e é físico; rodar o show não pode mexer nele. O efeito colateral é o que torna a
+regra valiosa: **dá para corrigir alinhamento com o show rodando**.
+
+**Consequências.** Tocar não cria entrada de desfazer nem toca no arquivo — medido byte a
+byte (AC-85). O laço de render acorda enquanto há **transição**, não enquanto há timeline:
+cena parada com conteúdo parado continua deixando a GPU dormir. Em troca, não há crossfade
+verdadeiro: a transição escurece até o preto, porque um crossfade real exigiria duas
+texturas por superfície. Quem precisar de um empilha duas superfícies e cruza as opacidades
+— o primitivo compõe, e o custo fica com quem precisa.
+
+---
+
+### ADR-0023 — O raio-x não pode existir na saída, por construção
+
+**Status:** aceita
+
+**Contexto.** Um modo de diagnóstico que chegue ao projetor no meio de uma inauguração é um
+desastre. Dá para evitar com um `if` no renderer — e um `if` pode ser esquecido, invertido,
+ou ligado por um estado salvo errado.
+
+**Decisão.** O raio-x é desenhado no **overlay, que é DOM**, e a janela de saída não tem
+overlay. O escurecimento do conteúdo também é DOM — um véu sobre o canvas, não um `uniform`.
+A engine não recebe nada, o renderer não muda uma linha.
+
+**Consequências.** Não existe caminho pelo qual esses pixels cheguem à parede: é
+impossibilidade estrutural, não uma trava que alguém possa esquecer de ligar. O AC-81 mede
+isso lendo o buffer GL com o modo ligado e desligado e comparando. De graça, `H` esconde a
+interface e o raio-x some junto, sem nenhum código para isso — porque ele **é** a interface.
+A silhueta reaproveita `hitPath`, e a sobreposição de duas superfícies aparece porque a
+translucidez soma sozinha: interseção de polígonos sem calcular interseção de polígonos.
+
+---
+
 ### ADR-0021 — Estrutura de pastas por camada na engine, por região no editor
 
 **Status:** aceita
