@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { guideFor } from './i18n/docs/index.ts';
-  import { i18n, t } from './i18n/index.svelte.ts';
+  import { guideFor } from '../i18n/docs/index.ts';
+  import { i18n, t } from '../i18n/index.svelte.ts';
 
   const guide = $derived(guideFor(i18n.locale));
 

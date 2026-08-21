@@ -1,6 +1,6 @@
-import { applyH, type Mat3 } from './homography.ts';
+import { applyH, type Mat3 } from '../math/homography.ts';
 import type { Project, Surface } from './project.ts';
-import type { TextureSource } from './sources/types.ts';
+import type { TextureSource } from '../sources/types.ts';
 
 /**
  * Pure maths about a surface: how its content is sampled, how its frame is

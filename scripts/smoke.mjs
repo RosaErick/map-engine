@@ -454,6 +454,46 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// O seletor de cor abria dentro da lista, empurrava o painel e obrigava a rolar
+// até achá-lo — escondendo justamente a parede, que é o que se olha ao escolher
+// uma cor. E não dizia como fechar.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.sources]) store.removeSource(s.id);
+  store.addSource({ id: 'pick', name: '', kind: 'color', rgb: [208, 43, 43] });
+});
+await page.waitForTimeout(120);
+
+const page_height = () => page.evaluate(() => document.documentElement.scrollHeight);
+const dialogs = () => page.locator('[role=dialog]').count();
+const openPicker = async () => {
+  await page.getByRole('button', { name: 'escolher a cor' }).first().click();
+  await page.waitForSelector('[role=dialog]', { timeout: 3000 });
+};
+
+const heightClosed = await page_height();
+await openPicker();
+const heightOpen = await page_height();
+const boxPicker = await page.locator('[role=dialog]').boundingBox();
+const viewport = page.viewportSize();
+const insideScreen = !!boxPicker && boxPicker.x >= 0 && boxPicker.y >= 0
+  && boxPicker.x + boxPicker.width <= viewport.width + 1
+  && boxPicker.y + boxPicker.height <= viewport.height + 1;
+check('AC-72: o seletor de cor flutua sem empurrar a página, e cabe na tela',
+  heightOpen === heightClosed && insideScreen,
+  `altura ${heightClosed}->${heightOpen} caixa=${JSON.stringify(boxPicker)}`);
+
+await page.keyboard.press('Escape');
+const byEsc = await dialogs() === 0;
+await openPicker();
+await page.mouse.click(Math.round(viewport.width / 2), Math.round(viewport.height / 2));
+const byOutside = await dialogs() === 0;
+await openPicker();
+await page.getByRole('button', { name: 'pronto' }).click();
+const byButton = await dialogs() === 0;
+check('AC-72: fecha por Esc, por clique fora e pelo botão',
+  byEsc && byOutside && byButton, `esc=${byEsc} fora=${byOutside} botão=${byButton}`);
+
 // Seleção múltipla, arrasto de grupo, e a vista que não se perde. Tudo com
 // ponteiro de verdade: é a camada onde os três defeitos moravam.
 await page.evaluate(() => {

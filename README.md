@@ -97,6 +97,7 @@ reenquadrar.
 | `npm run dev` | Servidor de desenvolvimento com HMR |
 | `npm run build` | Gera `dist/index.html` autocontido |
 | `npm test` | 100 testes de unidade (`node:test`, zero dependências) |
+| `npm run layers` | Reprova um `import` que aponta na direção errada entre as camadas |
 | `npm run smoke` | Abre o build por `file://` em chromium headless e **lê pixels** da saída |
 | `npm run i18n` | Reprova string fixa no editor e tradução que perdeu placeholder |
 | `npm run verify` | Os quatro acima, em ordem |

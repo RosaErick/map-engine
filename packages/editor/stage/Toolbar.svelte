@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Icon from './Icon.svelte';
-  import { store, tools, fitView, addSurface } from './state.svelte.ts';
-  import { t } from './i18n/index.svelte.ts';
-  import { PATTERNS } from './patterns.ts';
-  import type { TestPattern } from '../engine/index.ts';
+  import Icon from '../ui/Icon.svelte';
+  import { store, tools, fitView, addSurface } from '../state.svelte.ts';
+  import { t } from '../i18n/index.svelte.ts';
+  import { PATTERNS } from '../patterns.ts';
+  import type { TestPattern } from '../../engine/index.ts';
 
   /** Quantas superfícies ignoram o padrão global por terem o seu. */
   const overrides = $derived(Object.keys($store.view.surfacePatterns).length);

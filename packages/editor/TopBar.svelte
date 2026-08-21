@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Icon from './Icon.svelte';
+  import Icon from './ui/Icon.svelte';
   import { REPO_URL } from './links.ts';
   import { store, session } from './state.svelte.ts';
-  import { theme, applyTheme, type Theme } from './theme.svelte.ts';
+  import { theme, applyTheme, type Theme } from './platform/theme.svelte.ts';
   import { t, i18n, setLocale, LOCALES, type Locale, type MessageKey } from './i18n/index.svelte.ts';
 
   const themes: { id: Theme; icon: 'laptop' | 'sun' | 'moon'; key: MessageKey }[] = [

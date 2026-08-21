@@ -1,10 +1,10 @@
 <script lang="ts">
-  import Icon from './Icon.svelte';
-  import { store, flash, getEngine } from './state.svelte.ts';
-  import { anchorId, colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../engine/index.ts';
-  import ColorPicker from './ColorPicker.svelte';
-  import { importFile } from './project-folder.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import Icon from '../ui/Icon.svelte';
+  import { store, flash, getEngine } from '../state.svelte.ts';
+  import { anchorId, colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../../engine/index.ts';
+  import ColorPicker from '../ui/ColorPicker.svelte';
+  import { importFile } from '../platform/project-folder.ts';
+  import { t } from '../i18n/index.svelte.ts';
 
   const s = $derived(
     $store.project.surfaces.find((x) => x.id === anchorId($store.view)) ?? null,
@@ -19,9 +19,23 @@
     void listCameras().then((list) => { cameras = list; });
   });
 
-  /** Qual fonte está com o seletor de cor aberto. Uma por vez: são linhas de
-   *  uma lista, e duas abertas é uma lista que ninguém lê. */
-  let editingColor = $state<string | null>(null);
+  /**
+   * A fonte com o seletor de cor aberto, e a amostra que o abriu.
+   *
+   * A amostra vai junto porque o seletor flutua sobre a página e tira a posição
+   * dela. Uma por vez: são linhas de uma lista, e duas abertas é uma lista que
+   * ninguém lê.
+   */
+  let editingColor = $state<{ id: string; anchor: HTMLElement } | null>(null);
+
+  /** A fonte que o seletor está editando, revalidada contra o projeto: apagar a
+   *  fonte com o seletor aberto não pode deixar um painel órfão na tela. */
+  const editing = $derived.by(() => {
+    const open = editingColor;
+    if (!open) return null;
+    const found = $store.project.sources.find((s) => s.id === open.id);
+    return found?.kind === 'color' ? { source: found, anchor: open.anchor } : null;
+  });
 
   function add(source: Source): void {
     store.addSource(source);
@@ -233,7 +247,11 @@
               style:background-color={hexOf(source.rgb as Rgb)}
               aria-label={t('color.edit')}
               title={t('color.edit')}
-              onclick={() => (editingColor = editingColor === source.id ? null : source.id)}
+              onclick={(e) => {
+                editingColor = editingColor?.id === source.id
+                  ? null
+                  : { id: source.id, anchor: e.currentTarget };
+              }}
             ></button>
           {/if}
 
@@ -261,18 +279,19 @@
             <Icon name="trash" class="size-3.5" />
           </button>
 
-          {#if source.kind === 'color' && editingColor === source.id}
-            <div class="mt-2 w-full basis-full rounded-md border border-base-300 bg-base-200 p-2">
-              <ColorPicker
-                rgb={source.rgb as Rgb}
-                onpick={(next) => store.setSourceColor(source.id, next)}
-                onend={() => store.endGesture()}
-              />
-            </div>
-          {/if}
         </li>
       {/each}
     </ul>
+  {/if}
+
+  {#if editing}
+    <ColorPicker
+      rgb={editing.source.rgb}
+      anchor={editing.anchor}
+      onpick={(next) => store.setSourceColor(editing.source.id, next)}
+      onend={() => store.endGesture()}
+      onclose={() => (editingColor = null)}
+    />
   {/if}
 
   {#if s?.sourceId}

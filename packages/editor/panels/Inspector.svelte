@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { store, tools } from './state.svelte.ts';
-  import { PATTERNS } from './patterns.ts';
-  import { t, type MessageKey } from './i18n/index.svelte.ts';
-  import { anchorId, type Blend, type Fit, type TestPattern } from '../engine/index.ts';
+  import { store, tools } from '../state.svelte.ts';
+  import { PATTERNS } from '../patterns.ts';
+  import { t, type MessageKey } from '../i18n/index.svelte.ts';
+  import { anchorId, type Blend, type Fit, type TestPattern } from '../../engine/index.ts';
 
   /**
    * The fit and blend options, in the order the selects show them.

@@ -187,6 +187,7 @@ export const pt: Messages = {
   'color.magenta': 'magenta',
   'color.pink': 'rosa',
   'color.edit': 'escolher a cor',
+  'color.done': 'pronto',
   'color.square': 'saturação e brilho',
   'color.hue': 'matiz',
   'color.hex': 'código hex',

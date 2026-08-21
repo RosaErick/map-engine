@@ -1,4 +1,4 @@
-import type { Vec2 } from '../engine/index.ts';
+import type { Vec2 } from '../../engine/index.ts';
 
 export interface DragParams {
   onStart?: (p: Vec2, e: PointerEvent) => void;

@@ -1,4 +1,4 @@
-import type { CanvasModule, Store } from '../engine/index.ts';
+import type { CanvasModule, Store } from '../../engine/index.ts';
 import { createSaver, safeName, type Saver } from './saver.ts';
 import { forgetFolder, recallFolder, rememberFolder } from './handle-store.ts';
 

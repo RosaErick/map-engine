@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Overlay from './Overlay.svelte';
-  import { panZoom } from './actions.ts';
-  import { store, viewport, tools, clampView, fitView, flash, getEngine, outputToFrame, setEngine, surfaceAt, toOutput, toScreen } from './state.svelte.ts';
-  import { createEngine, newId, newSurface, type Vec2, type Source } from '../engine/index.ts';
-  import { importFile, resolveUrl, loadModule } from './project-folder.ts';
-  import { t } from './i18n/index.svelte.ts';
+  import { panZoom } from '../ui/actions.ts';
+  import { store, viewport, tools, clampView, fitView, flash, getEngine, outputToFrame, setEngine, surfaceAt, toOutput, toScreen } from '../state.svelte.ts';
+  import { createEngine, newId, newSurface, type Vec2, type Source } from '../../engine/index.ts';
+  import { importFile, resolveUrl, loadModule } from '../platform/project-folder.ts';
+  import { t } from '../i18n/index.svelte.ts';
 
   let host: HTMLDivElement;
   let canvas: HTMLCanvasElement;

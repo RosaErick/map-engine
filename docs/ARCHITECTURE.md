@@ -30,7 +30,7 @@ store.subscribe(fn) // chama fn imediatamente, devolve a função de cancelament
 ```
 
 Isso **é** o contrato de store do Svelte. O editor escreve `$store` sem uma linha de
-adaptador, e [`store.ts`](../packages/engine/store.ts) segue sem importar framework nenhum.
+adaptador, e [`store.ts`](../packages/engine/model/store.ts) segue sem importar framework nenhum.
 
 ### Grafo de módulos
 
@@ -41,18 +41,41 @@ graph TD
   end
 
   subgraph editor["packages/editor — Svelte 5"]
-    MAIN["main.ts"]
-    APP["App.svelte"]
-    STAGE["Stage.svelte"]
-    OVER["Overlay.svelte"]
-    TOOL["Toolbar.svelte"]
-    LIST["SurfaceList.svelte"]
-    INSP["Inspector.svelte"]
-    SRCP["SourcePanel.svelte"]
-    ACT["actions.ts"]
-    UIST["state.svelte.ts"]
-    PF["project-folder.ts"]
-    HS["handle-store.ts"]
+    subgraph edroot["raiz — a moldura e o estado"]
+      MAIN["main.ts"]
+      APP["App.svelte"]
+      TOP["TopBar.svelte"]
+      UIST["state.svelte.ts"]
+      PAT["patterns.ts"]
+      LNK["links.ts"]
+    end
+    subgraph edstage["stage/"]
+      STAGE["Stage.svelte"]
+      OVER["Overlay.svelte"]
+      TOOL["Toolbar.svelte"]
+    end
+    subgraph edpanels["panels/"]
+      PROJP["ProjectPanel.svelte"]
+      LIST["SurfaceList.svelte"]
+      INSP["Inspector.svelte"]
+      SRCP["SourcePanel.svelte"]
+    end
+    subgraph edpages["pages/"]
+      ABOUT["AboutPage.svelte"]
+      DOCS["DocsPage.svelte"]
+    end
+    subgraph edplat["platform/ — o que fala com o navegador"]
+      PF["project-folder.ts"]
+      HS["handle-store.ts"]
+      SAV["saver.ts"]
+      THEME["theme.svelte.ts"]
+    end
+    subgraph edui["ui/ — primitivas sem domínio"]
+      ICON["Icon.svelte"]
+      ACT["actions.ts"]
+      CPICK["ColorPicker.svelte"]
+    end
+    I18N["i18n/"]
   end
 
   subgraph out["packages/output"]
@@ -60,43 +83,64 @@ graph TD
   end
 
   subgraph eng["packages/engine — sem framework, sem DOM externo"]
-    IDX["index.ts (API pública)"]
-    ENG["engine.ts"]
-    REN["renderer.ts"]
-    STORE["store.ts"]
-    PROJ["project.ts"]
-    HOM["homography.ts"]
-    GEO["geometry.ts"]
-    WARP["warp.ts"]
-    SIDX["sources/index.ts"]
-    STY["sources/types.ts"]
-    SCOL["sources/color.ts"]
-    SIMG["sources/image.ts"]
-    SVID["sources/video.ts"]
-    SGIF["sources/gif.ts"]
-    SCAN["sources/canvas.ts"]
+    subgraph engroot["raiz — orquestrador e porta de entrada"]
+      IDX["index.ts (API pública)"]
+      ENG["engine.ts"]
+    end
+    subgraph engrender["render/ — o que fala WebGL"]
+      REN["renderer.ts"]
+      SHD["shaders.ts"]
+    end
+    subgraph engmodel["model/ — o domínio"]
+      PROJ["project.ts"]
+      STORE["store.ts"]
+      WARP["warp.ts"]
+      SM["surface-math.ts"]
+    end
+    subgraph engmath["math/ — funções puras"]
+      HOM["homography.ts"]
+      GEO["geometry.ts"]
+      COL["color.ts"]
+    end
+    subgraph engsrc["sources/"]
+      SIDX["index.ts"]
+      STY["types.ts"]
+      SCOL["color.ts"]
+      SIMG["image.ts"]
+      SVID["video.ts"]
+      SGIF["gif.ts"]
+      SCAN["canvas.ts"]
+    end
   end
 
   IH --> MAIN --> APP
-  APP --> STAGE & TOOL & LIST & INSP & SRCP & UIST & PF
-  PF --> HS
-  STAGE --> OVER & ACT & PF & IDX
-  OVER --> ACT & UIST
-  TOOL --> OUT & PF & UIST
-  LIST --> UIST
-  INSP --> UIST
-  SRCP --> UIST & PF
+  APP --> TOP & STAGE & TOOL & PROJP & LIST & INSP & SRCP & ABOUT & DOCS & UIST & PF & THEME
+  TOP --> UIST & THEME & ICON & LNK
+  STAGE --> OVER & ACT & PF & UIST & IDX
+  OVER --> ACT & UIST & IDX
+  TOOL --> UIST & PAT & ICON & IDX
+  PROJP --> UIST & PF & OUT
+  LIST --> UIST & ICON & IDX
+  INSP --> UIST & PAT & IDX
+  SRCP --> UIST & PF & CPICK & ICON & IDX
+  ABOUT --> ICON & LNK
+  DOCS --> I18N
+  CPICK --> ACT & IDX
+  ACT --> IDX
+  PAT --> IDX
   UIST --> IDX
+  PF --> HS & SAV & IDX
   OUT --> IDX
 
-  IDX --> ENG & STORE & PROJ & HOM & GEO & REN & SIDX
-  ENG --> REN & SIDX & STORE & PROJ
-  REN --> HOM & GEO & PROJ & SIDX & WARP
+  IDX --> ENG & STORE & PROJ & WARP & SM & HOM & GEO & COL & REN & SIDX & STY & SVID
+  ENG --> REN & STORE & PROJ & SIDX & STY
+  REN --> SHD & PROJ & WARP & SM & HOM & GEO & SIDX & STY
   STORE --> PROJ & WARP
-  WARP --> GEO
-  PROJ --> HOM
+  SM --> PROJ & HOM & STY
+  PROJ --> WARP & HOM
+  WARP --> GEO & HOM
   GEO --> HOM
-  SIDX --> STY & SCOL & SIMG & SVID & SGIF & SCAN
+  SIDX --> PROJ & STY & SCOL & SIMG & SVID & SGIF & SCAN
   SCOL --> STY
   SIMG --> STY
   SVID --> STY
@@ -106,13 +150,73 @@ graph TD
 
 Nenhuma seta sai da caixa `engine` em direção a `editor` ou `output`. Essa é a fronteira.
 
+Quase todo componente do editor importa `t` de `i18n/`; essas arestas foram omitidas para
+o grafo continuar legível.
+
+### Pastas, e a direção em que elas apontam
+
+O raciocínio inteiro — inclusive as estruturas que foram consideradas e recusadas — está em
+[`specs/0004-file-layout.md`](specs/0004-file-layout.md). O que importa aqui:
+
+**Na engine, pasta é camada.** Os nomes existem para tornar visível uma hierarquia que já
+era obedecida sem estar escrita em lugar nenhum:
+
+```
+math/     não importa nada da engine
+  ↑
+model/    importa math/
+  ↑
+render/   importa model/ e math/
+  ↑
+engine.ts importa render/, model/ e sources/
+  ↑
+index.ts  a superfície pública
+```
+
+`sources/` fica ao lado, não acima: cada tipo de conteúdo virando textura, lendo os
+descritores de `model/project.ts` e nada de `render/`. Dois arquivos provam que a
+fronteira é real, e não decorativa. `warp.ts` mora em `model/` apesar de ser quase todo
+matemática, porque pelo ADR-0019 a malha é uma camada da superfície — um objeto de valor
+do domínio, e não uma função solta. `surface-math.ts` mora em `model/` porque lê `Surface`
+e `TextureSource`: é geometria **derivada do modelo**, que é coisa diferente de matemática
+pura. Os testes continuam ao lado do arquivo que testam.
+
+**No editor, pasta é região de tela — mais dois eixos que não são visuais.** O editor não
+tem domínio próprio: o agregado mora na engine, e ele lê `$store` e chama métodos. Espelhar
+`domain / application / adapters` aqui daria uma pasta vazia e duas com nome bonito para
+"componentes". As fronteiras que existem de verdade são estas:
+
+| Pasta | O que é, e por que é uma fronteira |
+|---|---|
+| `stage/` | A área de trabalho e as ferramentas dela — é onde o ponteiro encosta na superfície |
+| `panels/` | Os painéis da lateral, um por preocupação fechada: projeto, lista, inspetor, conteúdo |
+| `pages/` | As páginas de texto que **cobrem** o editor; enquanto uma está aberta, o laço de render fica parado |
+| `platform/` | O que fala com API do navegador: pasta, IndexedDB, `localStorage`, tema. É exatamente o que a engine se recusa a conhecer |
+| `ui/` | Primitivas sem nenhum conhecimento de domínio — se um arquivo aqui mencionar "superfície", está na pasta errada |
+| `i18n/` | Catálogos e o guia |
+
+Na raiz ficam só as coisas que **tudo** toca: `main.ts` (a única entrada), `App.svelte` (a
+casca que decide o que aparece), `TopBar.svelte` (a barra que aparece sempre — moldura junto
+com `App`, e uma pasta de um arquivo só seria pior que nenhuma), `state.svelte.ts`, `app.css`
+e duas tabelas de constantes, `patterns.ts` e `links.ts`.
+
+**A regra é executável, senão apodrece.** `npm run layers`
+([`scripts/check-layers.mjs`](../scripts/check-layers.mjs)) lê cada `import` relativo e
+reprova o que aponta para cima: nada em `engine/math/` importa de `model/`, `render/`,
+`sources/` ou da raiz; nada em `engine/model/` importa de `render/`; nada em `editor/ui/`
+importa o estado, os painéis, o palco, as páginas ou a plataforma; e a engine não importa
+nada de `editor/` ou `output/`. Cada mensagem de erro diz **por que** a direção existe, não
+só que ela foi violada. Roda dentro do `npm run verify`, e o critério é **AC-73**
+([`SPEC.md`](SPEC.md)). Uma estrutura sem guarda volta ao estado anterior em poucas semanas,
+um `import` de cada vez.
+
 ---
 
 ## 2. Mapa de arquivos
 
 ### Engine
 
-#### [`packages/engine/project.ts`](../packages/engine/project.ts)
+#### [`packages/engine/model/project.ts`](../packages/engine/model/project.ts)
 
 O contrato de dados. Define os tipos `Vec2`, `Source` (união discriminada com os sete
 kinds: `image`, `video`, `gif`, `color`, `capture`, `camera`, `canvas`), `Shape`
@@ -137,7 +241,7 @@ projeto sem vínculo continua byte a byte idêntico. `expandSelection(project, i
 superfície **pedida** por último, para que clicar numa ligada mostre aquela no painel e não
 uma irmã que o vínculo trouxe junto.
 
-#### [`packages/engine/homography.ts`](../packages/engine/homography.ts)
+#### [`packages/engine/math/homography.ts`](../packages/engine/math/homography.ts)
 
 A matemática projetiva, sem nada mais. Define `Mat3` (row-major, 9 números), `Vec2` e
 `Quad` (TL, TR, BR, BL — a mesma ordem de `Surface.frame`). Exporta
@@ -150,7 +254,7 @@ vértice) e `quadToUnit(quad)` (pixels da saída → espaço do frame, usado em 
 polígono livre). O `W` não é ruído a ser dividido e esquecido: é ele que evita a dobra
 diagonal.
 
-#### [`packages/engine/geometry.ts`](../packages/engine/geometry.ts)
+#### [`packages/engine/math/geometry.ts`](../packages/engine/math/geometry.ts)
 
 Geometria plana pura. Exporta `bounds(points)` (caixa envolvente alinhada aos eixos),
 `signedArea(poly)` (área com sinal, usada para descobrir o *winding*),
@@ -160,10 +264,10 @@ vez de travar) e a constante `UNIT_QUAD` — o contorno do quadrado unitário no
 frame, usado como geometria de `quad` e `ellipse`. As funções privadas `cross` e
 `pointInTriangle` sustentam o teste de orelha.
 
-#### [`packages/engine/renderer.ts`](../packages/engine/renderer.ts)
+#### [`packages/engine/render/renderer.ts`](../packages/engine/render/renderer.ts)
 
 O coração gráfico: uma classe `Renderer` que desenha um `Project` num canvas WebGL2 e mais
-nada. Contém os dois shaders como strings (`VERT` e `FRAG`, GLSL ES 3.00), cria o contexto
+nada. Os dois shaders moram ao lado, em `shaders.ts`; aqui se cria o contexto
 com `alpha: false`, `premultipliedAlpha: true`, `antialias: true`,
 `preserveDrawingBuffer: false` e `clearColor(0,0,0,1)` — preto absoluto, nunca clareado.
 `render(project, surfaces, pool, view, pattern)` limpa, sobe os uniformes globais
@@ -173,17 +277,33 @@ modo de desenho via `#modeFor` (0 textura, 1 mídia faltando, 2 nada), monta os 
 `#geometry` (unit quad para quad/elipse, triangulação própria para polígono), sobe
 `uH`/`uUVXform`/`uOpacity`/`uMask`/`uFeather`, aplica `setBlend` e desenha com
 `drawElements`. `#numberTexture(n)` rasteriza o número da superfície num canvas 2D e
-cacheia a textura, e `surfaceNumber(project, surface)` decide **qual** número é esse:
-posição na ordem z decrescente, a mesma da lista do editor, para o número projetado bater
-com o item selecionado. Também exporta as funções puras `toColumnMajor(h)`,
-`uvTransform(surface, source)` (dobra `crop` e `fit` num par escala/deslocamento),
-`uvMatrix(surface, source)` (compõe `crop`, `fit` e **rotação** num `mat3`
-column-major — a rotação é aplicada em torno do centro do frame, então o conteúdo
-gira no lugar em vez de sair da forma), `isQuarterTurned(rotation)`,
-`frameAspectOf(surface)` (aspecto aproximado de um frame em perspectiva: média das arestas
-opostas), `frameToPixel(h, u, v)` e as constantes `IDENTITY_VIEW` / o tipo `ViewTransform`.
+cacheia a textura, e o privado `#numberFor` decide **qual** número é esse, por
+`surfaceOrder`: posição na ordem z decrescente, a mesma da lista do editor, para o número
+projetado bater com o item selecionado. A matemática que ele usa é importada de
+`model/surface-math.ts`, e os shaders de `./shaders.ts` — o arquivo em si só exporta a
+classe `Renderer`, `IDENTITY_VIEW` e o tipo `ViewTransform`.
 
-#### [`packages/engine/color.ts`](../packages/engine/color.ts)
+#### [`packages/engine/render/shaders.ts`](../packages/engine/render/shaders.ts)
+
+Os dois programas GLSL ES 3.00 como strings (`VERT` e `FRAG`) e `compile(gl, type, src)`,
+que lança com o log do driver quando a compilação falha. Ficam fora do renderer porque
+shader é texto de outra linguagem: misturado ao TypeScript, dobrava o arquivo e escondia o
+fluxo de desenho.
+
+#### [`packages/engine/model/surface-math.ts`](../packages/engine/model/surface-math.ts)
+
+As funções puras que dependem do modelo, e por isso não cabem em `math/`:
+`uvTransform(surface, source)` (dobra `crop` e `fit` num par escala/deslocamento),
+`uvMatrix(surface, source)` (compõe `crop`, `fit` e **rotação** num `mat3` column-major — a
+rotação é aplicada em torno do centro do frame, então o conteúdo gira no lugar em vez de
+sair da forma), `isQuarterTurned(rotation)`, `frameAspectOf(surface)` (aspecto aproximado de
+um frame em perspectiva: média das arestas opostas), `surfaceOrder(project)`,
+`toColumnMajor(h)` e `frameToPixel(h, u, v)`. Elas leem `Surface`, `Project` e
+`TextureSource`, o que as prende ao domínio; e não tocam em WebGL, o que as deixa testáveis
+sem GPU e usáveis pelo editor — a `SurfaceList` chama `surfaceOrder`, a mesma função do
+renderer, justamente para os dois números nunca discordarem.
+
+#### [`packages/engine/math/color.ts`](../packages/engine/math/color.ts)
 
 Conversões de cor e o nome de um tom: `hexOf`, `parseHex`, `rgbToHsv`, `hsvToRgb` e
 `colorKey`. Está na engine porque é matemática pura.
@@ -194,7 +314,7 @@ para todo o resto da engine. Preto e branco são decididos antes do matiz, porqu
 quase puro ainda tem um matiz vindo do ruído do último bit, e chamá-lo de "verde" seria
 pior do que não nomear.
 
-#### [`packages/engine/warp.ts`](../packages/engine/warp.ts)
+#### [`packages/engine/model/warp.ts`](../packages/engine/model/warp.ts)
 
 A malha livre: a camada entre o frame e o recorte. Exporta `identityWarp`, `isIdentity`,
 `evaluateWarp` (a função que define o que a superfície **é** — o render tesselava, a
@@ -207,7 +327,7 @@ a grade identidade deixar de ser identidade — a spline curva. Extrapolar o viz
 (`2·borda − interno`) mantém pontos igualmente espaçados colineares, e spline por pontos
 colineares é a reta. Sem isso, "aplanar" não seria confiável.
 
-#### [`packages/engine/store.ts`](../packages/engine/store.ts)
+#### [`packages/engine/model/store.ts`](../packages/engine/model/store.ts)
 
 Fonte única de verdade. A classe `Store` guarda `{ project, view }` em campos privados,
 expõe getters `state`/`project`/`view` e `subscribe(fn)` no contrato Svelte. Toda mutação
@@ -332,7 +452,7 @@ extensão que impede a engine de precisar saber o que é "conteúdo". Um módulo
 exceção vira `status = 'error'` dentro de um `try/catch` — um módulo do usuário não derruba
 o show. Sem `loadModule` configurado, a fonte já nasce em erro com mensagem explícita.
 
-#### [`packages/engine/math.test.ts`](../packages/engine/math.test.ts)
+#### [`packages/engine/math/math.test.ts`](../packages/engine/math/math.test.ts)
 
 Testes de `node:test` sobre a matemática, escritos antes de qualquer render conforme o
 brief. Verificam que os cantos do quadrado unitário caem exatamente nos cantos do quad, que
@@ -340,7 +460,7 @@ a ida e volta por `H` e `invert(H)` volta ao ponto de origem com erro abaixo de 
 grade 9x9, que `quadToUnit` é mesmo a inversa, que um quad degenerado devolve `null`, e
 cobrem `triangulate` (convexo e côncavo), `pointInPolygon`, `signedArea` e `bounds`.
 
-#### [`packages/engine/store.test.ts`](../packages/engine/store.test.ts)
+#### [`packages/engine/model/store.test.ts`](../packages/engine/model/store.test.ts)
 
 Testes do store: undo/redo restaura e refaz, uma gesta de 20 `setCorner` colapsa em **uma**
 entrada de histórico, superfície travada rejeita `setCorner`/`moveSurface`/`nudgeCorner`,
@@ -348,7 +468,7 @@ entrada de histórico, superfície travada rejeita `setCorner`/`moveSurface`/`nu
 respeita solo/visible/ordem z, remover uma fonte limpa os `sourceId` que apontavam para ela,
 e o round-trip por JSON derruba referência pendurada.
 
-#### [`packages/engine/renderer.test.ts`](../packages/engine/renderer.test.ts)
+#### [`packages/engine/render/renderer.test.ts`](../packages/engine/render/renderer.test.ts)
 
 Testes das funções puras do renderer, sem GPU: `frameAspectOf` num retângulo,
 `uvTransform` em `stretch`/`cover`/`contain` (incluindo a troca de eixo quando a fonte é
@@ -375,7 +495,7 @@ fino ao dar zoom; só canto contra canto, por decisão documentada no arquivo),
 `surfaceAt(p)` (topmost por z, testando `0..1` no espaço do frame via `quadToUnit` +
 `apply`), `selected()` e `flash(message)` (aviso temporário de 4s).
 
-#### [`packages/editor/actions.ts`](../packages/editor/actions.ts)
+#### [`packages/editor/ui/actions.ts`](../packages/editor/ui/actions.ts)
 
 Todo o comportamento imperativo de ponteiro, isolado em duas *actions* (`use:`), fora do
 ciclo de render da UI. `drag(node, params)` implementa a gesta completa — pointer capture,
@@ -397,7 +517,7 @@ esconde a UI, `Delete`/`Backspace` apaga, e as **setas movem 1px (10px com Shift
 canto selecionado se houver um, senão a superfície inteira. `onKeyUp` chama
 `store.endGesture()` ao soltar a seta, fechando a entrada de histórico.
 
-#### [`packages/editor/Stage.svelte`](../packages/editor/Stage.svelte)
+#### [`packages/editor/stage/Stage.svelte`](../packages/editor/stage/Stage.svelte)
 
 A área de trabalho: um `<div data-stage>` com o `<canvas>` da engine embaixo e o `Overlay`
 por cima. No `onMount` cria a engine com `createEngine(canvas, store.project, { store,
@@ -411,7 +531,7 @@ em espaço de frame pela homografia inversa. `onDrop` implementa o quarto passo 
 60 segundos — arrastar um arquivo em cima de uma superfície importa a mídia, cria a `Source`
 (`kindOf`/`describe`) e a atribui.
 
-#### [`packages/editor/ColorPicker.svelte`](../packages/editor/ColorPicker.svelte)
+#### [`packages/editor/ui/ColorPicker.svelte`](../packages/editor/ui/ColorPicker.svelte)
 
 Quadro de saturação e brilho, trilha de matiz, campo hex, três campos RGB e seis amostras.
 Não guarda estado de cor: a verdade é a prop e toda mudança sobe por `onpick`.
@@ -423,7 +543,7 @@ tipo de defeito que só aparece usando.
 As amostras são do domínio, não decoração: branco, cinza 50% e preto conferem foco e ponto
 de preto; as três primárias puras conferem canal do projetor.
 
-#### [`packages/editor/Overlay.svelte`](../packages/editor/Overlay.svelte)
+#### [`packages/editor/stage/Overlay.svelte`](../packages/editor/stage/Overlay.svelte)
 
 A camada de manipulação, um `<svg>` transparente com `pointer-events: none` no container —
 só as alças e o interior dos frames recebem clique, o resto atravessa até a `Stage`. Desenha
@@ -444,12 +564,12 @@ alça usa `use:drag` chamando `store.setCorner(id, i, snapPoint(toOutput(p), id)
 `onEnd: () => store.endGesture()`. Também renderiza o polígono em traçado
 (`ui.pendingPolygon`). Nenhum estado local: tudo lido de `$store` e `ui`.
 
-#### [`packages/editor/Toolbar.svelte`](../packages/editor/Toolbar.svelte)
+#### [`packages/editor/stage/Toolbar.svelte`](../packages/editor/stage/Toolbar.svelte)
 
 Só o que se toca **enquanto alinha**: nova superfície, ferramenta polígono,
 desfazer/refazer (ligados a `store.canUndo`/`canRedo`), ímã (snap), o seletor dos oito
 padrões de teste, enquadrar e esconder UI. Tudo o que é de começo e de fim de montagem
-mudou-se para [`ProjectPanel.svelte`](../packages/editor/ProjectPanel.svelte), que é o
+mudou-se para [`ProjectPanel.svelte`](../packages/editor/panels/ProjectPanel.svelte), que é o
 que torna esta barra legível.
 
 #### [`packages/editor/TopBar.svelte`](../packages/editor/TopBar.svelte)
@@ -462,13 +582,13 @@ no ar. É informação, não mais botões — a barra de trabalho já tem os bot
 tema é **um** ícone com menu suspenso, e não três botões: o controle não pode competir em
 peso visual com o que a pessoa veio fazer.
 
-#### [`packages/editor/theme.svelte.ts`](../packages/editor/theme.svelte.ts)
+#### [`packages/editor/platform/theme.svelte.ts`](../packages/editor/platform/theme.svelte.ts)
 
 `applyTheme(next)` grava `data-theme` no elemento raiz e persiste em `localStorage`;
 `'system'` **remove** o atributo, deixando o `--prefersdark` do daisyUI resolver pela
 preferência do sistema — seguir o sistema sem uma linha de JS de cálculo.
 
-#### [`packages/editor/ProjectPanel.svelte`](../packages/editor/ProjectPanel.svelte)
+#### [`packages/editor/panels/ProjectPanel.svelte`](../packages/editor/panels/ProjectPanel.svelte)
 
 Pasta do projeto, salvar, resolução de saída, escolha de tela e o botão que abre a janela
 de saída (passando o `SourcePool` do editor). Vive num `<details>` recolhível que começa
@@ -476,7 +596,7 @@ aberto e se fecha quando existe pasta: é trabalho de começo e de fim de montag
 pode empurrar as superfícies para fora da tela durante o alinhamento. Enumera as telas na
 montagem, nunca no clique, pelo motivo descrito em `output.ts`.
 
-#### [`packages/editor/AboutPage.svelte`](../packages/editor/AboutPage.svelte)
+#### [`packages/editor/pages/AboutPage.svelte`](../packages/editor/pages/AboutPage.svelte)
 
 O "sobre", como página inteira ao lado do guia — foi um `<dialog>` até virar longo demais
 para um modal. Tipografia de jornal: coluna estreita, serifa, fios finos, capitular,
@@ -494,7 +614,7 @@ singular —, a detecção por `navigator.languages`, a persistência da escolha
 `document.documentElement.lang`. `t` lê `i18n.locale` dentro de um rune, e é isso que faz
 a interface inteira trocar de idioma sem store, sem adaptador e sem recarregar a página.
 
-#### [`packages/editor/DocsPage.svelte`](../packages/editor/DocsPage.svelte) e [`i18n/docs/`](../packages/editor/i18n/docs)
+#### [`packages/editor/pages/DocsPage.svelte`](../packages/editor/pages/DocsPage.svelte) e [`i18n/docs/`](../packages/editor/i18n/docs)
 
 O guia de uso, no padrão de documentação técnica: índice fixo à esquerda que acompanha
 a leitura e uma coluna de no máximo 72 caracteres. O conteúdo não são chaves soltas de
@@ -509,13 +629,13 @@ A seção ativa do índice vem da geometria, não da primeira interseção do
 `IntersectionObserver` — escolher pela primeira marca a seção anterior, justamente
 quando se está começando a ler a nova.
 
-#### [`packages/editor/Icon.svelte`](../packages/editor/Icon.svelte) e [`links.ts`](../packages/editor/links.ts)
+#### [`packages/editor/ui/Icon.svelte`](../packages/editor/ui/Icon.svelte) e [`links.ts`](../packages/editor/links.ts)
 
 Ícones em SVG inline (sem fonte de ícone, sem CDN: um ícone que não carrega vira botão
 sem rótulo) e o endereço do repositório em um lugar só. Só entram ícones que valem mais
 que uma palavra — botão de ação continua com texto, que é mais explicativo.
 
-#### [`packages/editor/SurfaceList.svelte`](../packages/editor/SurfaceList.svelte)
+#### [`packages/editor/panels/SurfaceList.svelte`](../packages/editor/panels/SurfaceList.svelte)
 
 A lista de superfícies em ordem z decrescente (`$derived`). Cada linha abre com o **número
 que o padrão "número" projeta**, vindo de `surfaceOrder` do engine — a mesma função que o
@@ -527,7 +647,7 @@ renomeia ao duplo clique (`commitRename` → `store.patchSurface(id, { name })` 
 **S** solo (`toggleSolo`), **M** mudo (`toggleVisible`) e o cadeado (`toggleLock`). No pé,
 os botões nova / duplicar / apagar. Estado vazio com a instrução do primeiro passo.
 
-#### [`packages/editor/Inspector.svelte`](../packages/editor/Inspector.svelte)
+#### [`packages/editor/panels/Inspector.svelte`](../packages/editor/panels/Inspector.svelte)
 
 O painel da superfície selecionada (`$derived` sobre `$store`). Troca a forma entre `quad` e
 `ellipse` via `store.setSurfaceShape` (o botão `polígono` fica desabilitado — polígono só
@@ -543,7 +663,7 @@ quando está fazendo alguma coisa (a porcentagem, `recorte ativo`, `malha ativa`
 uma superfície apagada por uma opacidade que não se vê é um mistério caro no meio de um
 show. O cabeçalho vem do snippet `fold(label, badge)`, um só para as três.
 
-#### [`packages/editor/SourcePanel.svelte`](../packages/editor/SourcePanel.svelte)
+#### [`packages/editor/panels/SourcePanel.svelte`](../packages/editor/panels/SourcePanel.svelte)
 
 O painel de fontes. Botões criam cor, captura de tela e câmera (`addColor`, `addCapture`,
 `addCamera`, todos via o helper `add` que já atribui à superfície selecionada) e um
@@ -554,7 +674,7 @@ estado ao vivo direto do `SourcePool` via `getEngine()`, para que um arquivo fal
 apareça aqui e não só como retângulo magenta na parede. Fontes de cor ganham um
 `<input type="color">` que chama `store.patchSource`.
 
-#### [`packages/editor/handle-store.ts`](../packages/editor/handle-store.ts)
+#### [`packages/editor/platform/handle-store.ts`](../packages/editor/platform/handle-store.ts)
 
 Um banco, um store, uma chave: onde o handle da pasta espera pela próxima sessão.
 `rememberFolder`, `recallFolder`, `forgetFolder`, IndexedDB cru e sem dependência.
@@ -565,7 +685,7 @@ silêncio — modo privado pode recusar o banco inteiro, e isso não é erro do 
 que valha uma mensagem: é uma sessão sem memória de pasta. O que este módulo **não** guarda é
 a permissão, que é do navegador.
 
-#### [`packages/editor/project-folder.ts`](../packages/editor/project-folder.ts)
+#### [`packages/editor/platform/project-folder.ts`](../packages/editor/platform/project-folder.ts)
 
 A persistência: um projeto é uma **pasta**, não um arquivo. `openFolder()` usa
 `showDirectoryPicker({ mode: 'readwrite' })`, guarda o handle em módulo **e em IndexedDB**, e
@@ -591,9 +711,19 @@ Sem File System Access, degrada em voz alta: mídia em memória (`memoryFiles`),
 
 #### [`packages/editor/app.css`](../packages/editor/app.css)
 
-As variáveis de tema (dark-only por decisão: tema claro numa sala escura é risco, não
-recurso) e o reset mínimo dos controles. `--accent`, `--danger`, `--panel`, `--line` etc.
-são as únicas cores usadas pelos componentes.
+Tailwind v4 mais daisyUI, e os dois temas do aplicativo. **Dois, não um e não três:** o
+claro é o padrão do daisyUI, e o escuro é uma paleta Carbon definida aqui — um terceiro
+seria decoração num app que passa a vida em modo escuro, dentro de uma sala escura. A
+escolha entre eles (claro, escuro, sistema) mora em
+[`platform/theme.svelte.ts`](../packages/editor/platform/theme.svelte.ts).
+
+A paleta escura empilha **clareando**: a superfície é o fundo, e controle e borda sobem a
+partir dela. O escuro padrão do daisyUI faz o contrário, e aí todo botão afunda no painel.
+
+`include` é uma lista fechada dos componentes que a interface realmente usa — medido:
+daisyUI inteiro eram 83 dos 105 KB de CSS do build, para 43 classes usadas de 122
+componentes. Com `exclude`, cada componente novo da biblioteca entraria sozinho no
+bundle.
 
 ### Saída
 
@@ -687,8 +817,10 @@ Doze linhas: `lang="pt-BR"`, um `<div id="app">` e o módulo
 
 #### [`package.json`](../package.json)
 
-Scripts `dev`/`build`/`preview` (Vite), `test` (`node --test 'packages/engine/*.test.ts'` —
-os testes rodam direto no Node, sem runner) e `check` (`tsc --noEmit && svelte-check`).
+Scripts `dev`/`build`/`preview` (Vite), `test` (`node --test 'packages/**/*.test.ts'` —
+os testes rodam direto no Node, sem runner), `check` (`tsc --noEmit && svelte-check`) e
+`layers` (a checagem de direção de import descrita na seção 1). O `verify` encadeia
+testes, camadas, i18n, build e smoke.
 Todas as dependências são de desenvolvimento: o bundle final não carrega biblioteca alguma
 de runtime além do próprio Svelte compilado.
 
@@ -709,13 +841,13 @@ de runtime além do próprio Svelte compilado.
    estática sem fonte animada não gasta GPU. Caso contrário, limpa `#dirty` e chama
    `renderFrame(state)`.
 4. **Seleção e ordem.** `renderFrame` chama
-   `visibleSurfaces(state)` ([`store.ts`](../packages/engine/store.ts)), que aplica solo,
+   `visibleSurfaces(state)` ([`store.ts`](../packages/engine/model/store.ts)), que aplica solo,
    filtra `visible` e ordena por `z` crescente. Também dobra o `devicePixelRatio` no
    `ViewTransform` antes de passar adiante.
 5. **Setup global.** `Renderer.render` faz `viewport`, `clear` com preto absoluto, ativa o
    programa e sobe `uResolution`, `uView`, `uTime`, e `uTex = 0`.
 6. **Homografia por superfície.** Para cada superfície, `#drawSurface` chama
-   `solveUnitToQuad(surface.frame)` ([`homography.ts`](../packages/engine/homography.ts)),
+   `solveUnitToQuad(surface.frame)` ([`homography.ts`](../packages/engine/math/homography.ts)),
    obtendo a matriz `H` que leva `(0..1)²` aos pixels da saída. Quad degenerado → `return`,
    nada é desenhado.
 7. **Geometria e uniformes.** `#geometry` devolve vértices em espaço de frame — o
@@ -740,8 +872,8 @@ de runtime além do próprio Svelte compilado.
 
 ### Trace B — o usuário arrasta um canto
 
-1. **Ponteiro.** A alça em [`Overlay.svelte`](../packages/editor/Overlay.svelte) tem
-   `use:drag`. A action [`drag`](../packages/editor/actions.ts) captura o ponteiro,
+1. **Ponteiro.** A alça em [`Overlay.svelte`](../packages/editor/stage/Overlay.svelte) tem
+   `use:drag`. A action [`drag`](../packages/editor/ui/actions.ts) captura o ponteiro,
    converte a posição para coordenadas do elemento `[data-stage]` e emite `onMove(p, delta)`.
 2. **Coordenadas e snap.** O handler chama
    `store.setCorner(surface.id, i, snapPoint(toOutput(p), surface.id))`: `toOutput` desfaz o
@@ -774,8 +906,8 @@ logo o passo 4 marca as duas como sujas e as duas redesenham nos seus próprios 
 
 | # | Armadilha (brief) | Onde é resolvida |
 |---|---|---|
-| 1 | **UV com correção de perspectiva** | Vertex shader `VERT` em [`renderer.ts`](../packages/engine/renderer.ts): `gl_Position = vec4(clip * w, 0.0, w)` com `w` vindo de `uH * vec3(aUV,1)`. A matriz vem de `solveUnitToQuad` em [`homography.ts`](../packages/engine/homography.ts), subida por `Renderer.#drawSurface` via `toColumnMajor`. Dois triângulos, sem subdivisão — `Renderer.#geometry` devolve `UNIT_QUAD` com índices `[0,1,2, 0,2,3]`. |
-| 2 | **Máscara** | Quad e elipse: `Renderer.#geometry` desenha o frame inteiro e o fragment shader `FRAG` recorta — `uMask == 1` usa `length((vUV-0.5)*2.0)` com `smoothstep(1.0-edge, 1.0, d)` para o feather. Polígono: a geometria **é** a máscara, via `triangulate()` de [`geometry.ts`](../packages/engine/geometry.ts) chamada dentro de `Renderer.#geometry`. Feather em polígono ficou fora da v1, como manda o brief. |
+| 1 | **UV com correção de perspectiva** | Vertex shader `VERT` em [`renderer.ts`](../packages/engine/render/renderer.ts): `gl_Position = vec4(clip * w, 0.0, w)` com `w` vindo de `uH * vec3(aUV,1)`. A matriz vem de `solveUnitToQuad` em [`homography.ts`](../packages/engine/math/homography.ts), subida por `Renderer.#drawSurface` via `toColumnMajor`. Dois triângulos, sem subdivisão — `Renderer.#geometry` devolve `UNIT_QUAD` com índices `[0,1,2, 0,2,3]`. |
+| 2 | **Máscara** | Quad e elipse: `Renderer.#geometry` desenha o frame inteiro e o fragment shader `FRAG` recorta — `uMask == 1` usa `length((vUV-0.5)*2.0)` com `smoothstep(1.0-edge, 1.0, d)` para o feather. Polígono: a geometria **é** a máscara, via `triangulate()` de [`geometry.ts`](../packages/engine/math/geometry.ts) chamada dentro de `Renderer.#geometry`. Feather em polígono ficou fora da v1, como manda o brief. |
 | 3 | **Upload de vídeo** | `VideoTextureSource.#scheduleFrame()` em [`sources/video.ts`](../packages/engine/sources/video.ts) usa `video.requestVideoFrameCallback()` para marcar `isDirty` na taxa do vídeo, não do monitor. O upload real acontece uma vez por frame de render em `VideoTextureSource.update(gl)`, chamado por `SourcePool.update` — uma vez por **fonte**, não por superfície, porque o cache de [`sources/index.ts`](../packages/engine/sources/index.ts) é por id de fonte. Autoplay: construtor com `muted`/`playsInline`/`loop` e `unlock()` disparado pelo listener de `pointerdown` registrado no construtor de [`Engine`](../packages/engine/engine.ts). |
 | 4 | **GIF** | `GifSource` em [`sources/gif.ts`](../packages/engine/sources/gif.ts): `#load` instancia o `ImageDecoder` do WebCodecs, lê `tracks.selectedTrack.frameCount`, e `#decodeFrame(i)` guarda o `VideoFrame` e agenda `#nextAt` pela duração declarada do quadro; `update()` avança com esse relógio próprio. `#loadFallback(url)` cobre a ausência de `ImageDecoder` desenhando o `<img>` num canvas 2D a cada frame. |
 | 5 | **Alfa e ponto preto** | Uma única função de upload, `uploadTexture()` em [`sources/types.ts`](../packages/engine/sources/types.ts), com `UNPACK_FLIP_Y_WEBGL` e `UNPACK_PREMULTIPLY_ALPHA_WEBGL` sempre ligados — misturar convenções é o que produz o halo cinza em volta de cada forma. `ImageSource.#load` reforça com `createImageBitmap(..., { premultiplyAlpha: 'premultiply' })`. O contexto é criado em `Renderer` com `alpha: false` e `premultipliedAlpha: true`, o blend padrão é `ONE, ONE_MINUS_SRC_ALPHA`, e `clearColor(0,0,0,1)` nunca é levantado. Superfície sem fonte faz `discard` no fragment shader (`uMode == 2`) em vez de pintar preto — nenhuma luz cai sobre o objeto físico. WebM com alfa passa pelo mesmo caminho de `FileVideoSource`. |
@@ -790,7 +922,7 @@ OSC/MIDI por WebSocket depois é só um adaptador chamando `setCorner`, `setSurf
 `setOpacity`, `toggleSolo` etc. `Engine.on('change', cb)` já valida o nome do evento e lança
 em qualquer outro, então acrescentar eventos é aditivo.
 
-**`Shape` como união discriminada.** [`project.ts`](../packages/engine/project.ts) define
+**`Shape` como união discriminada.** [`project.ts`](../packages/engine/model/project.ts) define
 `Shape` como união, e o único lugar do renderer que a inspeciona é `Renderer.#geometry`
 (mais duas linhas de uniforme para o caso `ellipse`). Um `{ kind: 'mesh' }` novo precisaria
 gerar vértices ali e ser aceito em `parseShape` — o resto do pipeline (homografia, shader,
@@ -803,7 +935,7 @@ com seu próprio contexto GL, e `applySize` já lê `store.project.output` como 
 
 **Injeção de I/O.** A engine nunca toca em File System Access nem em `import()` de módulo:
 recebe `resolveUrl` e `loadModule` por `EngineOptions`, ambos fornecidos pelo editor em
-[`project-folder.ts`](../packages/editor/project-folder.ts). Um host diferente (um player
+[`project-folder.ts`](../packages/editor/platform/project-folder.ts). Um host diferente (um player
 embarcado, um teste) passa outras implementações e a engine não percebe.
 
 **Sincronia entre janelas.** O compartilhamento do `Store` por referência está isolado numa
@@ -831,7 +963,7 @@ Coisas que estão no código mas incompletas, ou que o brief pede e não estão 
   e respeitam a trava; errar a *quantidade* de pontos ainda obriga a refazer o traçado.
 - **Feather só na elipse.** Polígono tem borda dura, como o brief define para a v1.
 - **Triangulação O(n²), só polígono simples.** Anotado com `ponytail:` em
-  [`geometry.ts`](../packages/engine/geometry.ts) — e desde o cache de desenho ela roda
+  [`geometry.ts`](../packages/engine/math/geometry.ts) — e desde o cache de desenho ela roda
   uma vez por versão da superfície, não uma vez por frame.
 - **A meta de performance não foi medida numa GPU real.** O trabalho de JS por frame foi:
   30 superfícies, metade delas polígonos de 12 lados, dão **0,1 ms de mediana** e 0,2 ms
@@ -852,6 +984,8 @@ alcançáveis por teclado; o status das fontes virou estado reativo com relógio
 existe enquanto algo pode mudar sozinho; `patchSurface` deixou de ser porta aberta e todo
 caminho de escrita passa por `sanitizeSurfacePatch`; id repetido é resolvido na leitura;
 o autosave virou `createSaver`, testado com escritor falso; `renderer.ts` foi de 467 para
-299 linhas, com shader e matemática pura em arquivos próprios; e o loop de render passou
+299 linhas naquele momento, com shader e matemática pura em arquivos próprios — hoje tem
+451, quase toda a diferença sendo o caminho de malha, que é um segundo formato de vértice
+e um segundo VAO deliberadamente separados do caminho antigo (ADR-0020); e o loop de render passou
 a acordar quando uma textura chega — antes, uma imagem que carregasse depois de tudo
 parar **nunca aparecia**, que era um bug de verdade e agora tem regressão (AC-39).

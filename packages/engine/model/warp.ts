@@ -1,5 +1,5 @@
-import { apply, invert, solveUnitToQuad, type Vec2 } from './homography.ts';
-import { pointInPolygon } from './geometry.ts';
+import { apply, invert, solveUnitToQuad, type Vec2 } from '../math/homography.ts';
+import { pointInPolygon } from '../math/geometry.ts';
 
 /**
  * Free-form warp: the layer between a surface's frame and its clipping shape.

@@ -24,14 +24,15 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test 'packages/engine/*.test.ts' 'packages/engine/sources/*.test.ts' 'packages/editor/*.test.ts' 'packages/editor/i18n/*.test.ts' 'packages/editor/i18n/docs/*.test.ts'",
+    "test": "node --test 'packages/**/*.test.ts'",
     "check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "smoke": "node scripts/smoke.mjs",
-    "verify": "npm test && npm run i18n && npm run build && npm run smoke",
+    "verify": "npm test && npm run layers && npm run i18n && npm run build && npm run smoke",
     "i18n": "node scripts/check-i18n.mjs",
     "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
     "prepare": "npm run build:lib",
-    "example": "vite examples/embed --port 5174"
+    "example": "vite examples/embed --port 5174",
+    "layers": "node scripts/check-layers.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
