@@ -231,6 +231,18 @@ ao renderer apagaria o projetor no meio do show. `ViewState` (solo, seleção, p
 teste, `uiHidden`) mora fora de `Project` de propósito: é auxílio de ensaio, não parte do
 espetáculo, e não deve voltar ao reabrir a pasta.
 
+**A timeline é uma projeção de leitura, não uma mutação.** `Project.timeline` guarda as
+cenas (opcional, então projeto sem show continua byte a byte idêntico), e cada `Scene` guarda
+`cues` por id de superfície — **apresentação, nunca geometria**. Onde a timeline está agora
+vive em `ViewState.playback`, que guarda o **instante de início** e não o tempo decorrido: é
+o que faz tocar não custar escrita nenhuma. `presentationOf(state, surface)` resolve o que
+cada superfície está mostrando, e o renderer a recebe **como função** — do mesmo jeito que já
+recebe `patternFor`, e pelo mesmo motivo: a geometria derivada é guardada por identidade de
+objeto, e clonar superfícies por frame furaria esse cache. ADR-0022.
+
+**O raio-x (`ViewState.xray`) não passa por aqui.** Ele é desenhado no overlay, que é DOM, e
+a janela de saída não tem overlay — a engine não recebe nada. ADR-0023.
+
 **Seleção e vínculo são coisas diferentes, e o modelo mantém as duas separadas.** Seleção
 é do momento e mora em `ViewState.selectedIds` — uma lista, e não um id mais um conjunto,
 porque dois campos exigiriam manter um invariante entre eles. O **âncora**, a superfície
@@ -959,6 +971,16 @@ Coisas que estão no código mas incompletas, ou que o brief pede e não estão 
   usuário concedeu acesso persistente. O normal é `prompt`, e aí o app espera um clique —
   `requestPermission` fora de um gesto do usuário é rejeitado de propósito. Não há como
   fechar essa lacuna do nosso lado.
+- **A orientação de vídeo e de módulo JS não foi medida com mídia de verdade.**
+  `UNPACK_FLIP_Y_WEBGL` é **ignorado para `ImageBitmap`** neste navegador e **aplicado a um
+  `<canvas>`** — medido lado a lado, no mesmo frame. Foi o que fazia o texto subir de cabeça
+  para baixo, e por isso `sources/text.ts` sobe sem flip. A mesma lógica sugere que
+  `CanvasSource` (módulo JS do usuário) e a queda de GIF por canvas estejam invertidos
+  também, e que `<video>`, sendo elemento de DOM como o canvas, siga o mesmo caminho.
+  Nenhum dos três pôde ser verificado aqui: módulo não importa a partir de `file://` num
+  teste, e vídeo não decodifica no chromium headless. **Vale abrir um vídeo e um módulo JS
+  de orientação conhecida antes de mexer no padrão** — trocar o flip no helper
+  compartilhado com base em dedução viraria todo vídeo de ponta-cabeça.
 - **Polígono: dá para mover vértice, não para acrescentar ou remover.** As alças existem
   e respeitam a trava; errar a *quantidade* de pontos ainda obriga a refazer o traçado.
 - **Feather só na elipse.** Polígono tem borda dura, como o brief define para a v1.

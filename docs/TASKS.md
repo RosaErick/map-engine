@@ -1,7 +1,7 @@
 # Backlog — Projection Mapping Engine
 
 Base: `prompt-mapping-engine.md`. Este documento descreve o que **está no código hoje**
-(100 testes de unidade + 33 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
+(127 testes de unidade + 42 checagens de smoke passando, `tsc --noEmit` e `svelte-check`
 limpos, `dist/index.html` de ~100 KB gerado como arquivo único) e o que falta. Os ids
 `AC-n` citados aqui são os de [`SPEC.md`](SPEC.md).
 
@@ -293,6 +293,41 @@ projetor apontado para uma parede.
   Onde: `packages/engine/{math,model,render}/`, `packages/editor/{stage,panels,pages,platform,ui}/`,
   `scripts/check-layers.mjs`.
 
+- [x] ~~**Texto como conteúdo**~~ — feito
+  Fonte `text` desenhada num canvas preto com glifos coloridos, encaixando na regra de que
+  preto é ausência de luz. A textura é a caixa do próprio texto, sempre no limite de
+  2048 px. Digitar remenda a fonte em vez de reconstruí-la. AC-74 a AC-79,
+  `docs/specs/0005-text-source.md`.
+  Onde: `packages/engine/sources/text.ts`, `packages/editor/ui/TextEditor.svelte`,
+  `packages/editor/ui/Popover.svelte`.
+
+- [x] ~~**Modo raio-x**~~ — feito
+  Apaga o conteúdo e acende a estrutura, no overlay — que a janela de saída não tem, o que
+  torna vazar para o projetor uma impossibilidade estrutural em vez de uma trava. AC-80 a
+  AC-82, ADR-0023.
+  Onde: `packages/editor/stage/Overlay.svelte`, `packages/editor/stage/Toolbar.svelte`.
+
+- [x] ~~**Cenas e timeline**~~ — feito
+  Estava fora de escopo; a reversão está registrada acima. Uma cena guarda apresentação e
+  nunca geometria, e a timeline sobrepõe na leitura em vez de mutar — tocar um show inteiro
+  não escreve um byte no projeto. AC-84 a AC-92, ADR-0022,
+  `docs/specs/0007-timeline.md`.
+  Onde: `packages/engine/model/project.ts`, `model/store.ts`, `render/renderer.ts`,
+  `packages/editor/stage/Timeline.svelte`.
+
+- [ ] **Crossfade verdadeiro entre duas fontes na mesma superfície** — `M`
+  A transição da timeline escurece até o preto, porque um crossfade real exige duas texturas
+  por superfície — uma mudança de renderer de porte. Hoje a saída é empilhar duas
+  superfícies e cruzar as opacidades pela cena, o que compõe e funciona. Vale medir se o
+  caso é comum o bastante para pagar o preço.
+  Onde: `packages/engine/render/renderer.ts`, `packages/engine/model/store.ts`.
+
+- [ ] **Fonte tipográfica vinda da pasta do projeto** — `P`
+  Texto usa três pilhas do sistema, porque o app é um arquivo único que abre sem rede. A
+  pasta do projeto já copia arquivo arbitrário, então carregar um `.woff2` de lá com
+  `FontFace` é o caminho natural — e mantém a promessa de funcionar offline.
+  Onde: `packages/editor/platform/project-folder.ts`, `packages/engine/sources/text.ts`.
+
 ### 5. Testes
 
 - [ ] **Testar `parseProject` como fronteira de confiança** — `P`
@@ -391,14 +426,20 @@ nem virarem escopo por acidente — hoje: auto-calibração por câmera com Rust
 
 ## Explicitamente fora de escopo (v1)
 
-Copiado do brief. Não implementar, mesmo parecendo natural — com uma saída
-deliberada: **warp por malha** estava nesta lista e foi construído depois, quando ficou
-claro que quatro cantos não cobrem coluna nem arco. Ver `docs/specs/0001-mesh-warp.md`.
+Copiado do brief. Não implementar, mesmo parecendo natural — com **duas** saídas
+deliberadas, ambas registradas:
+
+- **warp por malha** estava nesta lista e foi construído quando ficou claro que quatro
+  cantos não cobrem coluna nem arco (`docs/specs/0001-mesh-warp.md`);
+- **timeline e cues** também estava, e `DIFERENCIAIS.md` registrava a decisão de não
+  perseguir — *"vira Millumin, e o Millumin já existe"*. A reversão foi deliberada, e o
+  desenho existe para que ela não transforme a ferramenta em outro produto: uma cena guarda
+  apresentação e nunca geometria, e tocar não escreve no projeto
+  (`docs/specs/0007-timeline.md`, ADR-0022).
 
 - edge blending
 - múltiplos projetores
 - mapping 3D com modelo e câmera virtual
-- timeline e cues
 - cadeia de efeitos
 - reatividade a áudio
 - OSC / MIDI / DMX

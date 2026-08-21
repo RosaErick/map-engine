@@ -18,7 +18,7 @@ renumerar quebra silenciosamente toda a ligação com os testes.
 Como rodar a prova:
 
 ```bash
-npm test              # 100 testes de unidade (node:test, sem framework)
+npm test              # 127 testes de unidade (node:test, sem framework)
 npm run layers        # reprova import na direção errada entre as camadas
 npm run build         # gera dist/index.html autocontido
 npm run smoke         # chromium headless abre o build por file:// e lê pixels
@@ -628,6 +628,170 @@ estado ou o domínio; e a engine não importa nada do editor.
 > um `import` de cada vez. `npm run layers` torna a regra executável, e as
 > mensagens dizem **por que** a direção existe, não só que ela foi violada.
 
+### AC-74 — Texto acende só os glifos
+
+**Dado** uma superfície com uma fonte de texto
+**Quando** ela é desenhada
+**Então** só os glifos acendem: o fundo continua preto, e preto é ausência de luz.
+
+> Isso não é uma escolha de estilo, é o encaixe com a regra central da
+> ferramenta. Uma fonte de texto não precisa de cor de fundo porque o fundo já é
+> transparente — quem quiser uma caixa atrás põe uma superfície de cor embaixo.
+
+### AC-75 — Digitar não reconstrói a fonte
+
+**Dado** uma fonte de texto já desenhando na parede
+**Quando** o texto muda
+**Então** o pool **remenda** a instância existente em vez de trocá-la.
+
+> `SourcePool.#patch` caía num `JSON.stringify` e reconstruía qualquer descritor
+> que mudasse. A cada tecla, a textura seria jogada fora e a parede piscaria.
+
+### AC-76 — A textura é a caixa do texto
+
+**Dado** um texto de qualquer tamanho
+**Quando** a textura é gerada
+**Então** ela é a caixa do próprio texto, com o maior lado em 2048 px, e é o
+enquadramento da superfície que decide como ela cai na forma.
+
+> Sempre no limite, e não no tamanho "natural": é o que dá ao projetor o texto
+> mais nítido que o limite permite, seja a superfície de 200 px ou de 1800.
+
+### AC-77 — Texto vazio é válido
+
+**Dado** uma fonte de texto sem texto
+**Quando** ela é desenhada
+**Então** nada acende, e ela não vira erro nem textura de tamanho zero.
+
+### AC-78 — Uma fonte de texto sobrevive ao disco
+
+**Dado** uma fonte de texto com todos os campos alterados
+**Quando** o projeto é salvo e recarregado
+**Então** todos voltam; e um projeto sem texto continua byte a byte idêntico.
+
+### AC-79 — Várias linhas se comportam
+
+**Dado** um texto com quebras de linha
+**Quando** ele é desenhado
+**Então** entrelinha e alinhamento são respeitados, e a linha mais larga define
+a caixa.
+
+### AC-93 — O conteúdo sobe na orientação certa
+
+**Dado** uma imagem de orientação conhecida e um texto, no mesmo frame
+**Quando** os pixels são lidos
+**Então** os dois aparecem com o topo em cima.
+
+> Nasceu de um defeito real: o texto subia **de cabeça para baixo**, e todo teste
+> de pixel continuava passando — eles contavam brilho e cor, e um espelhamento
+> não muda nenhum dos dois. `UNPACK_FLIP_Y_WEBGL` é ignorado para `ImageBitmap`
+> neste navegador e aplicado a um `<canvas>`; medido lado a lado, com o flip
+> ligado a imagem sai certa e o canvas sai invertido. Por isso a imagem entra
+> nesta checagem junto: se um dia o flip mudar para todo mundo, ela denuncia.
+
+### AC-80 — O raio-x mostra a estrutura inteira
+
+**Dado** o raio-x ligado
+**Quando** o overlay é desenhado
+**Então** toda superfície ganha uma silhueta, **inclusive as escondidas**.
+
+> Achar a superfície que alguém silenciou é metade do motivo deste modo existir.
+
+### AC-81 — O raio-x não muda um pixel do que a engine desenha
+
+**Dado** o raio-x ligado e desligado
+**Quando** os pixels são lidos do buffer GL
+**Então** são idênticos.
+
+> Um modo de diagnóstico que chegue ao projetor no meio de uma inauguração é um
+> desastre. Ele é desenhado no overlay, que é DOM, e a janela de saída não tem
+> overlay: não é uma trava que alguém possa esquecer de ligar, é impossibilidade
+> estrutural.
+
+### AC-82 — Esconder a interface apaga o raio-x junto
+
+**Dado** o raio-x ligado
+**Quando** `H` esconde a interface
+**Então** ele some com o resto — sem nenhum código para isso, porque ele **é** a
+interface.
+
+### AC-84 — Uma cena guarda apresentação, nunca geometria
+
+**Dado** uma cena capturada
+**Quando** uma superfície é movida e a cena é retomada
+**Então** a superfície continua onde foi movida, e a cue não guarda `frame`,
+`shape`, `warp`, `crop`, `rotation`, `fit`, `blend` nem `z`.
+
+> O alinhamento custou horas em cima de uma escada e é físico. Rodar o show não
+> pode mexer nele — e o efeito colateral é o que torna a regra valiosa: dá para
+> corrigir alinhamento com o show rodando.
+
+### AC-85 — Tocar não escreve no projeto
+
+**Dado** uma timeline tocando um ciclo inteiro
+**Quando** o projeto é comparado antes e depois
+**Então** nem um byte mudou e nenhuma entrada de desfazer foi criada.
+
+> Se o playhead escrevesse opacidade nas superfícies, cada frame passaria por
+> `Store.mutate`, que clona o projeto e empilha histórico — sessenta vezes por
+> segundo. O desfazer viraria lixo e o autosave escreveria no disco a noite
+> toda. A timeline é projeção de leitura, não mutação.
+
+### AC-86 — A transição escurece e volta
+
+**Dado** uma cena com transição
+**Quando** ela entra
+**Então** a superfície escurece até o preto na primeira metade, ainda com o
+conteúdo velho, e volta ao alvo na segunda, já com o novo. Transição zero corta
+seco.
+
+### AC-87 — `hold` zero espera o GO
+
+**Dado** uma cena com `hold: 0`
+**Quando** o tempo passa
+**Então** ela não avança: segura até alguém mandar seguir.
+
+### AC-88 — O laço fecha o ciclo
+
+**Dado** a última cena
+**Quando** ela vence
+**Então** com laço volta à primeira e continua tocando; sem laço, pausa.
+
+### AC-89 — A timeline sobrevive ao disco
+
+**Dado** uma timeline com cenas, tempos e laço
+**Quando** o projeto é salvo e recarregado
+**Então** tudo volta; projeto sem timeline continua byte a byte idêntico, e
+apagar a última cena devolve o arquivo ao que era.
+
+### AC-90 — Superfície nova não some numa cena antiga
+
+**Dado** uma superfície criada depois de uma cena ser capturada
+**Quando** a cena é retomada
+**Então** ela mantém a própria apresentação em vez de sumir.
+
+> Cena é uma sobreposição, não um estado completo do mundo.
+
+### AC-91 — Mexer na apresentação devolve o controle à mão
+
+**Dado** uma timeline ativa
+**Quando** a opacidade, a fonte ou a visibilidade de uma superfície é alterada
+**Então** a timeline sai do comando. Mexer na **geometria** não ejeta nada.
+
+> Um controle de opacidade que não faz nada é pior do que um desabilitado. E
+> corrigir alinhamento com o show rodando precisa continuar possível.
+
+### AC-92 — A apresentação é função, não cópia
+
+**Dado** uma timeline tocando
+**Quando** as superfícies chegam ao renderer
+**Então** são **os mesmos objetos** do projeto.
+
+> A geometria derivada é guardada num `WeakMap` com a identidade do objeto como
+> chave, e foi ela que fez o trabalho de JS por frame cair de 0,3 ms para 0,1 ms
+> com 30 superfícies. Clonar superfícies por frame para injetar a opacidade da
+> cena furaria esse cache em todos os frames.
+
 ### AC-55 — O guia manda clicar em botões que existem
 
 **Dado** o guia e o catálogo de mensagens da mesma língua
@@ -730,6 +894,25 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-71 | provado | `smoke.mjs` (ponteiro real) |
 | AC-72 | provado | `smoke.mjs` (2 checagens: layout e fechamento) |
 | AC-73 | provado | `scripts/check-layers.mjs` (`npm run layers`) |
+| AC-74 | provado | `smoke.mjs` (pixel) |
+| AC-75 | provado | `smoke.mjs` |
+| AC-76 | provado | `sources/text.test.ts` |
+| AC-77 | provado | `sources/text.test.ts` |
+| AC-78 | provado | `model/store.test.ts` |
+| AC-79 | provado | `sources/text.test.ts` |
+| AC-80 | provado | `smoke.mjs` (DOM) |
+| AC-81 | provado | `smoke.mjs` (pixel, ligado contra desligado) |
+| AC-82 | provado | `smoke.mjs` |
+| AC-84 | provado | `model/store.test.ts` |
+| AC-85 | provado | `model/store.test.ts` |
+| AC-86 | provado | `model/store.test.ts` (2 testes) |
+| AC-87 | provado | `model/store.test.ts` |
+| AC-88 | provado | `model/store.test.ts` (2 testes) |
+| AC-89 | provado | `model/store.test.ts` (3 testes) |
+| AC-90 | provado | `model/store.test.ts` |
+| AC-91 | provado | `model/store.test.ts` |
+| AC-92 | provado | `model/store.test.ts` |
+| AC-93 | provado | `smoke.mjs` (imagem e texto no mesmo frame) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o

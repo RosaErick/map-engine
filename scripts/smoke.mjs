@@ -454,6 +454,209 @@ const undoOk = await page.evaluate(() => {
 });
 check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === undoOk.before && undoOk.moved !== undoOk.before, JSON.stringify(undoOk));
 
+// A timeline com o relógio de verdade. Os testes de unidade já cobrem a
+// matemática; o que só aparece aqui é o laço real de `requestAnimationFrame`
+// batendo por segundos seguidos sem encostar no projeto.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.sources]) store.removeSource(s.id);
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  const surface = store.addSurface();
+  const { width, height } = store.project.output;
+  store.setSurfaceFrame(surface.id, [{ x: 0, y: 0 }, { x: width, y: 0 }, { x: width, y: height }, { x: 0, y: height }]);
+  store.addSource({ id: 'red', name: '', kind: 'color', rgb: [255, 0, 0] });
+  store.addSource({ id: 'green', name: '', kind: 'color', rgb: [0, 255, 0] });
+  store.setSurfaceSource(surface.id, 'red');
+  store.captureScene('vermelha');
+  store.setSurfaceSource(surface.id, 'green');
+  store.captureScene('verde');
+  const scenes = store.project.timeline.scenes;
+  store.patchScene(scenes[0].id, { hold: 0.4, fade: 0 });
+  store.patchScene(scenes[1].id, { hold: 0.4, fade: 0 });
+  store.setLoop(true);
+  store.eject();
+});
+await page.waitForTimeout(250);
+
+const showBefore = await page.evaluate(() => ({
+  json: window.mapEngine.store.toJSON(),
+  canUndo: window.mapEngine.store.canUndo,
+}));
+await page.evaluate(() => window.mapEngine.store.play());
+await page.waitForTimeout(2200);
+const showAfter = await page.evaluate(() => ({
+  json: window.mapEngine.store.toJSON(),
+  canUndo: window.mapEngine.store.canUndo,
+  index: window.mapEngine.store.view.playback?.sceneIndex ?? -1,
+  cycled: window.mapEngine.store.view.playback?.playing === true,
+}));
+await page.evaluate(() => window.mapEngine.store.eject());
+check('AC-85: um ciclo inteiro de timeline não escreve um byte no projeto',
+  showBefore.json === showAfter.json && showBefore.canUndo === showAfter.canUndo && showAfter.cycled,
+  `json igual=${showBefore.json === showAfter.json} desfazer igual=${showBefore.canUndo === showAfter.canUndo} parou na cena ${showAfter.index}`);
+
+// Texto como conteúdo. O que se prova aqui é o encaixe com a regra central da
+// ferramenta: preto é ausência de luz, então uma fonte de texto não precisa —
+// nem pode — pintar fundo nenhum.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.sources]) store.removeSource(s.id);
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  const surface = store.addSurface();
+  const { width, height } = store.project.output;
+  store.setSurfaceFrame(surface.id, [{ x: 0, y: 0 }, { x: width, y: 0 }, { x: width, y: height }, { x: 0, y: height }]);
+  store.addSource({
+    id: 'txt', name: '', kind: 'text',
+    // Vermelho puro de propósito: um fundo pintado apareceria como verde ou
+    // azul acesos, e nenhuma outra medição distingue isso tão bem.
+    text: 'MAPA', family: 'sans', weight: 700, italic: false,
+    color: [255, 0, 0], align: 'center', lineHeight: 1.15, tracking: 0,
+  });
+  store.setSurfaceSource(surface.id, 'txt');
+});
+// O pool só sincroniza dentro do laço da engine, nunca num `renderFrame` avulso.
+await page.waitForTimeout(400);
+
+const text = await page.evaluate(() => {
+  const engine = window.mapEngine;
+  engine.renderFrame();
+  const gl = engine.renderer.gl;
+  const w = gl.drawingBufferWidth;
+  const h = gl.drawingBufferHeight;
+  const buf = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+  let lit = 0;
+  let painted = 0;
+  for (let i = 0; i < buf.length; i += 4) {
+    const r = buf[i] ?? 0, g = buf[i + 1] ?? 0, b = buf[i + 2] ?? 0;
+    if (r === 0 && g === 0 && b === 0) continue;
+    lit++;
+    if (g > 12 || b > 12) painted++;
+  }
+  const source = engine.pool.get('txt');
+  return { lit, painted, size: source?.size ?? [0, 0], status: source?.status };
+});
+check('AC-74: a fonte de texto acende só os glifos, sem fundo pintado',
+  text.status === 'ready' && text.lit > 0 && text.painted === 0,
+  `acesos=${text.lit} com fundo=${text.painted}`);
+check('AC-76: a textura é a caixa do texto, no limite de 2048',
+  Math.max(...text.size) === 2048 && Math.min(...text.size) > 0,
+  `textura=${text.size.join('x')}`);
+
+// Orientação. Este defeito passou por todo teste de pixel que só conta brilho e
+// cor: o texto subia de cabeça para baixo e as contagens continuavam batendo.
+const upright = await page.evaluate(async () => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  // Imagem de orientação conhecida ao lado do texto, no mesmo frame: se um dia
+  // o flip mudar para todo mundo, a metade da imagem denuncia junto.
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 4;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 4, 2);
+  g.fillStyle = '#000'; g.fillRect(0, 2, 4, 2);
+
+  const { width, height } = store.project.output;
+  const place = (x, w) => {
+    const s = store.addSurface();
+    store.setSurfaceFrame(s.id, [{ x, y: 0 }, { x: x + w, y: 0 }, { x: x + w, y: height }, { x, y: height }]);
+    return s.id;
+  };
+  const left = place(0, width / 2);
+  const right = place(width / 2, width / 2);
+  store.addSource({ id: 'topHalf', name: '', kind: 'image', path: c.toDataURL('image/png') });
+  store.addSource({
+    id: 'letter', name: '', kind: 'text',
+    // 'F' tem a barra grossa em cima: mais tinta no topo que na base.
+    text: 'F', family: 'sans', weight: 700, italic: false,
+    color: [255, 255, 255], align: 'center', lineHeight: 1, tracking: 0,
+  });
+  store.setSurfaceSource(left, 'topHalf');
+  store.setSurfaceSource(right, 'letter');
+  await new Promise((r) => setTimeout(r, 600));
+
+  const engine = window.mapEngine;
+  engine.renderFrame();
+  const gl = engine.renderer.gl;
+  const w = gl.drawingBufferWidth;
+  const h = gl.drawingBufferHeight;
+  const buf = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+  const ink = (x0, x1, y0, y1) => {
+    let n = 0;
+    for (let screenY = y0; screenY < y1; screenY++) {
+      const y = h - 1 - screenY;           // readPixels tem origem embaixo
+      for (let x = x0; x < x1; x++) if ((buf[(y * w + x) * 4] ?? 0) > 180) n++;
+    }
+    return n;
+  };
+  const half = Math.floor(w / 2);
+  const third = Math.floor(h / 3);
+  return {
+    image: { top: ink(0, half, 0, third), bottom: ink(0, half, 2 * third, h) },
+    text: { top: ink(half, w, 0, third), bottom: ink(half, w, 2 * third, h) },
+  };
+});
+check('AC-93: texto e imagem sobem na orientação certa, não de cabeça para baixo',
+  upright.image.top > upright.image.bottom && upright.text.top > upright.text.bottom,
+  `imagem ${upright.image.top}/${upright.image.bottom} texto ${upright.text.top}/${upright.text.bottom}`);
+
+const kept = await page.evaluate(() => {
+  const engine = window.mapEngine;
+  const before = engine.pool.get('txt');
+  engine.store.patchSource('txt', { text: 'MAPA VIVO' });
+  return { same: engine.pool.get('txt') === before };
+});
+check('AC-75: digitar remenda a fonte em vez de reconstruí-la', kept.same,
+  'reconstruir jogaria a textura fora e piscaria na parede a cada tecla');
+
+// Raio-x. O critério que importa não é o que ele desenha: é o que ele **não**
+// toca. Um modo de diagnóstico que chegue ao projetor no meio de uma
+// inauguração é um desastre.
+const glHash = () => page.evaluate(() => {
+  const engine = window.mapEngine;
+  engine.renderFrame();
+  const gl = engine.renderer.gl;
+  const w = gl.drawingBufferWidth;
+  const h = gl.drawingBufferHeight;
+  const buf = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+  let hash = 0;
+  for (let i = 0; i < buf.length; i++) hash = (hash * 31 + (buf[i] ?? 0)) >>> 0;
+  return hash;
+});
+
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  store.addSurface();
+  const extra = store.addSurface();
+  store.toggleVisible(extra.id);   // uma escondida, que o raio-x tem que achar
+  store.setView({ xray: false });
+});
+await page.waitForTimeout(150);
+const xrayOff = await glHash();
+await page.evaluate(() => window.mapEngine.store.setView({ xray: true }));
+await page.waitForTimeout(200);
+const xrayOn = await glHash();
+check('AC-81: o raio-x não muda um pixel do que a engine desenha',
+  xrayOff === xrayOn, `${xrayOff} contra ${xrayOn}`);
+
+const xrayShapes = await page.evaluate(() => ({
+  shapes: document.querySelectorAll('.xray-shape').length,
+  surfaces: window.mapEngine.store.project.surfaces.length,
+  hidden: window.mapEngine.store.project.surfaces.filter((s) => !s.visible).length,
+}));
+check('AC-80: toda superfície ganha silhueta no raio-x, inclusive a escondida',
+  xrayShapes.shapes === xrayShapes.surfaces && xrayShapes.hidden > 0,
+  `silhuetas=${xrayShapes.shapes} superfícies=${xrayShapes.surfaces} escondidas=${xrayShapes.hidden}`);
+
+await page.evaluate(() => window.mapEngine.store.setView({ uiHidden: true }));
+await page.waitForTimeout(150);
+const whenHidden = await page.evaluate(() => document.querySelectorAll('.xray-shape').length);
+await page.evaluate(() => window.mapEngine.store.setView({ uiHidden: false, xray: false }));
+check('AC-82: esconder a interface apaga o raio-x junto', whenHidden === 0,
+  `${whenHidden} silhuetas com a interface escondida`);
+
 // O seletor de cor abria dentro da lista, empurrava o painel e obrigava a rolar
 // até achá-lo — escondendo justamente a parede, que é o que se olha ao escolher
 // uma cor. E não dizia como fechar.
