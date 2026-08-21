@@ -10,7 +10,51 @@ export type Source =
   | { id: string; name: string; kind: 'color'; rgb: [number, number, number] }
   | { id: string; name: string; kind: 'capture' }
   | { id: string; name: string; kind: 'camera'; deviceId?: string }
-  | { id: string; name: string; kind: 'canvas'; moduleId: string };
+  | { id: string; name: string; kind: 'canvas'; moduleId: string }
+  | ({ id: string; name: string; kind: 'text' } & TextStyle);
+
+/**
+ * Como um texto é desenhado.
+ *
+ * Não há campo de corpo: a textura é a caixa do próprio texto, e o
+ * enquadramento da superfície decide como ela cai na forma. Um tamanho em
+ * pixels aqui seria um segundo controle brigando com o primeiro.
+ *
+ * Também não há cor de fundo. Preto é ausência de luz nesta ferramenta, então o
+ * fundo já é transparente — quem quiser uma caixa atrás põe uma superfície de
+ * cor embaixo.
+ */
+export interface TextStyle {
+  text: string;
+  /** Pilhas de fonte do sistema, e não uma lista de fontes: o aplicativo é um
+   *  arquivo único que abre sem rede, e embutir tipografia o inflaria. */
+  family: TextFamily;
+  weight: 400 | 700;
+  italic: boolean;
+  color: [number, number, number];
+  align: TextAlign;
+  /** Múltiplo do corpo. */
+  lineHeight: number;
+  /** Espaçamento entre letras, em `em`. */
+  tracking: number;
+}
+
+export type TextFamily = 'sans' | 'serif' | 'mono';
+export type TextAlign = 'left' | 'center' | 'right';
+
+export const TEXT_FAMILIES: readonly TextFamily[] = ['sans', 'serif', 'mono'];
+export const TEXT_ALIGNS: readonly TextAlign[] = ['left', 'center', 'right'];
+
+export const DEFAULT_TEXT: TextStyle = {
+  text: '',
+  family: 'sans',
+  weight: 700,
+  italic: false,
+  color: [255, 255, 255],
+  align: 'center',
+  lineHeight: 1.15,
+  tracking: 0,
+};
 
 export type SourceKind = Source['kind'];
 
@@ -58,11 +102,46 @@ export interface Surface {
   z: number;
 }
 
+/**
+ * O que uma cena guarda de uma superfície.
+ *
+ * **Apresentação, nunca geometria.** O alinhamento custou horas em cima de uma
+ * escada e é físico; rodar o show não pode, por construção, mexer nele. O efeito
+ * colateral é o que torna a regra valiosa: dá para corrigir alinhamento com o
+ * show rodando.
+ */
+export interface Cue {
+  sourceId: string | null;
+  opacity: number;
+  visible: boolean;
+}
+
+export interface Scene {
+  id: string;
+  name: string;
+  /** Por id de superfície. Ausência é deliberada: cena é uma sobreposição, não
+   *  um estado completo do mundo — uma superfície criada depois mantém o que
+   *  tem em vez de sumir. */
+  cues: Record<string, Cue>;
+  /** Segundos que a cena segura depois da transição. **Zero espera o GO.** */
+  hold: number;
+  /** Transição de entrada, em segundos. Zero é corte seco. */
+  fade: number;
+}
+
+export interface Timeline {
+  scenes: Scene[];
+  loop: boolean;
+}
+
 export interface Project {
   version: 1;
   output: { width: number; height: number };
   sources: Source[];
   surfaces: Surface[];
+  /** Opcional pelo mesmo motivo de `warp` e `link`: projeto sem show continua
+   *  byte a byte idêntico ao que era antes desta feature existir. */
+  timeline?: Timeline;
 }
 
 /** Non-persisted view state: solo lives here because it is a rehearsal aid,
@@ -81,6 +160,34 @@ export interface ViewState {
   selectedCorner: number | null;
   /** Índice do ponto de controle selecionado, para as setas do teclado. */
   selectedWarpPoint: number | null;
+  /**
+   * Diagnóstico do editor: apaga o conteúdo e acende a estrutura.
+   *
+   * Mora aqui, e não no `Project`, porque é auxílio de ensaio (ADR-0013) — e é
+   * desenhado no overlay, que a janela de saída não tem. Não é uma trava contra
+   * vazar para o projetor: é impossibilidade estrutural.
+   */
+  xray: boolean;
+  /**
+   * Onde a timeline está agora. Fora do `Project` porque posição de playhead não
+   * é parte do show salvo.
+   *
+   * `since` é `Date.now()`, e não `performance.now()`: o editor e a janela de
+   * saída são duas janelas com origens de tempo diferentes lendo o mesmo store.
+   *
+   * Guardar o **instante de início** em vez do tempo decorrido é o que faz tocar
+   * não custar escrita nenhuma: o decorrido é calculado na hora de desenhar.
+   */
+  playback: {
+    sceneIndex: number;
+    /** De onde a transição está saindo. `null` quando a timeline acabou de
+     *  entrar: aí ela sai do que está no projeto. Sem este campo a primeira
+     *  metade da transição escureceria o valor do projeto em vez do que estava
+     *  de fato na tela — errado sempre que se pula de cena ou o laço volta. */
+    fromIndex: number | null;
+    since: number;
+    playing: boolean;
+  } | null;
   /** Applies to every surface without one of its own. */
   testPattern: TestPattern;
   /** Per-surface override, by id. Absence means "follow the global one", and an
@@ -256,6 +363,7 @@ export function parseProject(raw: unknown): Project {
     },
     sources: asArray(raw['sources']).map(parseSource).filter((s): s is Source => s !== null),
     surfaces: [],
+    ...parseOptionalTimeline(raw['timeline']),
   };
 
   // Duplicate source ids would collide in the texture pool, which is keyed by
@@ -284,6 +392,22 @@ export function parseProject(raw: unknown): Project {
       surfaceIds.add(fresh.id);
       return fresh;
     });
+
+  // As cues só podem ser podadas aqui, depois de existirem superfícies e fontes
+  // para conferir contra. Cue de superfície que não existe mais é peso morto;
+  // fonte pendurada vira "sem fonte", exatamente como em `parseSurface`, para a
+  // cena não acender o padrão de mídia faltando em cima de um objeto físico.
+  if (project.timeline) {
+    for (const scene of project.timeline.scenes) {
+      for (const [surfaceId, cue] of Object.entries(scene.cues)) {
+        if (!surfaceIds.has(surfaceId)) {
+          delete scene.cues[surfaceId];
+          continue;
+        }
+        if (cue.sourceId && !sourceIds.has(cue.sourceId)) cue.sourceId = null;
+      }
+    }
+  }
   return project;
 }
 
@@ -305,6 +429,21 @@ function parseSource(raw: unknown): Source | null {
         muted: bool(raw['muted'], true),
         rate: num(raw['rate'], 1),
       };
+    case 'text': {
+      const raw_color = asArray(raw['color']).map((v) => clamp(num(v, 255), 0, 255));
+      return {
+        id, name, kind,
+        text: str(raw['text'], ''),
+        family: oneOf(raw['family'], TEXT_FAMILIES, 'sans'),
+        weight: num(raw['weight'], 700) >= 550 ? 700 : 400,
+        italic: bool(raw['italic'], false),
+        color: [raw_color[0] ?? 255, raw_color[1] ?? 255, raw_color[2] ?? 255],
+        align: oneOf(raw['align'], TEXT_ALIGNS, 'center'),
+        // Entrelinha zero ou negativa empilharia as linhas umas sobre as outras.
+        lineHeight: clamp(num(raw['lineHeight'], 1.15), 0.5, 4),
+        tracking: clamp(num(raw['tracking'], 0), -0.5, 2),
+      };
+    }
     case 'color': {
       const rgb = asArray(raw['rgb']).map((v) => clamp(num(v, 0), 0, 255));
       return { id, name, kind, rgb: [rgb[0] ?? 255, rgb[1] ?? 255, rgb[2] ?? 255] };
@@ -352,6 +491,46 @@ function parseSurface(raw: unknown, sourceIds: ReadonlySet<string>): Surface | n
 }
 
 /** Spread-friendly: an absent or unrecoverable warp adds no key at all. */
+/**
+ * Uma timeline ausente continua ausente — projeto sem show fica idêntico.
+ *
+ * Cue com id de superfície que não existe mais é descartado na leitura: uma cue
+ * órfã voltaria a valer no dia em que um id fosse reutilizado, e aí uma cena
+ * antiga apagaria uma superfície nova sem explicação.
+ */
+function parseOptionalTimeline(raw: unknown): { timeline?: Timeline } {
+  if (!isRecord(raw)) return {};
+  const scenes = asArray(raw['scenes'])
+    .map(parseScene)
+    .filter((s): s is Scene => s !== null);
+  if (scenes.length === 0) return {};
+  return { timeline: { scenes, loop: bool(raw['loop'], false) } };
+}
+
+function parseScene(raw: unknown): Scene | null {
+  if (!isRecord(raw)) return null;
+  const id = str(raw['id'], '');
+  if (!id) return null;
+  const cues: Record<string, Cue> = {};
+  const rawCues = isRecord(raw['cues']) ? raw['cues'] : {};
+  for (const [surfaceId, value] of Object.entries(rawCues)) {
+    if (!isRecord(value)) continue;
+    const sourceId = str(value['sourceId'], '');
+    cues[surfaceId] = {
+      sourceId: sourceId || null,
+      opacity: clamp(num(value['opacity'], 1), 0, 1),
+      visible: bool(value['visible'], true),
+    };
+  }
+  return {
+    id,
+    name: str(raw['name'], id),
+    cues,
+    hold: Math.max(0, num(raw['hold'], 0)),
+    fade: Math.max(0, num(raw['fade'], 0)),
+  };
+}
+
 /** Ausente continua ausente: um `link: undefined` escrito no JSON mudaria o
  *  arquivo de quem nunca ligou superfície nenhuma. */
 function parseOptionalLink(raw: unknown): { link?: string } {

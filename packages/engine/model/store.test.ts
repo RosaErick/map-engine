@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Store, visibleSurfaces, patternFor } from './store.ts';
+import { Store, visibleSurfaces, patternFor, presentationOf } from './store.ts';
 import { anchorId, emptyProject } from './project.ts';
 import { surfaceOrder } from './surface-math.ts';
 import { isIdentity, evaluateWarp } from './warp.ts';
@@ -443,4 +443,248 @@ test('AC-66: o âncora é a superfície clicada, não a que o vínculo trouxe', 
 
   store.setSelection([a]);
   assert.equal(anchorId(store.view), a, 'clicar numa ligada mostra ela no painel, não a irmã');
+});
+
+// --- timeline ---------------------------------------------------------------
+
+/** Duas superfícies e duas fontes, o mínimo para uma cena dizer alguma coisa. */
+function showFixture(): { store: Store; a: string; b: string } {
+  const store = new Store();
+  const a = store.addSurface().id;
+  const b = store.addSurface().id;
+  store.addSource({ id: 'red', name: '', kind: 'color', rgb: [255, 0, 0] });
+  store.addSource({ id: 'blue', name: '', kind: 'color', rgb: [0, 0, 255] });
+  return { store, a, b };
+}
+
+test('AC-84: uma cena guarda apresentação e nunca geometria', () => {
+  const { store, a } = showFixture();
+  store.setSurfaceSource(a, 'red');
+  store.captureScene('primeira');
+
+  // Depois da captura, o alinhamento muda. A cena não pode saber disso.
+  store.moveSurface(a, 120, 40);
+  store.endGesture();
+  const moved = store.project.surfaces.find((s) => s.id === a)?.frame[0].x;
+
+  store.goToScene(0);
+  assert.equal(store.project.surfaces.find((s) => s.id === a)?.frame[0].x, moved,
+    'voltar à cena não pode desfazer alinhamento');
+
+  const scene = store.project.timeline?.scenes[0];
+  const cue = scene?.cues[a] as Record<string, unknown> | undefined;
+  for (const forbidden of ['frame', 'shape', 'warp', 'crop', 'rotation', 'fit', 'blend', 'z']) {
+    assert.equal(cue?.[forbidden], undefined, `cue não pode guardar ${forbidden}`);
+  }
+});
+
+test('AC-85: tocar não escreve no projeto', () => {
+  const { store, a } = showFixture();
+  store.setSurfaceSource(a, 'red');
+  store.captureScene('uma');
+  store.setSurfaceSource(a, 'blue');
+  store.captureScene('outra');
+
+  const json = store.toJSON();
+  const canUndoBefore = store.canUndo;
+
+  store.play();
+  store.goToScene(1, { playing: true });
+  store.advanceIfDue();
+  store.pause();
+  store.eject();
+
+  assert.equal(store.toJSON(), json, 'nem um byte do projeto mudou ao tocar');
+  assert.equal(store.canUndo, canUndoBefore, 'nenhuma entrada nova de desfazer');
+});
+
+test('AC-86: a transição escurece até o preto e volta com o conteúdo novo', () => {
+  const { store, a } = showFixture();
+  store.setSurfaceSource(a, 'red');
+  store.captureScene('uma');
+  store.setSurfaceSource(a, 'blue');
+  store.captureScene('outra');
+  store.patchScene(store.project.timeline!.scenes[1]!.id, { fade: 2 });
+
+  const surface = () => store.project.surfaces.find((s) => s.id === a)!;
+  const at = (secondsIn: number) => {
+    store.setView({ playback: { sceneIndex: 1, fromIndex: 0, since: Date.now() - secondsIn * 1000, playing: true } });
+    return presentationOf(store.state, surface());
+  };
+
+  const start = at(0.01);
+  assert.equal(start.sourceId, 'red', 'começa mostrando o conteúdo velho');
+  assert.ok(start.opacity > 0.9, `${start.opacity}`);
+
+  const bottom = at(1);
+  assert.ok(bottom.opacity < 0.02, `no fundo da transição está apagado: ${bottom.opacity}`);
+
+  const end = at(1.99);
+  assert.equal(end.sourceId, 'blue', 'sai com o conteúdo novo');
+  assert.ok(end.opacity > 0.9, `${end.opacity}`);
+});
+
+test('AC-86: fade zero corta seco', () => {
+  const { store, a } = showFixture();
+  store.setSurfaceSource(a, 'red');
+  store.captureScene('uma');
+  store.setSurfaceSource(a, 'blue');
+  store.captureScene('outra');
+  store.patchScene(store.project.timeline!.scenes[1]!.id, { fade: 0 });
+
+  store.goToScene(1);
+  const now = presentationOf(store.state, store.project.surfaces.find((s) => s.id === a)!);
+  assert.equal(now.sourceId, 'blue');
+  assert.equal(now.opacity, 1, 'sem transição não há escurecimento nenhum');
+});
+
+test('AC-87: hold zero espera o GO', () => {
+  const { store } = showFixture();
+  store.captureScene('uma');
+  store.captureScene('outra');
+  const first = store.project.timeline!.scenes[0]!.id;
+  store.patchScene(first, { hold: 0, fade: 0 });
+
+  store.goToScene(0, { playing: true });
+  store.setView({ playback: { ...store.view.playback!, since: Date.now() - 60_000 } });
+  store.advanceIfDue();
+  assert.equal(store.view.playback?.sceneIndex, 0, 'um minuto depois, continua parada esperando');
+});
+
+test('AC-88: com laço, a última volta para a primeira', () => {
+  const { store } = showFixture();
+  store.captureScene('uma');
+  store.captureScene('outra');
+  for (const s of store.project.timeline!.scenes) store.patchScene(s.id, { hold: 1, fade: 0 });
+  store.setLoop(true);
+
+  store.goToScene(1, { playing: true });
+  store.setView({ playback: { ...store.view.playback!, since: Date.now() - 5000 } });
+  store.advanceIfDue();
+  assert.equal(store.view.playback?.sceneIndex, 0);
+  assert.equal(store.view.playback?.playing, true, 'e continua tocando');
+});
+
+test('AC-88: sem laço, a última pausa em vez de voltar', () => {
+  const { store } = showFixture();
+  store.captureScene('uma');
+  store.patchScene(store.project.timeline!.scenes[0]!.id, { hold: 1, fade: 0 });
+  store.goToScene(0, { playing: true });
+  store.setView({ playback: { ...store.view.playback!, since: Date.now() - 5000 } });
+  store.advanceIfDue();
+  assert.equal(store.view.playback?.playing, false);
+});
+
+test('AC-89: a timeline sobrevive a salvar e recarregar', () => {
+  const { store, a } = showFixture();
+  store.setSurfaceSource(a, 'red');
+  store.captureScene('abertura');
+  store.patchScene(store.project.timeline!.scenes[0]!.id, { hold: 7, fade: 3 });
+  store.setLoop(true);
+
+  const reloaded = new Store();
+  reloaded.load(store.toJSON());
+  const scene = reloaded.project.timeline?.scenes[0];
+  assert.equal(scene?.name, 'abertura');
+  assert.equal(scene?.hold, 7);
+  assert.equal(scene?.fade, 3);
+  assert.equal(reloaded.project.timeline?.loop, true);
+  assert.equal(scene?.cues[a]?.sourceId, 'red');
+});
+
+test('AC-89: projeto sem timeline continua sem a chave no JSON', () => {
+  const { store } = showFixture();
+  assert.ok(!store.toJSON().includes('timeline'));
+});
+
+test('AC-89: apagar a última cena devolve o projeto ao que era', () => {
+  const { store } = showFixture();
+  store.captureScene('uma');
+  store.removeScene(store.project.timeline!.scenes[0]!.id);
+  assert.ok(!store.toJSON().includes('timeline'), 'a chave sai junto com a última cena');
+});
+
+test('AC-90: superfície criada depois da cena mantém a própria apresentação', () => {
+  const { store, a } = showFixture();
+  store.setSurfaceSource(a, 'red');
+  store.captureScene('antes');
+
+  const late = store.addSurface();
+  store.setSurfaceSource(late.id, 'blue');
+  store.goToScene(0);
+
+  const shown = presentationOf(store.state, store.project.surfaces.find((s) => s.id === late.id)!);
+  assert.equal(shown.sourceId, 'blue', 'cena é sobreposição, não estado completo do mundo');
+  assert.equal(shown.visible, true, 'e ela não some');
+});
+
+test('AC-91: mexer na apresentação ejeta a timeline; mexer na geometria não', () => {
+  const { store, a } = showFixture();
+  store.captureScene('uma');
+  store.goToScene(0, { playing: true });
+
+  store.moveSurface(a, 10, 10);
+  store.endGesture();
+  assert.ok(store.view.playback, 'corrigir alinhamento com o show rodando é uma necessidade real');
+
+  store.setOpacity(a, 0.5);
+  assert.equal(store.view.playback, null, 'mexer na opacidade devolve o controle à mão');
+});
+
+test('AC-92: tocar não troca a identidade das superfícies entregues ao renderer', () => {
+  const { store, a } = showFixture();
+  store.setSurfaceSource(a, 'red');
+  store.captureScene('uma');
+  store.goToScene(0, { playing: true });
+
+  const fromProject = new Set(store.project.surfaces);
+  for (const surface of visibleSurfaces(store.state)) {
+    assert.ok(fromProject.has(surface),
+      'o renderer guarda geometria num WeakMap por identidade: uma cópia furaria o cache a cada frame');
+  }
+});
+
+test('AC-78: uma fonte de texto sobrevive a salvar e recarregar', () => {
+  const store = new Store();
+  store.addSource({
+    id: 'txt', name: '', kind: 'text',
+    text: 'PRIMEIRA\nSEGUNDA', family: 'serif', weight: 400, italic: true,
+    color: [12, 240, 90], align: 'right', lineHeight: 1.8, tracking: 0.25,
+  });
+
+  const reloaded = new Store();
+  reloaded.load(store.toJSON());
+  const source = reloaded.project.sources[0];
+  assert.equal(source?.kind, 'text');
+  if (source?.kind !== 'text') return;
+  assert.equal(source.text, 'PRIMEIRA\nSEGUNDA');
+  assert.equal(source.family, 'serif');
+  assert.equal(source.weight, 400);
+  assert.equal(source.italic, true);
+  assert.deepEqual(source.color, [12, 240, 90]);
+  assert.equal(source.align, 'right');
+  assert.equal(source.lineHeight, 1.8);
+  assert.equal(source.tracking, 0.25);
+});
+
+test('AC-78: um projeto sem texto continua sem a chave no JSON', () => {
+  const store = new Store();
+  store.addSurface();
+  assert.ok(!store.toJSON().includes('"text"'));
+});
+
+test('AC-78: valores impossíveis num text são corrigidos na leitura', () => {
+  // `parseProject` é fronteira de confiança: entrelinha zero empilharia as
+  // linhas umas sobre as outras, e família inventada não teria como desenhar.
+  const store = new Store();
+  store.load(JSON.stringify({
+    version: 1, output: { width: 1920, height: 1080 }, surfaces: [],
+    sources: [{ id: 'x', name: '', kind: 'text', text: 'oi', lineHeight: 0, family: 'comic', align: 'justify', weight: 999 }],
+  }));
+  const source = store.project.sources[0];
+  if (source?.kind !== 'text') { assert.fail('devia ter lido a fonte de texto'); return; }
+  assert.ok(source.lineHeight >= 0.5, `entrelinha corrigida: ${source.lineHeight}`);
+  assert.equal(source.family, 'sans');
+  assert.equal(source.align, 'center');
+  assert.equal(source.weight, 700);
 });

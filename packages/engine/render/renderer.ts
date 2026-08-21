@@ -1,3 +1,4 @@
+import type { Cue } from '../model/project.ts';
 import { applyH, solveUnitToQuad, type Mat3, type Vec2 } from '../math/homography.ts';
 import { triangulate } from '../math/geometry.ts';
 import { tessellate, type Warp } from '../model/warp.ts';
@@ -159,6 +160,16 @@ export class Renderer {
     pool: SourcePool,
     view: ViewTransform = IDENTITY_VIEW,
     patternFor: (surface: Surface) => TestPattern = () => 'none',
+    /**
+     * O que a superfície está mostrando agora — fonte e opacidade.
+     *
+     * Chega como **função**, e não como superfícies já modificadas, pela mesma
+     * razão de `patternFor`: a geometria derivada é guardada num `WeakMap` com a
+     * identidade do objeto como chave, e cópias furariam esse cache a cada
+     * frame. AC-92.
+     */
+    presentationFor: (surface: Surface) => Cue =
+      (surface) => ({ sourceId: surface.sourceId, opacity: surface.opacity, visible: surface.visible }),
   ): void {
     const gl = this.gl;
     const { width, height } = this.#canvas;
@@ -176,19 +187,22 @@ export class Renderer {
     this.#boundBlend = null;
 
     for (const surface of surfaces) {
-      this.#drawSurface(project, surface, pool, patternFor(surface));
+      this.#drawSurface(project, surface, pool, patternFor(surface), presentationFor(surface));
     }
     gl.bindVertexArray(null);
   }
 
-  #drawSurface(project: Project, surface: Surface, pool: SourcePool, pattern: TestPattern): void {
+  #drawSurface(
+    project: Project, surface: Surface, pool: SourcePool,
+    pattern: TestPattern, presentation: Cue,
+  ): void {
     const gl = this.gl;
     const draw = this.#drawDataFor(surface);
     if (!draw) return; // degenerate quad, nothing sane to draw
 
-    const source = pool.get(surface.sourceId);
+    const source = pool.get(presentation.sourceId);
     const patternId = PATTERN_INDEX[pattern];
-    const mode = this.#modeFor(surface, source, patternId);
+    const mode = this.#modeFor(presentation, source, patternId);
     let texture: WebGLTexture | null = null;
 
     if (patternId === 2) {
@@ -226,7 +240,7 @@ export class Renderer {
     // pixel size, which arrives asynchronously when a video or image finishes
     // loading, without the surface changing at all.
     gl.uniformMatrix3fv(this.#u['uUVMat']!, false, uvMatrix(surface, source, this.#uvScratch));
-    gl.uniform1f(this.#u['uOpacity']!, surface.opacity);
+    gl.uniform1f(this.#u['uOpacity']!, presentation.opacity);
     // A polygon is normally its own geometry. On a warped surface the geometry
     // is the mesh, so the cutout moves into a texture instead.
     const texturedMask = mesh !== undefined && surface.shape.kind === 'polygon';
@@ -249,9 +263,9 @@ export class Renderer {
   }
 
   /** 0 = draw the texture, 1 = missing-media hazard, 2 = draw nothing. */
-  #modeFor(surface: Surface, source: TextureSource | null, patternId: number): number {
+  #modeFor(presentation: Cue, source: TextureSource | null, patternId: number): number {
     if (patternId !== 0) return 0;
-    if (!surface.sourceId) return 2;
+    if (!presentation.sourceId) return 2;
     if (!source || source.status === 'error') return 1;
     if (source.status === 'loading') return 2;
     return 0;
