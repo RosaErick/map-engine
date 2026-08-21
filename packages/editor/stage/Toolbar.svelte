@@ -87,6 +87,28 @@
     <Icon name="magnet" class="size-3.5" />
   </button>
 
+  <!--
+    O ícone é o que o modo desenha: uma silhueta acesa e outra tracejada por
+    baixo — a escondida. Mora aqui e não no `Icon` porque é o único lugar que o
+    usa, e o arquivo de ícones é caminho de todo mundo.
+  -->
+  <button
+    class="btn btn-xs btn-square"
+    class:btn-active={$store.view.xray}
+    aria-pressed={$store.view.xray}
+    aria-label={t('toolbar.xray')}
+    title="{t('toolbar.xray')} · {t('toolbar.xrayHint')}"
+    onclick={() => store.setView({ xray: !$store.view.xray })}
+  >
+    <svg
+      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+      stroke-linecap="round" stroke-linejoin="round" class="size-3.5" aria-hidden="true"
+    >
+      <rect x="3" y="6" width="11" height="12" rx="1" />
+      <circle cx="15.5" cy="13.5" r="5.5" stroke-dasharray="2.6 2.4" />
+    </svg>
+  </button>
+
   <span class="mx-1 h-4 w-px bg-base-content/10"></span>
 
   <!-- O padrão perdeu o rótulo escrito: o ícone diz o que é e o `title` diz o

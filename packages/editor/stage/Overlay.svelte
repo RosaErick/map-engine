@@ -5,7 +5,7 @@
     store, viewport, tools, frameToOutput, outputToFrame, snapPoint, toOutput, toScreen,
     warpGridPath, warpPointToScreen, screenToFramePoint,
   } from '../state.svelte.ts';
-  import { anchorId, type Surface, type Vec2 } from '../../engine/index.ts';
+  import { anchorId, surfaceOrder, type Surface, type Vec2 } from '../../engine/index.ts';
 
   const HANDLE = 7;
   // A mesh can carry up to 289 control points at once, so its handles are the
@@ -92,9 +92,51 @@
   }
 
   const outline = $derived($store.project.output);
+
+  const xray = $derived($store.view.xray);
+
+  /**
+   * O número que o padrão "número" projeta, vindo da mesma função do renderer.
+   * Um `index + 1` daqui seria mais curto e discordaria da parede na primeira
+   * mudança de z — número errado é pior do que número nenhum.
+   *
+   * Só calculado com o raio-x aceso: fora dele ninguém lê esse mapa.
+   */
+  const numbers = $derived.by(() => (xray ? surfaceOrder($store.project) : null));
+
+  /**
+   * O centro do frame, onde o número mora. Média dos quatro cantos — para um
+   * quad é o cruzamento das diagonais, e para qualquer recorte continua dentro
+   * da caixa que o usuário arrasta.
+   */
+  function frameCenter(s: Surface): Vec2 {
+    const sum = s.frame.reduce((a, c) => ({ x: a.x + c.x, y: a.y + c.y }), { x: 0, y: 0 });
+    return toScreen({ x: sum.x / 4, y: sum.y / 4 });
+  }
+
+  /**
+   * A malha que o bloco do âncora já vai desenhar logo abaixo.
+   *
+   * Sem este teste, a superfície selecionada levaria as duas passadas e
+   * apareceria com a malha mais forte que as outras — o que o olho lê como
+   * "esta é diferente" quando ela só está selecionada.
+   */
+  function meshDrawnByAnchor(s: Surface): boolean {
+    return isAnchor(s) && !s.locked && !!s.warp && tools.showWarpGrid;
+  }
 </script>
 
 <svg class="overlay">
+  <!--
+    O véu é DOM, e é aí que mora a garantia inteira deste modo: a janela de
+    saída não tem overlay, então não existe caminho pelo qual estes pixels
+    cheguem ao projetor. Apagar o conteúdo por um `uniform` colocaria o
+    diagnóstico dentro da engine, a um `if` invertido de distância da parede.
+  -->
+  {#if xray}
+    <rect x="0" y="0" width="100%" height="100%" class="veil" />
+  {/if}
+
   <!-- The output rectangle: everything outside it will never reach the projector. -->
   <rect
     x={toScreen({ x: 0, y: 0 }).x}
@@ -106,6 +148,23 @@
 
   {#each $store.project.surfaces as surface (surface.id)}
     <g class:selected={isSelected(surface)} class:anchor={isAnchor(surface)} class:locked={surface.locked}>
+      <!-- Raio-x: a silhueta real, pela mesma `hitPath` que decide o clique —
+           polígono, elipse inscrita em perspectiva ou o quad. Onde duas se
+           sobrepõem, a translucidez soma sozinha e a sobreposição fica mais
+           clara: interseção de polígonos sem calcular interseção de polígonos.
+           Tudo aqui herda `pointer-events: none` do overlay, então as alças
+           continuam pegando o ponteiro por cima. -->
+      {#if xray}
+        <path d={hitPath(surface)} class="xray-shape" class:ghost={!surface.visible} />
+        {#if surface.warp && !meshDrawnByAnchor(surface)}
+          {#each warpGridPath(surface) as line, i (i)}
+            <path d={line} class="xray-mesh" />
+          {/each}
+        {/if}
+        {@const center = frameCenter(surface)}
+        <text x={center.x} y={center.y} class="xray-number" class:ghost={!surface.visible}
+        >{numbers?.get(surface) ?? ''}</text>
+      {/if}
       <path d={screenPath(surface.frame)} class="frame" class:linked={!!surface.link} />
       <path
         d={hitPath(surface)}
@@ -324,4 +383,38 @@
   }
   .pending { fill: none; stroke: #52bdff; stroke-width: 1.5; stroke-dasharray: 5 3; }
   .pending-dot { fill: #52bdff; }
+
+  /*
+   * Raio-x. Paleta fixa pelo mesmo motivo das alças, e por um a mais: o véu
+   * escurece a pré-visualização do projetor, que é preta nos dois temas — uma
+   * cor escolhida para o tema claro desapareceria justamente aqui.
+   */
+  .veil { fill: #000000; opacity: 0.72; }
+  /* Ciano de novo, e não uma quinta cor: silhueta é a superfície, a mesma coisa
+     que o frame ciano já nomeia. As cores próprias ficam com quem se arrasta
+     (canto, vértice, ponto de malha), que é onde errar de alça custa caro. */
+  .xray-shape {
+    fill: #52bdff; fill-opacity: 0.16;
+    stroke: #52bdff; stroke-opacity: 0.5; stroke-width: 1;
+  }
+  /* Escondida vira fantasma: tracejada, dessaturada e mais fraca. Ela precisa
+     aparecer — achar a superfície que alguém silenciou é metade do motivo deste
+     modo existir — sem nunca ser confundida com uma acesa. */
+  .xray-shape.ghost {
+    fill: #8b8b9c; fill-opacity: 0.07;
+    stroke: #9aa0b5; stroke-opacity: 0.55; stroke-dasharray: 6 4;
+  }
+  /* A malha de todas, não só a da selecionada, e mais fraca que a de edição:
+     aqui ela é leitura, não alvo de arrasto. */
+  .xray-mesh { fill: none; stroke: #be95ff; stroke-width: 0.6; opacity: 0.45; }
+  .xray-number {
+    fill: #d7ecff; font-size: 13px; font-weight: 600;
+    text-anchor: middle; dominant-baseline: central;
+    user-select: none;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    /* Sombra em vez de capa: o número cai sobre silhuetas somadas de claridade
+       variável, e um halo escuro resolve todas elas sem medir nenhuma. */
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+  }
+  .xray-number.ghost { fill: #9aa0b5; }
 </style>
