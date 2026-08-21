@@ -47,6 +47,7 @@ export const guideEs: Guide = [
         ],
       },
       { kind: 'p', text: 'Cada fila de la lista trae tres controles: <b>S</b> deja la superficie en solo y apaga todas las demás, el <b>ojo</b> apaga esta, y el <b>candado</b> la bloquea.' },
+      { kind: 'note', text: 'Los <b>rayos x</b> (tecla <b>X</b>) apagan el contenido y encienden la estructura: la silueta, el número y la malla de cada superficie, incluidas las ocultas. Así se encuentra la superficie que alguien silenció. Nunca llega al proyector.' },
       { kind: 'note', text: 'Bloquea la superficie apenas quede alineada. Mover sin querer una esquina ya alineada es el accidente más caro que hay, y una superficie bloqueada rechaza cualquier movimiento — ratón, flechas, todo.' },
     ],
   },
@@ -96,6 +97,7 @@ export const guideEs: Guide = [
           '<b>Color</b> — un color sólido, la forma más rápida de comprobar un borde. La muestra abre un selector con los colores de comprobar proyector a mano: blanco, gris 50%, negro y las tres primarias puras.',
           '<b>Captura de pantalla</b> — cualquier ventana de la máquina, en vivo. Un juego, un reproductor, otra pestaña.',
           '<b>Cámara</b> — una webcam en vivo.',
+          '<b>Texto</b> — escrito dentro de la app. El fondo es negro, así que solo las letras se encienden.',
           '<b>Módulo JS</b> — tu propio dibujo generativo. Mira más abajo.',
         ],
       },
@@ -145,6 +147,25 @@ export function draw(ctx, t) {
     ],
   },
   {
+    id: 'timeline',
+    title: 'Escenas y línea de tiempo',
+    blocks: [
+      { kind: 'p', text: 'En una instalación, lo que cambia con el tiempo es <b>lo que está sonando</b>. Lo que nunca cambia es dónde están las cosas — la alineación costó horas subido a una escalera. De ahí la regla que rige todo aquí: <b>una escena guarda lo que muestra cada superficie, nunca dónde está</b>.' },
+      {
+        kind: 'steps',
+        items: [
+          'Arma un visual: elige el contenido de cada superficie y ajusta las opacidades.',
+          'Abre la barra inferior y haz clic en <b>capturar escena</b>. Guarda ese visual entero.',
+          'Cambia el visual y captura otra vez. Dos escenas ya son un show.',
+          'Ajusta <b>mantiene</b> (cuánto dura la escena) y <b>transición</b> (cuánto tarda en entrar).',
+          'Pulsa <b>reproducir</b>. Con <b>repetir</b> activado, la última vuelve a la primera.',
+        ],
+      },
+      { kind: 'p', text: 'Una escena con <b>mantiene</b> en cero no avanza sola: espera el GO. Así se detiene en un punto hasta que alguien diga que siga.' },
+      { kind: 'note', text: 'Como una escena no guarda geometría, <b>se puede corregir la alineación con el show en marcha</b>. Y tocar la opacidad o la fuente de una superficie le quita el mando a la línea de tiempo al instante — el control vuelve a tu mano, y la barra lo avisa.' },
+    ],
+  },
+  {
     id: 'output',
     title: 'Salida y pantallas',
     blocks: [
@@ -191,6 +212,7 @@ export function draw(ctx, t) {
           ['Ctrl+D', 'Duplicar la superficie seleccionada'],
           ['Supr', 'Borrar la superficie seleccionada'],
           ['H', 'Ocultar o mostrar la interfaz'],
+          ['X', 'Rayos x: apaga el contenido y enciende la estructura'],
           ['Esc', 'Cancelar el polígono, soltar la selección de esquina'],
           ['Rueda del ratón', 'Zoom en el punto del cursor'],
           ['Botón central, Ctrl, o Alt + arrastrar', 'Reencuadrar la vista'],
