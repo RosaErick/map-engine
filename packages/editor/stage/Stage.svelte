@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Overlay from './Overlay.svelte';
+  import Timeline from './Timeline.svelte';
   import { panZoom } from '../ui/actions.ts';
   import { store, viewport, tools, clampView, fitView, flash, getEngine, outputToFrame, setEngine, surfaceAt, toOutput, toScreen } from '../state.svelte.ts';
   import { createEngine, newId, newSurface, type Vec2, type Source } from '../../engine/index.ts';
@@ -221,6 +222,11 @@
   {#if !$store.view.uiHidden}
     <Overlay />
   {/if}
+  <!-- Fora da guarda de propósito: a barra segura o relógio da timeline, e ela
+       mesma esconde a própria marcação quando a interface está escondida.
+       Desmontá-la aqui congelaria o show justo quando alguém apertou `H` para
+       deixar a tela limpa. -->
+  <Timeline />
   {#if tools.tool === 'polygon'}
     <div class="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
       <div class="rounded-full border border-base-300 bg-base-100/90 px-4 py-1.5 text-xs text-base-content/70 shadow-lg backdrop-blur">

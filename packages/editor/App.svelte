@@ -102,6 +102,7 @@
       return;
     }
     if (e.key.toLowerCase() === 'h') { store.setView({ uiHidden: !$store.view.uiHidden }); return; }
+    if (e.key.toLowerCase() === 'x') { store.setView({ xray: !$store.view.xray }); return; }
     // Ctrl+A escolhe tudo que está visível: o atalho que ninguém procura no
     // manual, e a forma mais rápida de mover uma parede inteira de uma vez.
     if (mod && e.key.toLowerCase() === 'a') {
