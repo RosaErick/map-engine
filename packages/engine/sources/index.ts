@@ -3,11 +3,12 @@ import { ColorSource } from './color.ts';
 import { ImageSource } from './image.ts';
 import { GifSource } from './gif.ts';
 import { CanvasSource } from './canvas.ts';
+import { TextSource } from './text.ts';
 import { CameraSource, CaptureSource, FileVideoSource, VideoTextureSource } from './video.ts';
 import type { SourceContext, TextureSource } from './types.ts';
 
 export * from './types.ts';
-export { ColorSource, ImageSource, GifSource, CanvasSource, CaptureSource, CameraSource, FileVideoSource, VideoTextureSource };
+export { ColorSource, ImageSource, GifSource, CanvasSource, TextSource, CaptureSource, CameraSource, FileVideoSource, VideoTextureSource };
 
 export function createSource(desc: Source, ctx: SourceContext): TextureSource {
   switch (desc.kind) {
@@ -18,6 +19,7 @@ export function createSource(desc: Source, ctx: SourceContext): TextureSource {
     case 'capture': return new CaptureSource();
     case 'camera': return new CameraSource(desc.deviceId);
     case 'canvas': return new CanvasSource(desc.moduleId, ctx);
+    case 'text': return new TextSource(desc);
   }
 }
 
@@ -70,6 +72,12 @@ export class SourcePool {
     if (after.kind === 'video' && before.kind === 'video' && source instanceof VideoTextureSource) {
       if (before.path !== after.path) return false;
       source.setPlayback({ loop: after.loop, muted: after.muted, rate: after.rate });
+      return true;
+    }
+    if (after.kind === 'text' && source instanceof TextSource) {
+      // Typing is a stream of descriptors: rebuilding on each one would throw
+      // the texture away and blink on the wall between keystrokes.
+      source.setText(after);
       return true;
     }
     // Anything else: rebuild unless nothing meaningful changed.
