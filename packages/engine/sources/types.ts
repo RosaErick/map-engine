@@ -145,9 +145,26 @@ export function createTexture(gl: WebGL2RenderingContext): WebGLTexture {
  * around shapes, which on a projector reads as a grey frame around every
  * picture. One function, one convention, no exceptions.
  */
-export function uploadTexture(gl: WebGL2RenderingContext, tex: WebGLTexture, src: TexImageSource): void {
+export function uploadTexture(
+  gl: WebGL2RenderingContext,
+  tex: WebGLTexture,
+  src: TexImageSource,
+  /**
+   * Vira a imagem no eixo Y ao subir.
+   *
+   * Não é preferência: `UNPACK_FLIP_Y_WEBGL` é **ignorado para `ImageBitmap`**
+   * neste navegador e **aplicado a um `<canvas>`**. Medido lado a lado no mesmo
+   * frame: com o flip ligado, uma imagem sai certa e um canvas sai de cabeça
+   * para baixo; com ele desligado, a imagem não muda e o canvas se corrige.
+   *
+   * Por isso quem desenha num canvas sobe sem flip. As outras fontes mantêm o
+   * padrão até alguém medir com mídia de verdade — ver a lacuna registrada em
+   * `docs/ARCHITECTURE.md`.
+   */
+  flipY = true,
+): void {
   gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flipY);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
 }
