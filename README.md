@@ -164,7 +164,6 @@ diz isso na tela.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | O que cada arquivo faz, o traço de um frame, as cinco armadilhas de renderização |
 | [`AGENTS.md`](AGENTS.md) | As decisões de arquitetura em formato ADR, e as regras para quem for mexer |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | O que mudou a cada versão, e por quê |
-| [`docs/PRIOR-ART.md`](docs/PRIOR-ART.md) | O que já existe de parecido, o que cada um faz melhor, e onde sobra espaço para este |
 | [`docs/FUTURO.md`](docs/FUTURO.md) | Ideias além da v1, registradas sem compromisso de fazer |
 | [`docs/install/`](docs/install) | Instalação passo a passo, em três idiomas |
 
