@@ -10,6 +10,10 @@
  * é assunto de `project-folder.ts`.
  */
 
+// O nome do banco é um namespace, não a marca. A ferramenta virou ProjMap e
+// este nome ficou: renomeá-lo aponta o app para um banco vazio e a pasta do
+// projeto de quem já usa some na primeira abertura depois da atualização.
+// Se um dia mudar, tem que vir junto com uma migração que leia o nome antigo.
 const DB = 'map-engine';
 const STORE = 'handles';
 const KEY = 'project-folder';
