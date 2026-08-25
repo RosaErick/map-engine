@@ -239,6 +239,15 @@ a mesma sequência deixava **zero** pixel da saída visível.
   é configurada: **Projetor (saída)**.
 
 ### Corrigido
+- **Não dava para empilhar superfícies**, e por duas razões independentes que se somavam
+  no mesmo caso — um fundo cobrindo a saída, que é o arranjo mais comum que existe.
+  - A área de clique de uma superfície capturava o ponteiro **sempre**, então com um fundo
+    na tela a ferramenta de polígono ficava morta: não havia como traçar um contorno por
+    cima do que já existia. Ela passou a valer só para a ferramenta de seleção.
+  - O overlay iterava as superfícies na ordem do array enquanto o renderer as desenha por
+    `z`. Quando as duas ordens discordavam — uma superfície criada antes e empilhada por
+    cima —, dava para **ver** uma e **selecionar** a de baixo. O overlay passou a pintar na
+    mesma ordem em que se desenha.
 - **O seletor de cor abria dentro da lista de fontes**, empurrava o painel para baixo e
   obrigava a rolar até achá-lo — escondendo justamente a parede, que é o que se olha
   enquanto se escolhe uma cor. E não dizia como fechar. Virou um painel flutuante, que

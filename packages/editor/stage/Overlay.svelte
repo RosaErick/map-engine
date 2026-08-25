@@ -93,6 +93,20 @@
 
   const outline = $derived($store.project.output);
 
+  /**
+   * As superfícies em ordem de desenho, e não na ordem do array.
+   *
+   * O SVG pinta na ordem em que se itera, e quem é pintado por último fica por
+   * cima — inclusive para o ponteiro. Iterando o array cru, uma superfície
+   * criada depois capturava o clique mesmo estando **atrás** no `z`: dava para
+   * ver a de cima e selecionar a de baixo.
+   *
+   * `visibleSurfaces` não serve aqui, porque o overlay mostra também as
+   * escondidas (o raio-x as desenha como fantasma). É a mesma ordenação, sobre
+   * a lista inteira.
+   */
+  const stacked = $derived([...$store.project.surfaces].sort((a, b) => a.z - b.z));
+
   const xray = $derived($store.view.xray);
 
   /**
@@ -146,7 +160,7 @@
     class="canvas-bounds"
   />
 
-  {#each $store.project.surfaces as surface (surface.id)}
+  {#each stacked as surface (surface.id)}
     <g class:selected={isSelected(surface)} class:anchor={isAnchor(surface)} class:locked={surface.locked}>
       <!-- Raio-x: a silhueta real, pela mesma `hitPath` que decide o clique —
            polígono, elipse inscrita em perspectiva ou o quad. Onde duas se
@@ -173,7 +187,11 @@
         tabindex="-1"
         aria-label={surface.name}
         use:drag={{
-          disabled: surface.locked,
+          // A área de clique da superfície é da ferramenta de seleção. Com o
+          // polígono na mão, ela precisa deixar o ponteiro passar até o palco —
+          // senão não dá para traçar um contorno **por cima** de uma superfície
+          // que já existe, que é justamente o caso de um fundo cobrindo tudo.
+          disabled: surface.locked || tools.tool !== 'select',
           reframable: true,
           onStart: (_p, e) => pickSurface(surface, e),
           onMove: (_p, d) => store.moveSelection(d.x / viewport.scale, d.y / viewport.scale),

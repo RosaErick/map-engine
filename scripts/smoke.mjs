@@ -796,6 +796,72 @@ check('AC-70: a saída continua alcançável depois de afastar e arrastar longe'
 await page.getByRole('button', { name: 'enquadrar', exact: true }).click();
 await page.waitForTimeout(80);
 
+// Empilhar superfícies. Um fundo cobrindo a saída é o caso mais comum que
+// existe, e era exatamente onde as duas coisas quebravam.
+await page.evaluate(() => {
+  const { store } = window.mapEngine;
+  for (const s of [...store.project.sources]) store.removeSource(s.id);
+  for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
+  const { width, height } = store.project.output;
+  // A pequena nasce PRIMEIRO e o fundo depois, de propósito: assim a ordem do
+  // array diverge da ordem de `z`, que é onde o clique discordava do desenho.
+  const small = store.addSurface();
+  store.setSurfaceFrame(small.id, [
+    { x: width * 0.3, y: height * 0.3 }, { x: width * 0.7, y: height * 0.3 },
+    { x: width * 0.7, y: height * 0.7 }, { x: width * 0.3, y: height * 0.7 },
+  ]);
+  const back = store.addSurface();
+  store.setSurfaceFrame(back.id, [
+    { x: 0, y: 0 }, { x: width, y: 0 }, { x: width, y: height }, { x: 0, y: height },
+  ]);
+  store.addSource({ id: 'front', name: '', kind: 'color', rgb: [0, 255, 0] });
+  store.addSource({ id: 'back', name: '', kind: 'color', rgb: [180, 0, 0] });
+  store.setSurfaceSource(small.id, 'front');
+  store.setSurfaceSource(back.id, 'back');
+  store.reorder(back.id, -10);
+  store.reorder(small.id, 5);
+  store.setSelection([]);
+  window.__stack = { small: small.id, back: back.id };
+});
+await page.waitForTimeout(300);
+
+// Esc devolve a ferramenta de seleção: um bloco anterior pode ter deixado o
+// polígono na mão, e aí o clique abaixo mediria outra coisa.
+await page.keyboard.press('Escape');
+await page.waitForTimeout(80);
+
+// `pixel` lê o buffer de desenho; `outXY` fala em pixels de saída. As duas
+// unidades são diferentes, e trocá-las põe o clique num lugar que não é o
+// centro de nada.
+const out = await page.evaluate(() => window.mapEngine.store.project.output);
+const drawn = await pixel(Math.round(W / 2), Math.round(H / 2));
+const middle = await outXY(out.width / 2, out.height / 2);
+await page.mouse.click(middle.x, middle.y);
+const picked = await page.evaluate(() => window.mapEngine.store.view.selectedIds[0] === window.__stack.small);
+check('AC-94: o clique pega a superfície que está por cima no desenho',
+  drawn[1] > 200 && drawn[0] < 60 && picked,
+  `pixel=${drawn.slice(0, 3)} pegou a de cima=${picked}`);
+
+// Traçar um contorno por cima de um fundo que já existe.
+const before = await page.evaluate(() => window.mapEngine.store.project.surfaces.length);
+await page.getByRole('button', { name: 'polígono', exact: true }).first().click();
+for (const [fx, fy] of [[0.15, 0.15], [0.45, 0.15], [0.3, 0.4]]) {
+  const spot = await outXY(out.width * fx, out.height * fy);
+  await page.mouse.click(spot.x, spot.y);
+}
+const last = await outXY(out.width * 0.3, out.height * 0.4);
+await page.mouse.dblclick(last.x, last.y);
+await page.waitForTimeout(200);
+const after = await page.evaluate(() => window.mapEngine.store.project.surfaces.length);
+check('AC-95: dá para traçar um polígono por cima de uma superfície existente',
+  after === before + 1, `superfícies ${before} -> ${after}`);
+
+// E devolve a ferramenta, senão todo ponteiro daqui para baixo traça polígono.
+await page.keyboard.press('Escape');
+await page.waitForTimeout(80);
+
+
+
 // Toda fonte de cor nascia chamada "branco" e continuava assim depois de trocar
 // a cor: cinco fontes "branco" de cores diferentes numa lista é o que sobra
 // depois de calibrar um projetor. E o que o hex diz tem que ser o que acende.
