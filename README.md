@@ -1,4 +1,4 @@
-# Projection Mapping Engine
+# ProjMap
 
 Minha própria ferramenta de *projection mapping* que roda no navegador, desenvolvida
 do zero com apoio de ferramentas de IA generativa. Você aponta um projetor para um
@@ -35,7 +35,7 @@ antes de ser inserido no projeto.
 - **Instalar como aplicativo** — abra o endereço no Chrome ou Edge e clique no ícone
   de instalar na barra de endereço. Ganha ícone próprio, janela sem barra de endereço
   e passa a funcionar sem internet.
-- **Baixar um arquivo** — pegue `projection-mapping.html` nos
+- **Baixar um arquivo** — pegue `projmap.html` nos
   [Releases](../../releases) e dê dois cliques. Um arquivo só, ~285 KB, sem instalação
   e sem servidor.
 
@@ -100,7 +100,7 @@ reenquadrar.
 | `npm run layers` | Reprova um `import` que aponta na direção errada entre as camadas |
 | `npm run smoke` | Abre o build por `file://` em chromium headless e **lê pixels** da saída |
 | `npm run i18n` | Reprova string fixa no editor e tradução que perdeu placeholder |
-| `npm run verify` | Os quatro acima, em ordem |
+| `npm run verify` | Os quatro acima e o build, em ordem — é o que o CI roda em cada PR |
 | `npm run check` | `tsc --noEmit` + `svelte-check` |
 | `npm run build:lib` | Gera `dist-lib/` — a engine como biblioteca, com tipos |
 | `npm run example` | Roda [`examples/embed/`](examples/embed), que consome essa biblioteca |
@@ -161,12 +161,11 @@ diz isso na tela.
 
 | Documento | O que é |
 |---|---|
-| [`prompt-mapping-engine.md`](prompt-mapping-engine.md) | O brief original: a intenção, os princípios inegociáveis, o escopo da v1 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | O que cada arquivo faz, o traço de um frame, as cinco armadilhas de renderização |
-| [`docs/SPEC.md`](docs/SPEC.md) | Critérios de aceite numerados, ligados aos testes pelo id |
-| [`docs/TASKS.md`](docs/TASKS.md) | O que falta, em ordem de quem bloqueia o teste físico |
 | [`AGENTS.md`](AGENTS.md) | As decisões de arquitetura em formato ADR, e as regras para quem for mexer |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | O que mudou a cada versão |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | O que mudou a cada versão, e por quê |
+| [`docs/PRIOR-ART.md`](docs/PRIOR-ART.md) | O que já existe de parecido, o que cada um faz melhor, e onde sobra espaço para este |
+| [`docs/FUTURO.md`](docs/FUTURO.md) | Ideias além da v1, registradas sem compromisso de fazer |
 | [`docs/install/`](docs/install) | Instalação passo a passo, em três idiomas |
 
 ---

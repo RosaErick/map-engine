@@ -1,10 +1,9 @@
 # Arquitetura
 
-Ferramenta de *projection mapping* que roda no navegador: o usuário aponta um projetor
-para um objeto físico, desenha superfícies por cima da projeção e joga conteúdo
-(imagem, vídeo, GIF, cor, captura de tela, câmera, canvas generativo) dentro de cada uma.
-
-O brief original que originou o código está em [`prompt-mapping-engine.md`](../prompt-mapping-engine.md).
+O ProjMap é uma ferramenta de *projection mapping* que roda no navegador: o usuário
+aponta um projetor para um objeto físico, desenha superfícies por cima da projeção e joga
+conteúdo (imagem, vídeo, GIF, cor, captura de tela, câmera, canvas generativo) dentro de
+cada uma.
 
 ---
 
@@ -155,8 +154,8 @@ o grafo continuar legível.
 
 ### Pastas, e a direção em que elas apontam
 
-O raciocínio inteiro — inclusive as estruturas que foram consideradas e recusadas — está em
-[`specs/0004-file-layout.md`](specs/0004-file-layout.md). O que importa aqui:
+O raciocínio inteiro — inclusive as estruturas que foram consideradas e recusadas — está
+no ADR-0021 de [`AGENTS.md`](../AGENTS.md). O que importa aqui:
 
 **Na engine, pasta é camada.** Os nomes existem para tornar visível uma hierarquia que já
 era obedecida sem estar escrita em lugar nenhum:
@@ -206,9 +205,9 @@ reprova o que aponta para cima: nada em `engine/math/` importa de `model/`, `ren
 `sources/` ou da raiz; nada em `engine/model/` importa de `render/`; nada em `editor/ui/`
 importa o estado, os painéis, o palco, as páginas ou a plataforma; e a engine não importa
 nada de `editor/` ou `output/`. Cada mensagem de erro diz **por que** a direção existe, não
-só que ela foi violada. Roda dentro do `npm run verify`, e o critério é **AC-73**
-([`SPEC.md`](SPEC.md)). Uma estrutura sem guarda volta ao estado anterior em poucas semanas,
-um `import` de cada vez.
+só que ela foi violada: a regra e o motivo dela moram lado a lado no script, porque uma
+sem a outra vira ritual. Roda dentro do `npm run verify`. Uma estrutura sem guarda volta
+ao estado anterior em poucas semanas, um `import` de cada vez.
 
 ---
 
@@ -697,6 +696,13 @@ silêncio — modo privado pode recusar o banco inteiro, e isso não é erro do 
 que valha uma mensagem: é uma sessão sem memória de pasta. O que este módulo **não** guarda é
 a permissão, que é do navegador.
 
+**O banco se chama `map-engine`, e o nome não acompanhou o produto.** Ele é um namespace de
+armazenamento, não a marca: renomeá-lo apontaria a instalação de quem já usa para um banco
+vazio, e a pasta do projeto sumiria na primeira abertura depois da atualização. Vale igual
+para as chaves `map-engine:project`, `map-engine:theme` e `map-engine:locale` no
+`localStorage`. Qualquer uma delas só muda junto com uma migração que leia o nome antigo
+primeiro.
+
 #### [`packages/editor/platform/project-folder.ts`](../packages/editor/platform/project-folder.ts)
 
 A persistência: um projeto é uma **pasta**, não um arquivo. `openFolder()` usa
@@ -782,10 +788,12 @@ O teste de integração, fora de `packages/` porque não é código de produto. 
 headless pelo Playwright com SwiftShader (`--use-angle=swiftshader`), abre o
 `dist/index.html` por `file://`, opera a UI real (`+ superfície`, `cor`, seletor de padrão)
 e lê pixels com `gl.readPixels` depois de forçar um frame por `engine.renderFrame()`. É o
-que prova AC-14 a AC-20 de [`SPEC.md`](SPEC.md), incluindo a medição objetiva da armadilha
-nº 1: ajusta uma reta por mínimos quadrados à borda entre duas barras de cor num
-quadrilátero fortemente deformado e falha se o desvio máximo passar de 1,5 px. O handle
-global `window.engine` que ele usa é criado em `Stage.svelte`.
+que prova o que teste de unidade nenhum alcança — o arquivo único abre por `file://` sem
+buscar um byte de fora, projeto vazio e superfície sem fonte não acendem um pixel, a
+máscara corta os cantos do frame, o padrão de teste chega à saída —, incluindo a medição
+objetiva da armadilha nº 1: ajusta uma reta por mínimos quadrados à borda entre duas
+barras de cor num quadrilátero fortemente deformado e falha se o desvio máximo passar de
+1,5 px. O handle global `window.projMap` que ele usa é criado em `Stage.svelte`.
 
 #### [`public/`](../public) e o service worker gerado
 
@@ -990,7 +998,7 @@ Coisas que estão no código mas incompletas, ou que o brief pede e não estão 
 - **A meta de performance não foi medida numa GPU real.** O trabalho de JS por frame foi:
   30 superfícies, metade delas polígonos de 12 lados, dão **0,1 ms de mediana** e 0,2 ms
   de p95 — mas isso é chromium headless com SwiftShader, então diz respeito ao JS, não à
-  GPU. AC-27 segue `not-tested`.
+  GPU. A meta continua por medir onde ela importa.
 - **A matriz de navegadores não foi verificada.** O caminho sem
   `requestVideoFrameCallback` — Firefox e Safari mais antigo — só se prova naqueles
   navegadores.
@@ -1010,4 +1018,4 @@ o autosave virou `createSaver`, testado com escritor falso; `renderer.ts` foi de
 451, quase toda a diferença sendo o caminho de malha, que é um segundo formato de vértice
 e um segundo VAO deliberadamente separados do caminho antigo (ADR-0020); e o loop de render passou
 a acordar quando uma textura chega — antes, uma imagem que carregasse depois de tudo
-parar **nunca aparecia**, que era um bug de verdade e agora tem regressão (AC-39).
+parar **nunca aparecia**, que era um bug de verdade e agora tem teste de regressão.

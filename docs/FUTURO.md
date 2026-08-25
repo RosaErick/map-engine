@@ -1,9 +1,8 @@
 # Futuro — ideias além da v1
 
-Este arquivo guarda ideias que **não** estão no brief e **não** são compromisso. Nada
-aqui entra em [`TASKS.md`](TASKS.md), que só contém trabalho derivado do brief e dos
-critérios de aceite. Uma ideia sai daqui quando alguém decidir fazê-la — aí ela vira
-tarefa lá, com escopo e tamanho.
+Este arquivo guarda ideias que **não** estão no escopo da v1 e **não** são compromisso.
+Nada aqui está agendado, e nada aqui vira trabalho por estar escrito. Uma ideia sai daqui
+quando alguém decidir fazê-la — aí ela vira issue, com escopo e tamanho.
 
 Regra para o que entra: precisa ter um problema real por trás, não uma tecnologia
 procurando emprego.
@@ -84,9 +83,9 @@ vizinhos junto é ergonomia de mão humana, não de solucionador.
 
 ### O que precisa ser verdade antes de começar
 
-- **A webcam precisa estar confiável em todo navegador alvo.** AC-30 ainda é
-  `not-tested`: o caminho sem `requestVideoFrameCallback` só se prova em Firefox e
-  Safari. Calibração em cima de uma fonte que congela é pior que calibração nenhuma.
+- **A webcam precisa estar confiável em todo navegador alvo.** O caminho sem
+  `requestVideoFrameCallback` só se prova em Firefox e Safari, e ainda não foi verificado
+  lá. Calibração em cima de uma fonte que congela é pior que calibração nenhuma.
 - **Medir se JavaScript puro já resolve.** OpenCV.js existe e detecção de tabuleiro em
   uma imagem de 1080p não é tempo real — acontece uma vez, com o operador esperando.
   Se um segundo de processamento em JS for aceitável, Rust é otimização prematura.

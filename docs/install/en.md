@@ -35,7 +35,7 @@ To uninstall: open the tool, menu ⋮ → **Uninstall**.
 For a machine that will never have internet, or to take the tool to a venue without
 depending on a network.
 
-1. Go to **[Releases](../../../../releases)** and download **`projection-mapping.html`**.
+1. Go to **[Releases](../../../../releases)** and download **`projmap.html`**.
    *(Or, with the tool already open, click **download for offline use** in the top bar.)*
 2. Copy the file wherever you like — a USB stick, the desktop, anywhere.
 3. **Double click** it. It opens in the browser and already works.

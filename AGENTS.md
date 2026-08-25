@@ -25,16 +25,19 @@ código vira changelog e perde a única coisa que ele tinha: a razão.
    português.** Documentação em português.
 5. **Toda mutação passa por métodos do `Store`.** É isso, e só isso, que faz de uma
    ponte OSC futura um adaptador puro.
-6. **Nada de ouro.** Implemente o escopo da v1 e pare. Fora de escopo está listado no
-   brief e no README; não re-adicione por parecer natural.
+6. **Nada de ouro.** Implemente o escopo da v1 e pare. Ideia boa que ninguém pediu vai
+   para [`docs/FUTURO.md`](docs/FUTURO.md), onde fica registrada sem virar compromisso;
+   não re-adicione ao código por parecer natural.
 7. **Ambiguidade vira `// DECISION:`** no ponto do código, explicando a escolha. Atalho
    deliberado vira `// ponytail:` nomeando o teto e o caminho de upgrade.
 8. **Antes de dizer que terminou:** `npm run verify` (testes + build + smoke) passando.
    O smoke abre o build real por `file://` e lê pixels; ele é a única prova de que a
    saída continua correta.
-9. **Critério novo, id novo.** Comportamento acordado vira um `AC-n` em
-   [`docs/SPEC.md`](docs/SPEC.md) e o id entra no nome do teste. Ids nunca são
-   renumerados.
+9. **Critério novo, id novo.** Comportamento acordado vira um teste cujo nome começa
+   por um id `AC-n`: o nome é o enunciado do critério, o corpo é a prova, e os dois moram
+   no mesmo lugar. `grep -rn AC-49` acha todos os testes que sustentam o mesmo critério.
+   O próximo id é o maior que já existe mais um — ids nunca são renumerados nem
+   reaproveitados.
 
 ---
 
@@ -57,7 +60,8 @@ cancelamento. Essa assinatura **é** o contrato de store do Svelte.
 continua sem saber que Svelte existe — nenhum import, nenhuma menção. Qualquer outro
 host que entenda esse contrato (ou que só chame `subscribe`) funciona igual. O custo é
 que o contrato é implícito: quebrar a assinatura de `subscribe` quebra o editor sem
-erro de tipo óbvio, então ela está coberta por AC-10.
+erro de tipo óbvio, então há um teste que a fixa: `subscribe` chama na hora, chama de
+novo a cada mudança e para de chamar depois do cancelamento.
 
 ---
 
@@ -225,13 +229,14 @@ quad. Vértices **não** são compartilhados entre células: um canto pertence a
 delas e carrega um `w` diferente em cada.
 
 **Consequências.** A textura fica projetivamente exata **dentro** de cada célula, e
-contínua em posição entre elas — o que o AC-49 verifica varrendo uma linha de pixels
+contínua em posição entre elas — o que o smoke verifica varrendo uma linha de pixels
 atrás de costura. Posição e `w` passam a ser calculados na CPU e chegam como atributo, o
 que exigiu um segundo formato de vértice e um ramo no vertex shader.
 
 **O caminho sem malha não foi tocado.** Dois VAOs, dois buffers, um `uniform` escolhendo o
-ramo. Unificar seria mais bonito e colocaria em risco o AC-20, que é a garantia mais cara
-do projeto. O preço é um pouco de duplicação; a compra é que a feature nova não pode
+ramo. Unificar seria mais bonito e colocaria em risco a garantia mais cara do projeto: a
+borda que continua reta num quadrilátero deformado, com os 0,50 px de desvio que o
+ADR-0004 registra. O preço é um pouco de duplicação; a compra é que a feature nova não pode
 quebrar a antiga.
 
 **Pendência resolvida junto.** Polígono era desenhado *como geometria*, e numa superfície
@@ -298,7 +303,7 @@ vértice sai como `gl_Position = vec4(c.xy * w, 0.0, w)`. Com o `w` correto, tod
 **Consequências.** Dois triângulos bastam — nenhuma subdivisão, nenhum custo de
 vértice. O fragment shader não paga uma divisão por pixel. A malha continua sendo
 4 vértices, o que mantém o caminho do polígono (que tem n vértices) idêntico. Medido
-por AC-20: 0,50 px de desvio máximo numa borda reta sobre um quadrilátero fortemente
+pelo smoke: 0,50 px de desvio máximo numa borda reta sobre um quadrilátero fortemente
 deformado, contra um limite de 1,5 px.
 
 ---
@@ -367,8 +372,10 @@ só as texturas do seu contexto (`SourcePool.releaseContext`) em vez de matar as
 
 **Consequências.** Um decode, um prompt de captura, e fechar a saída não interrompe
 nada no editor. O módulo de canvas generativo ganhou um guard de tempo para desenhar
-uma vez por frame e não uma vez por contexto, senão um sketch andaria em dobro. Coberto
-por AC-29.
+uma vez por frame e não uma vez por contexto, senão um sketch andaria em dobro. Os
+testes de textura sobem a mesma fonte em dois contextos e cobram as três coisas que
+podem dar errado: cada contexto tem a sua textura, subir num não marca o outro como em
+dia, e liberar um deixa o outro desenhando.
 
 ---
 
@@ -387,8 +394,8 @@ não houver rVFC, cada `update()` invalida a textura — todo render vira um fra
 
 **Consequências.** Correto em todo navegador, ao custo de subir a textura na taxa do
 monitor onde a API falta. É desperdício conhecido e medido em uma linha, contra um
-congelamento invisível. A verificação nesses navegadores é manual (AC-30), porque o
-smoke roda em chromium, que tem a API.
+congelamento invisível. A verificação nesses navegadores é manual, porque o smoke roda
+em chromium, que tem a API.
 
 ---
 
@@ -446,7 +453,8 @@ desenhado (`solveUnitToQuad` devolve `null`).
 **Consequências.** Um projeto corrompido abre com menos coisas, visivelmente, em vez de
 abrir quebrado. Superfície que perdeu a fonte fica apagada; fonte que existe mas não
 carregou mostra o padrão magenta de mídia faltando. Nunca falha em silêncio, e nunca
-desenha em cima do objeto físico sem ter conteúdo (AC-16).
+desenha em cima do objeto físico sem ter conteúdo — o smoke lê o pixel de uma
+superfície sem fonte e cobra preto absoluto.
 
 ---
 
@@ -508,11 +516,13 @@ Integração em `scripts/smoke.mjs`: Playwright abre o `dist/index.html` por `fi
 chromium headless com SwiftShader, opera a UI real e lê pixels com `gl.readPixels`.
 
 **Consequências.** A suíte de unidade não tem custo de manutenção nem de instalação. O
-smoke prova AC-14 a AC-20 contra o artefato que vai para o pendrive, não contra um
-mock — inclusive medindo em pixels a retidão de uma borda num quadrilátero deformado,
-que é a forma objetiva de dizer que a armadilha nº 1 não voltou. O custo é uma
-dependência de desenvolvimento pesada (Playwright) e um teste que leva segundos, não
-milissegundos.
+smoke prova contra o artefato que vai para o pendrive, e não contra um mock, o que
+nenhum teste de unidade alcança: que o build abre por `file://` sem buscar um byte de
+fora, que projeto vazio e superfície sem fonte não acendem um pixel, que a máscara corta
+os cantos do frame e que o padrão de teste chega à saída — inclusive medindo em pixels a
+retidão de uma borda num quadrilátero deformado, que é a forma objetiva de dizer que a
+armadilha nº 1 não voltou. O custo é uma dependência de desenvolvimento pesada
+(Playwright) e um teste que leva segundos, não milissegundos.
 
 ---
 
@@ -520,9 +530,9 @@ milissegundos.
 
 **Status:** aceita
 
-**Contexto.** "Timeline e cues" estava **explicitamente fora de escopo** no brief, e
-`DIFERENCIAIS.md` registrava a decisão de não perseguir. A decisão foi revertida de
-propósito, o que torna o desenho mais importante, não menos: é justamente a feature que
+**Contexto.** "Timeline e cues" estava **explicitamente fora de escopo** no brief, e a
+decisão de não perseguir a feature já estava registrada por escrito. Ela foi revertida
+de propósito, o que torna o desenho mais importante, não menos: é justamente a feature que
 transformaria a ferramenta em outro produto se fosse feita errado.
 
 O caminho óbvio seria o playhead escrever `opacity` e `sourceId` nas superfícies. Isso
@@ -542,18 +552,19 @@ janelas com origens de tempo diferentes lendo o mesmo store.
 **Função, e não superfícies clonadas.** A geometria derivada vive num `WeakMap<Surface, …>`
 com a identidade do objeto como chave — foi ela que fez o trabalho de JS por frame cair de
 0,3 ms para 0,1 ms. Clonar superfícies por frame para injetar a opacidade da cena furaria
-esse cache em todos os frames. O AC-92 tranca isso.
+esse cache em todos os frames. Um teste tranca isso comparando a identidade dos objetos
+entregues ao renderer com a timeline parada e com ela rodando.
 
 **Uma cena guarda apresentação, nunca geometria.** O alinhamento custou horas em cima de
 uma escada e é físico; rodar o show não pode mexer nele. O efeito colateral é o que torna a
 regra valiosa: **dá para corrigir alinhamento com o show rodando**.
 
 **Consequências.** Tocar não cria entrada de desfazer nem toca no arquivo — medido byte a
-byte (AC-85). O laço de render acorda enquanto há **transição**, não enquanto há timeline:
-cena parada com conteúdo parado continua deixando a GPU dormir. Em troca, não há crossfade
-verdadeiro: a transição escurece até o preto, porque um crossfade real exigiria duas
-texturas por superfície. Quem precisar de um empilha duas superfícies e cruza as opacidades
-— o primitivo compõe, e o custo fica com quem precisa.
+byte, num ciclo inteiro de timeline. O laço de render acorda enquanto há **transição**,
+não enquanto há timeline: cena parada com conteúdo parado continua deixando a GPU
+dormir. Em troca, não há crossfade verdadeiro: a transição escurece até o preto, porque
+um crossfade real exigiria duas texturas por superfície. Quem precisar de um empilha duas
+superfícies e cruza as opacidades — o primitivo compõe, e o custo fica com quem precisa.
 
 ---
 
@@ -570,7 +581,7 @@ overlay. O escurecimento do conteúdo também é DOM — um véu sobre o canvas,
 A engine não recebe nada, o renderer não muda uma linha.
 
 **Consequências.** Não existe caminho pelo qual esses pixels cheguem à parede: é
-impossibilidade estrutural, não uma trava que alguém possa esquecer de ligar. O AC-81 mede
+impossibilidade estrutural, não uma trava que alguém possa esquecer de ligar. O smoke mede
 isso lendo o buffer GL com o modo ligado e desligado e comparando. De graça, `H` esconde a
 interface e o raio-x some junto, sem nenhum código para isso — porque ele **é** a interface.
 A silhueta reaproveita `hitPath`, e a sobreposição de duas superfícies aparece porque a
@@ -606,7 +617,7 @@ pergunta que a estrutura precisa responder no editor não é "que camada é esta
 
 **Consequências.** Os nomes tornam a regra visível: um arquivo em `math/` que importe de
 `render/` está errado e dá para ver de relance, sem entender o que ele faz.
-`scripts/check-layers.mjs` (AC-73, `npm run layers`) reprova a direção errada e roda no
+`scripts/check-layers.mjs` (`npm run layers`) reprova a direção errada e roda no
 `verify` — estrutura sem guarda volta ao estado anterior em poucas semanas, um `import`
 de cada vez. Duas decisões ficaram registradas por serem contraintuitivas: `warp.ts` mora
 em `model/` apesar de ser quase toda matemática, porque pelo ADR-0019 a malha é um objeto
