@@ -29,6 +29,13 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # `pages: write` mora aqui, e não só no job de publicar, porque é o
+    # `configure-pages` — que roda **neste** job — quem fala com a API do Pages.
+    # Sem isso o passo falha com "Resource not accessible by integration", que
+    # parece problema de configuração do repositório e é permissão de token.
+    permissions:
+      contents: read
+      pages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -70,8 +77,13 @@ jobs:
           path: dist/index.html
           retention-days: 14
 
+      # `enablement` liga o Pages na primeira execução, com o próprio workflow
+      # como origem. Sem isso, um clone deste repositório só publica depois de
+      # alguém achar a opção certa em Settings.
       - uses: actions/configure-pages@v5
         if: github.ref == 'refs/heads/main'
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
