@@ -8,6 +8,9 @@
  */
 export type Theme = 'system' | 'light' | 'dark';
 
+// O prefixo é um namespace de armazenamento, não o nome do produto. A
+// ferramenta virou ProjMap e esta chave ficou de propósito: renomeá-la joga
+// fora o tema escolhido por quem já usa. Só muda junto com uma migração.
 const KEY = 'map-engine:theme';
 
 function load(): Theme {

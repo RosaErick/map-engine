@@ -1,17 +1,17 @@
 {
-  "name": "map-engine",
+  "name": "projmap",
   "version": "0.1.0",
   "description": "Projection mapping engine and editor that run in the browser.",
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "module": "./dist-lib/map-engine.js",
+  "module": "./dist-lib/projmap.js",
   "types": "./dist-lib/types/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist-lib/types/index.d.ts",
-      "import": "./dist-lib/map-engine.js"
+      "import": "./dist-lib/projmap.js"
     }
   },
   "files": [

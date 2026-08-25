@@ -9,7 +9,7 @@ import { defineConfig } from 'vite';
  * canvas and no globals. That claim is only real if there is an artifact
  * somebody can import — until this config existed it was a sentence in a README.
  *
- *   npm run build:lib   → dist-lib/map-engine.js + .d.ts
+ *   npm run build:lib   → dist-lib/projmap.js + .d.ts
  */
 export default defineConfig({
   // The PWA assets belong to the app, not to a library someone imports.
@@ -24,7 +24,9 @@ export default defineConfig({
     lib: {
       entry: resolve(import.meta.dirname, 'packages/engine/index.ts'),
       formats: ['es'],
-      fileName: () => 'map-engine.js',
+      // Kept in step with `module`/`exports` in package.json by hand: this is
+      // the file those fields name, and a mismatch is an unimportable package.
+      fileName: () => 'projmap.js',
     },
     // Zero dependencies means nothing to externalise: the bundle is the engine.
     rollupOptions: { external: [] },
