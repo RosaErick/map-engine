@@ -676,6 +676,28 @@ enquadramento da superfície que decide como ela cai na forma.
 **Então** entrelinha e alinhamento são respeitados, e a linha mais larga define
 a caixa.
 
+### AC-94 — O clique pega o que está por cima
+
+**Dado** duas superfícies sobrepostas, com a de cima criada **antes** da de baixo
+**Quando** o ponteiro cai na sobreposição
+**Então** ele pega a que o renderer desenha por cima.
+
+> O SVG pinta na ordem em que se itera, e quem é pintado por último fica por cima
+> também para o ponteiro. O overlay iterava o array cru enquanto o renderer
+> ordenava por `z`: dava para ver uma superfície e selecionar a de baixo. O teste
+> cria a de cima primeiro de propósito — é o único arranjo em que as duas ordens
+> discordam.
+
+### AC-95 — Dá para traçar por cima do que já existe
+
+**Dado** uma superfície cobrindo a saída
+**Quando** um polígono é traçado por cima dela
+**Então** ele vira uma superfície nova.
+
+> A área de clique da superfície é da ferramenta de seleção. Enquanto ela
+> capturava o ponteiro sempre, um fundo cobrindo a tela deixava a ferramenta de
+> polígono morta — e um fundo cobrindo a tela é o caso mais comum que existe.
+
 ### AC-93 — O conteúdo sobe na orientação certa
 
 **Dado** uma imagem de orientação conhecida e um texto, no mesmo frame
@@ -913,6 +935,8 @@ humano — marcá-los é melhor do que fingir cobertura.
 | AC-91 | provado | `model/store.test.ts` |
 | AC-92 | provado | `model/store.test.ts` |
 | AC-93 | provado | `smoke.mjs` (imagem e texto no mesmo frame) |
+| AC-94 | provado | `smoke.mjs` (clique real na sobreposição) |
+| AC-95 | provado | `smoke.mjs` (traçado real sobre um fundo) |
 | AC-21..27 | `not-tested` | ver seção 5 |
 
 **Julgamento:** o caminho de renderização está garantido, não apenas testado — o
