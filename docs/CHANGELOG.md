@@ -171,7 +171,7 @@ a mesma sequência deixava **zero** pixel da saída visível.
   seções, na mesma ordem, com a mesma contagem de passos e atalhos.
 
 **Engine como biblioteca**
-- `npm run build:lib` gera `dist-lib/map-engine.js` (55 KB, ESM, zero dependências)
+- `npm run build:lib` gera `dist-lib/projmap.js` (55 KB, ESM, zero dependências)
   com declarações de tipo, e o pacote expõe `exports`/`types` — instalar direto do
   repositório funciona, sem publicar no npm.
 - Exemplo executável em `examples/embed/`: um canvas, um `Project`, e frames saindo
