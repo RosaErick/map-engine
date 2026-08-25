@@ -6,9 +6,9 @@
  * grafo inteiro de novo. Aqui a regra é executável, e roda no `npm run verify`
  * junto com os testes.
  *
- * AC-73. As regras vêm de `docs/specs/0004-file-layout.md`. Mudar uma delas é uma
- * decisão, não um conserto: se a direção precisa mudar, muda aqui e no
- * documento, de propósito.
+ * As regras estão escritas abaixo, cada uma com o motivo pelo qual existe.
+ * Mudar uma delas é uma decisão, não um conserto: se a direção precisa mudar,
+ * mude a regra aqui, de propósito, e o `why` junto.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -69,10 +69,10 @@ for (const rule of RULES) {
 }
 
 if (problems.length) {
-  console.error('\nAC-73 — import na direção errada:\n');
+  console.error('\nimport na direção errada:\n');
   for (const p of problems) {
     console.error(`  ${p.file}\n    importa ${p.spec}\n    ${p.why}\n`);
   }
   process.exit(1);
 }
-console.log('ok  AC-73: as camadas apontam para baixo');
+console.log('ok  as camadas apontam para baixo');

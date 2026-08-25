@@ -25,7 +25,7 @@
     // would leave the shipped build untested — and it is the console handle you
     // want at 2am on site. Namespaced so an embedding page keeps its own.
     // It grants nothing a user canvas module could not already do.
-    (window as unknown as { mapEngine: typeof engine }).mapEngine = engine;
+    (window as unknown as { projMap: typeof engine }).projMap = engine;
     engine.start();
 
     const ro = new ResizeObserver(() => {

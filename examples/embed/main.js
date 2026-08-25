@@ -5,7 +5,7 @@
 // only has to hand it those two things.
 //
 //   npm run build:lib && npm run example
-import { createEngine, emptyProject, newSurface } from '../../dist-lib/map-engine.js';
+import { createEngine, emptyProject, newSurface } from '../../dist-lib/projmap.js';
 
 const canvas = document.getElementById('output');
 

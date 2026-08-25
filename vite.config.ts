@@ -19,7 +19,7 @@ import { markSvg } from './scripts/mark.mjs';
  */
 function favicon(): Plugin {
   return {
-    name: 'map-engine:favicon',
+    name: 'projmap:favicon',
     transformIndexHtml: {
       order: 'pre',
       handler(html: string) {
@@ -44,7 +44,7 @@ function favicon(): Plugin {
  */
 function serviceWorker(): Plugin {
   return {
-    name: 'map-engine:sw',
+    name: 'projmap:sw',
     apply: 'build',
     closeBundle() {
       const outDir = resolve(process.cwd(), 'dist');
@@ -65,7 +65,7 @@ function serviceWorker(): Plugin {
 
 function swSource(version: string, assets: string[]): string {
   return `// Gerado no build. Não edite: veja serviceWorker() em vite.config.ts.
-const CACHE = 'map-engine-${version}';
+const CACHE = 'projmap-${version}';
 const ASSETS = ${JSON.stringify(assets)};
 
 self.addEventListener('install', (event) => {
