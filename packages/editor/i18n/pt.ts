@@ -3,14 +3,14 @@ import type { Messages } from './en.ts';
 /** Português. Tipado como `Messages`, então uma chave que falta é erro de
  *  compilação — nunca um rótulo em branco na parede às duas da manhã. */
 export const pt: Messages = {
-  'app.name': 'Projection Mapping',
+  'app.name': 'ProjMap',
 
   'docs.title': 'Guia',
   'docs.subtitle': 'Tudo o que a ferramenta faz, e a ordem de fazer.',
   'docs.onThisPage': 'Nesta página',
   'topbar.guide': 'guia',
   'topbar.backToEditor': 'voltar ao editor',
-  'seo.title': 'Projection Mapping no Navegador — Grátis e Código Aberto',
+  'seo.title': 'ProjMap — Projection Mapping no Navegador, Grátis e Código Aberto',
   'seo.description': 'Projection mapping grátis que roda no navegador. Arraste quatro cantos sobre um objeto real e jogue dentro vídeo, imagem, GIF ou uma captura de tela ao vivo. Sem instalação, sem conta, sem nuvem.',
   'topbar.about': 'sobre',
   'topbar.github': 'Código no GitHub — AGPL-3.0',

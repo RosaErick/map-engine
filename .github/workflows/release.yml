@@ -31,14 +31,14 @@ jobs:
 
       # O nome do anexo é o que a pessoa vai ver na pasta de Downloads.
       - name: Nomear o arquivo
-        run: cp dist/index.html projection-mapping.html
+        run: cp dist/index.html projmap.html
 
       - name: Publicar
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          gh release create "$TAG" projection-mapping.html \
+          gh release create "$TAG" projmap.html \
             --title "$TAG" \
-            --notes "Baixe \`projection-mapping.html\` e abra com Chrome ou Edge. Um arquivo só: sem instalação, sem servidor, sem internet. Instruções: https://github.com/${{ github.repository }}/blob/main/docs/install/pt.md" \
-            || gh release upload "$TAG" projection-mapping.html --clobber
+            --notes "Baixe \`projmap.html\` e abra com Chrome ou Edge. Um arquivo só: sem instalação, sem servidor, sem internet. Instruções: https://github.com/${{ github.repository }}/blob/main/docs/install/pt.md" \
+            || gh release upload "$TAG" projmap.html --clobber

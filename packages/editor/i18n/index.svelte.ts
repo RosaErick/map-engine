@@ -12,6 +12,9 @@ export const LOCALES: { id: Locale; label: string; short: string }[] = [
 ];
 
 const CATALOGUES: Record<Locale, Messages> = { en, es, pt };
+// Same reason as the other `map-engine:` keys: the prefix is a storage
+// namespace, not the product name. ProjMap kept it so that upgrading does not
+// throw the reader back to the browser's language after they picked one.
 const KEY = 'map-engine:locale';
 
 function isLocale(value: string | null | undefined): value is Locale {

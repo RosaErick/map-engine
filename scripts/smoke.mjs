@@ -68,14 +68,14 @@ page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text(
 page.on('pageerror', (e) => consoleErrors.push(String(e)));
 
 await page.goto(pathToFileURL(build).href);
-await page.waitForFunction(() => Boolean(window.mapEngine), null, { timeout: 10_000 });
+await page.waitForFunction(() => Boolean(window.projMap), null, { timeout: 10_000 });
 
 check('AC-14: build abre por file:// e monta a engine', true);
 
 /** Reads a pixel straight out of the GL buffer, right after a forced frame. */
 async function pixel(x, y) {
   return page.evaluate(([px, py]) => {
-    const engine = window.mapEngine;
+    const engine = window.projMap;
     engine.renderFrame();
     const gl = engine.renderer.gl;
     const out = new Uint8Array(4);
@@ -86,7 +86,7 @@ async function pixel(x, y) {
 }
 
 const size = await page.evaluate(() => {
-  const gl = window.mapEngine.renderer.gl;
+  const gl = window.projMap.renderer.gl;
   return [gl.drawingBufferWidth, gl.drawingBufferHeight];
 });
 const [W, H] = size;
@@ -113,7 +113,7 @@ for (const [name, x, y] of [['canto sup-esq', 4, 4], ['canto inf-dir', W - 5, H 
 
 // Ellipse mask: the corners of the frame must be cut away.
 const frameCorner = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const s = engine.store.project.surfaces[0];
   engine.store.setSurfaceShape(s.id, { kind: 'ellipse', feather: 0 });
   const view = engine.view;
@@ -131,7 +131,7 @@ check('AC-18: centro da elipse continua aceso', stillLit[0] > 200, `rgb=${stillL
 await page.selectOption('#pattern', 'grid');
 await page.waitForTimeout(100);
 const gridSample = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   engine.renderFrame();
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
@@ -153,7 +153,7 @@ await page.selectOption('#pattern', 'none'); // a test pattern would bypass the 
 // outside the source, get discarded, and the lit area becomes a diamond
 // inscribed in the frame. Corners dark, centre and edge midpoints lit.
 const rotated = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const s = engine.store.project.surfaces[0];
   engine.store.setSurfaceShape(s.id, { kind: 'quad' });
   engine.store.setSurfaceFrame(s.id, [
@@ -179,7 +179,7 @@ check('AC-28: meio da aresta e centro continuam acesos',
   rotEdge[0] > 200 && rotCentre[0] > 200, `aresta=${rotEdge} centro=${rotCentre}`);
 
 await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   engine.store.setRotation(engine.store.project.surfaces[0].id, 0);
   engine.store.endGesture();
 });
@@ -189,7 +189,7 @@ await page.evaluate(() => {
 // the loop is asleep — so the only thing that can wake it is the upload itself.
 // Read WITHOUT forcing a frame: forcing one would hide exactly this bug.
 const lateLoad = await page.evaluate(async () => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const store = engine.store;
   // 1x1 opaque red PNG, so the source is a real async fetch + decode.
   const red = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
@@ -218,7 +218,7 @@ check('AC-39: fonte que carrega depois do loop dormir chega na parede sozinha',
   lateLoad[0] > 200 && lateLoad[1] < 60 && lateLoad[2] < 60, `rgb=${lateLoad}`);
 
 await page.evaluate(() => {
-  const store = window.mapEngine.store;
+  const store = window.projMap.store;
   store.removeSource('late');
 });
 
@@ -227,7 +227,7 @@ await page.evaluate(() => {
 // stay straight. The classic linearly-interpolated-UV bug kinks it exactly at
 // the diagonal where the two triangles meet.
 await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const s = engine.store.project.surfaces[0];
   engine.store.setSurfaceShape(s.id, { kind: 'quad' });
   engine.store.setSurfaceFrame(s.id, [
@@ -237,7 +237,7 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(100);
 const straightness = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   engine.renderFrame();
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
@@ -283,7 +283,7 @@ await page.selectOption('#pattern', 'none');
 // neighbour keeps it. Both get the same white colour source, then one is told
 // to draw black — if the override reaches the GPU, only that one goes dark.
 const spots = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const store = engine.store;
   const src = store.project.sources[0].id;
 
@@ -317,7 +317,7 @@ check('AC-32: a vizinha continua seguindo o padrão global',
   untouched[0] > 200, `rgb=${untouched}`);
 
 await page.evaluate((ids) => {
-  const store = window.mapEngine.store;
+  const store = window.projMap.store;
   store.setSurfacePattern(ids[0], null);
   store.removeSurface(ids[1]);
 }, spots.ids);
@@ -328,7 +328,7 @@ await page.evaluate((ids) => {
 // cells would be the exact artifact this project refuses, since black is
 // transparency and a seam is a stripe of wall showing through the content.
 const mesh = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const store = engine.store;
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth;
@@ -401,7 +401,7 @@ await page.selectOption('#pattern', 'none');
 // test is the same one that mattered for the ellipse: the corners of the frame
 // have to stay dark while the middle stays lit.
 const maskedMesh = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const store = engine.store;
   const gl = engine.renderer.gl;
   const surface = store.project.surfaces[0];
@@ -443,7 +443,7 @@ check('AC-52: máscara de polígono continua recortando numa superfície deforma
 
 // Undo must walk the geometry back.
 const undoOk = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const s = engine.store.project.surfaces[0];
   const before = s.frame[0].x;
   engine.store.setCorner(s.id, 0, { x: before - 100, y: s.frame[0].y });
@@ -458,7 +458,7 @@ check('AC-7: desfazer volta o canto arrastado pela UI real', undoOk.after === un
 // matemática; o que só aparece aqui é o laço real de `requestAnimationFrame`
 // batendo por segundos seguidos sem encostar no projeto.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.sources]) store.removeSource(s.id);
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   const surface = store.addSurface();
@@ -479,18 +479,18 @@ await page.evaluate(() => {
 await page.waitForTimeout(250);
 
 const showBefore = await page.evaluate(() => ({
-  json: window.mapEngine.store.toJSON(),
-  canUndo: window.mapEngine.store.canUndo,
+  json: window.projMap.store.toJSON(),
+  canUndo: window.projMap.store.canUndo,
 }));
-await page.evaluate(() => window.mapEngine.store.play());
+await page.evaluate(() => window.projMap.store.play());
 await page.waitForTimeout(2200);
 const showAfter = await page.evaluate(() => ({
-  json: window.mapEngine.store.toJSON(),
-  canUndo: window.mapEngine.store.canUndo,
-  index: window.mapEngine.store.view.playback?.sceneIndex ?? -1,
-  cycled: window.mapEngine.store.view.playback?.playing === true,
+  json: window.projMap.store.toJSON(),
+  canUndo: window.projMap.store.canUndo,
+  index: window.projMap.store.view.playback?.sceneIndex ?? -1,
+  cycled: window.projMap.store.view.playback?.playing === true,
 }));
-await page.evaluate(() => window.mapEngine.store.eject());
+await page.evaluate(() => window.projMap.store.eject());
 check('AC-85: um ciclo inteiro de timeline não escreve um byte no projeto',
   showBefore.json === showAfter.json && showBefore.canUndo === showAfter.canUndo && showAfter.cycled,
   `json igual=${showBefore.json === showAfter.json} desfazer igual=${showBefore.canUndo === showAfter.canUndo} parou na cena ${showAfter.index}`);
@@ -499,7 +499,7 @@ check('AC-85: um ciclo inteiro de timeline não escreve um byte no projeto',
 // ferramenta: preto é ausência de luz, então uma fonte de texto não precisa —
 // nem pode — pintar fundo nenhum.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.sources]) store.removeSource(s.id);
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   const surface = store.addSurface();
@@ -518,7 +518,7 @@ await page.evaluate(() => {
 await page.waitForTimeout(400);
 
 const text = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   engine.renderFrame();
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth;
@@ -546,7 +546,7 @@ check('AC-76: a textura é a caixa do texto, no limite de 2048',
 // Orientação. Este defeito passou por todo teste de pixel que só conta brilho e
 // cor: o texto subia de cabeça para baixo e as contagens continuavam batendo.
 const upright = await page.evaluate(async () => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   // Imagem de orientação conhecida ao lado do texto, no mesmo frame: se um dia
   // o flip mudar para todo mundo, a metade da imagem denuncia junto.
@@ -575,7 +575,7 @@ const upright = await page.evaluate(async () => {
   store.setSurfaceSource(right, 'letter');
   await new Promise((r) => setTimeout(r, 600));
 
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   engine.renderFrame();
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth;
@@ -602,7 +602,7 @@ check('AC-93: texto e imagem sobem na orientação certa, não de cabeça para b
   `imagem ${upright.image.top}/${upright.image.bottom} texto ${upright.text.top}/${upright.text.bottom}`);
 
 const kept = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const before = engine.pool.get('txt');
   engine.store.patchSource('txt', { text: 'MAPA VIVO' });
   return { same: engine.pool.get('txt') === before };
@@ -614,7 +614,7 @@ check('AC-75: digitar remenda a fonte em vez de reconstruí-la', kept.same,
 // toca. Um modo de diagnóstico que chegue ao projetor no meio de uma
 // inauguração é um desastre.
 const glHash = () => page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   engine.renderFrame();
   const gl = engine.renderer.gl;
   const w = gl.drawingBufferWidth;
@@ -627,7 +627,7 @@ const glHash = () => page.evaluate(() => {
 });
 
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   store.addSurface();
   const extra = store.addSurface();
   store.toggleVisible(extra.id);   // uma escondida, que o raio-x tem que achar
@@ -635,7 +635,7 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(150);
 const xrayOff = await glHash();
-await page.evaluate(() => window.mapEngine.store.setView({ xray: true }));
+await page.evaluate(() => window.projMap.store.setView({ xray: true }));
 await page.waitForTimeout(200);
 const xrayOn = await glHash();
 check('AC-81: o raio-x não muda um pixel do que a engine desenha',
@@ -643,17 +643,17 @@ check('AC-81: o raio-x não muda um pixel do que a engine desenha',
 
 const xrayShapes = await page.evaluate(() => ({
   shapes: document.querySelectorAll('.xray-shape').length,
-  surfaces: window.mapEngine.store.project.surfaces.length,
-  hidden: window.mapEngine.store.project.surfaces.filter((s) => !s.visible).length,
+  surfaces: window.projMap.store.project.surfaces.length,
+  hidden: window.projMap.store.project.surfaces.filter((s) => !s.visible).length,
 }));
 check('AC-80: toda superfície ganha silhueta no raio-x, inclusive a escondida',
   xrayShapes.shapes === xrayShapes.surfaces && xrayShapes.hidden > 0,
   `silhuetas=${xrayShapes.shapes} superfícies=${xrayShapes.surfaces} escondidas=${xrayShapes.hidden}`);
 
-await page.evaluate(() => window.mapEngine.store.setView({ uiHidden: true }));
+await page.evaluate(() => window.projMap.store.setView({ uiHidden: true }));
 await page.waitForTimeout(150);
 const whenHidden = await page.evaluate(() => document.querySelectorAll('.xray-shape').length);
-await page.evaluate(() => window.mapEngine.store.setView({ uiHidden: false, xray: false }));
+await page.evaluate(() => window.projMap.store.setView({ uiHidden: false, xray: false }));
 check('AC-82: esconder a interface apaga o raio-x junto', whenHidden === 0,
   `${whenHidden} silhuetas com a interface escondida`);
 
@@ -661,7 +661,7 @@ check('AC-82: esconder a interface apaga o raio-x junto', whenHidden === 0,
 // até achá-lo — escondendo justamente a parede, que é o que se olha ao escolher
 // uma cor. E não dizia como fechar.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.sources]) store.removeSource(s.id);
   store.addSource({ id: 'pick', name: '', kind: 'color', rgb: [208, 43, 43] });
 });
@@ -700,7 +700,7 @@ check('AC-72: fecha por Esc, por clique fora e pelo botão',
 // Seleção múltipla, arrasto de grupo, e a vista que não se perde. Tudo com
 // ponteiro de verdade: é a camada onde os três defeitos moravam.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   const place = (x) => {
     const s = store.addSurface();
@@ -716,10 +716,10 @@ await page.evaluate(() => {
  */
 const outXY = (ox, oy) => page.evaluate(([ox, oy]) => {
   const rect = document.querySelector('canvas').getBoundingClientRect();
-  const { scale, tx, ty } = window.mapEngine.view;
+  const { scale, tx, ty } = window.projMap.view;
   return { x: rect.left + ox * scale + tx, y: rect.top + oy * scale + ty };
 }, [ox, oy]);
-const frames = () => page.evaluate(() => window.mapEngine.store.project.surfaces.map((s) => s.frame[0].x));
+const frames = () => page.evaluate(() => window.projMap.store.project.surfaces.map((s) => s.frame[0].x));
 
 // Laço em volta das duas primeiras, sem tocar na terceira.
 let from = await outXY(50, 150);
@@ -728,7 +728,7 @@ await page.mouse.move(from.x, from.y);
 await page.mouse.down();
 await page.mouse.move(to.x, to.y, { steps: 10 });
 await page.mouse.up();
-const caught = await page.evaluate(() => window.mapEngine.store.view.selectedIds.length);
+const caught = await page.evaluate(() => window.projMap.store.view.selectedIds.length);
 
 const beforeDrag = await frames();
 const grab = await outXY(250, 350);
@@ -737,7 +737,7 @@ await page.mouse.down();
 await page.mouse.move(grab.x + 60, grab.y, { steps: 10 });
 await page.mouse.up();
 const afterDrag = await frames();
-await page.evaluate(() => window.mapEngine.store.undo());
+await page.evaluate(() => window.projMap.store.undo());
 const undoneDrag = await frames();
 
 const moved = afterDrag.map((x, i) => x - (beforeDrag[i] ?? 0));
@@ -772,7 +772,7 @@ for (let i = 0; i < 6; i++) {
 await page.keyboard.up('Control');
 
 const reachable = await page.evaluate(() => {
-  const engine = window.mapEngine;
+  const engine = window.projMap;
   const { store } = engine;
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   const s = store.addSurface();
@@ -799,7 +799,7 @@ await page.waitForTimeout(80);
 // Empilhar superfícies. Um fundo cobrindo a saída é o caso mais comum que
 // existe, e era exatamente onde as duas coisas quebravam.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.sources]) store.removeSource(s.id);
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   const { width, height } = store.project.output;
@@ -833,17 +833,17 @@ await page.waitForTimeout(80);
 // `pixel` lê o buffer de desenho; `outXY` fala em pixels de saída. As duas
 // unidades são diferentes, e trocá-las põe o clique num lugar que não é o
 // centro de nada.
-const out = await page.evaluate(() => window.mapEngine.store.project.output);
+const out = await page.evaluate(() => window.projMap.store.project.output);
 const drawn = await pixel(Math.round(W / 2), Math.round(H / 2));
 const middle = await outXY(out.width / 2, out.height / 2);
 await page.mouse.click(middle.x, middle.y);
-const picked = await page.evaluate(() => window.mapEngine.store.view.selectedIds[0] === window.__stack.small);
+const picked = await page.evaluate(() => window.projMap.store.view.selectedIds[0] === window.__stack.small);
 check('AC-94: o clique pega a superfície que está por cima no desenho',
   drawn[1] > 200 && drawn[0] < 60 && picked,
   `pixel=${drawn.slice(0, 3)} pegou a de cima=${picked}`);
 
 // Traçar um contorno por cima de um fundo que já existe.
-const before = await page.evaluate(() => window.mapEngine.store.project.surfaces.length);
+const before = await page.evaluate(() => window.projMap.store.project.surfaces.length);
 await page.getByRole('button', { name: 'polígono', exact: true }).first().click();
 for (const [fx, fy] of [[0.15, 0.15], [0.45, 0.15], [0.3, 0.4]]) {
   const spot = await outXY(out.width * fx, out.height * fy);
@@ -852,7 +852,7 @@ for (const [fx, fy] of [[0.15, 0.15], [0.45, 0.15], [0.3, 0.4]]) {
 const last = await outXY(out.width * 0.3, out.height * 0.4);
 await page.mouse.dblclick(last.x, last.y);
 await page.waitForTimeout(200);
-const after = await page.evaluate(() => window.mapEngine.store.project.surfaces.length);
+const after = await page.evaluate(() => window.projMap.store.project.surfaces.length);
 check('AC-95: dá para traçar um polígono por cima de uma superfície existente',
   after === before + 1, `superfícies ${before} -> ${after}`);
 
@@ -866,7 +866,7 @@ await page.waitForTimeout(80);
 // a cor: cinco fontes "branco" de cores diferentes numa lista é o que sobra
 // depois de calibrar um projetor. E o que o hex diz tem que ser o que acende.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.sources]) store.removeSource(s.id);
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   store.addSurface();
@@ -876,7 +876,7 @@ await page.evaluate(() => {
 await page.waitForTimeout(120);
 
 const colour = await page.evaluate(() => {
-  const { store, renderer } = window.mapEngine;
+  const { store, renderer } = window.projMap;
   const label = () => [...document.querySelectorAll('span.truncate')]
     .map((s) => s.textContent.trim()).find((x) => x.includes('#')) ?? '';
   const asWhite = label();
@@ -899,7 +899,7 @@ check('AC-64: o que o hex diz é o que a superfície acende',
 // que se julga o alinhamento. Medido no elemento renderizado de verdade, com o
 // CSS aplicado, e não na folha de estilo.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   if (!store.project.surfaces[0]) store.addSurface();
   const s = store.project.surfaces[0];
   store.setSelection([s.id]);
@@ -946,7 +946,7 @@ check('AC-61: o guia da malha se distingue sobre branco e sobre preto',
 // selecionar a superfície errada custa caro: acontece em cima de uma escada,
 // mirando outra coisa.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   store.addSurface();
   const s = store.project.surfaces[0];
@@ -955,15 +955,15 @@ await page.evaluate(() => {
   // Espaço de frame -> página, pela vista real. Mesmo motivo de `outXY`.
   window.__xy = (u, v) => {
     const rect = document.querySelector('canvas').getBoundingClientRect();
-    const { scale, tx, ty } = window.mapEngine.view;
-    const f = window.mapEngine.store.project.surfaces[0].frame;
+    const { scale, tx, ty } = window.projMap.view;
+    const f = window.projMap.store.project.surfaces[0].frame;
     const ox = f[0].x + (f[1].x - f[0].x) * u + (f[3].x - f[0].x) * v;
     const oy = f[0].y + (f[1].y - f[0].y) * u + (f[3].y - f[0].y) * v;
     return { x: rect.left + ox * scale + tx, y: rect.top + oy * scale + ty };
   };
 });
 const at = (u, v) => page.evaluate(([u, v]) => window.__xy(u, v), [u, v]);
-const selected = () => page.evaluate(() => window.mapEngine.store.view.selectedIds[0] ?? null);
+const selected = () => page.evaluate(() => window.projMap.store.view.selectedIds[0] ?? null);
 
 let spot = await at(0.9, 0.9);
 await page.mouse.click(spot.x, spot.y);
@@ -977,7 +977,7 @@ check('AC-59: o clique respeita o polígono, não a caixa dele',
 
 // Vértice interno de propósito: num canto do frame a alça do canto fica por cima.
 const vertex = () => page.evaluate(() => {
-  const p = window.mapEngine.store.project.surfaces[0].shape.points[1];
+  const p = window.projMap.store.project.surfaces[0].shape.points[1];
   return { x: p.x, y: p.y };
 });
 const vBefore = await vertex();
@@ -987,7 +987,7 @@ await page.mouse.down();
 await page.mouse.move(vertexGrab.x - 150, vertexGrab.y + 60, { steps: 12 });
 await page.mouse.up();
 const vAfter = await vertex();
-await page.evaluate(() => window.mapEngine.store.undo());
+await page.evaluate(() => window.projMap.store.undo());
 const vUndone = await vertex();
 check('AC-60: vértice de polígono se move e volta num só desfazer',
   Math.abs(vAfter.x - vBefore.x) > 0.005 && Math.abs(vUndone.x - vBefore.x) < 1e-9,
@@ -996,7 +996,7 @@ check('AC-60: vértice de polígono se move e volta num só desfazer',
 // O número da lista tem que ser o mesmo que o projetor desenha. Quem está na
 // escada lê os dois ao mesmo tempo; divergir seria pior do que não numerar.
 await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   for (const s of [...store.project.surfaces]) store.removeSurface(s.id);
   store.addSurface(); store.addSurface(); store.addSurface();
   // A última superfície vai para o topo da pilha: se a lista numerasse por
@@ -1009,7 +1009,7 @@ await page.waitForFunction(() => document.querySelectorAll('aside li, .surface-r
   || document.querySelectorAll('li').length > 0, null, { timeout: 5000 });
 
 const numbering = await page.evaluate(() => {
-  const { store } = window.mapEngine;
+  const { store } = window.projMap;
   // O que o renderer projeta: z decrescente, começando em 1.
   const projected = [...store.project.surfaces].sort((a, b) => b.z - a.z).map((s) => s.name);
   // O que a lista mostra, lido do DOM.
