@@ -15,6 +15,10 @@ import { forgetFolder, recallFolder, rememberFolder } from './handle-store.ts';
 
 type DirHandle = FileSystemDirectoryHandle;
 
+// The prefix is a storage namespace, not the product name. The tool is called
+// ProjMap now and this key deliberately did not follow: renaming it throws away
+// the saved project of everyone who upgrades, on their first open. Changing it
+// would have to ship with a migration that reads the old key first.
 const LOCAL_KEY = 'map-engine:project';
 
 /** Falha que o usuário precisa entender. O texto é escolhido por quem tem o

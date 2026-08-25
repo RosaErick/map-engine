@@ -47,6 +47,7 @@ export const guideEn: Guide = [
         ],
       },
       { kind: 'p', text: 'Each row in the list carries three switches: <b>S</b> solos the surface and blanks every other one, the <b>eye</b> blanks this one, and the <b>padlock</b> locks it.' },
+      { kind: 'note', text: '<b>X-ray</b> (the <b>X</b> key) dims the content and lights up the structure: every surface silhouette, number and mesh, hidden ones included. It is how you find the surface someone muted. It never reaches the projector.' },
       { kind: 'note', text: 'Lock a surface as soon as it is aligned. Bumping an aligned corner is the most expensive accident there is, and a locked surface refuses every move — mouse, arrows and all.' },
     ],
   },
@@ -96,6 +97,7 @@ export const guideEn: Guide = [
           '<b>Color</b> — a solid colour, the fastest way to check an edge. The swatch opens a picker with the projector-checking colours at hand: white, 50% grey, black and the three pure primaries.',
           '<b>Screen capture</b> — any window on the machine, live. A game, a player, another tab.',
           '<b>Camera</b> — a live webcam.',
+          '<b>Text</b> — written inside the app. The background is black, so only the letters light up.',
           '<b>JS module</b> — your own generative drawing. See below.',
         ],
       },
@@ -145,6 +147,25 @@ export function draw(ctx, t) {
     ],
   },
   {
+    id: 'timeline',
+    title: 'Scenes and timeline',
+    blocks: [
+      { kind: 'p', text: 'In an installation, what changes over time is <b>what is playing</b>. What never changes is where things are — the alignment cost hours up a ladder. Hence the rule that governs everything here: <b>a scene holds what each surface is showing, never where it is</b>.' },
+      {
+        kind: 'steps',
+        items: [
+          'Build a look: choose the content for each surface and set the opacities.',
+          'Open the bar at the bottom and click <b>capture scene</b>. It holds that whole look.',
+          'Change the look and capture again. Two scenes are already a show.',
+          'Set <b>hold</b> (how long the scene lasts) and <b>fade</b> (how long it takes to come in).',
+          'Press <b>play</b>. With <b>loop</b> on, the last one returns to the first.',
+        ],
+      },
+      { kind: 'p', text: 'A scene with <b>hold</b> at zero does not advance on its own: it waits for GO. That is how you stop at a point until someone says carry on.' },
+      { kind: 'note', text: 'Because a scene holds no geometry, <b>you can fix alignment while the show runs</b>. And touching a surface opacity or source takes the timeline out of charge right away — control comes back to your hand, and the bar says so.' },
+    ],
+  },
+  {
     id: 'output',
     title: 'Output and screens',
     blocks: [
@@ -191,6 +212,7 @@ export function draw(ctx, t) {
           ['Ctrl+D', 'Duplicate the selected surface'],
           ['Delete', 'Delete the selected surface'],
           ['H', 'Hide or show the interface'],
+          ['X', 'X-ray: dims the content and lights up the structure'],
           ['Esc', 'Cancel the polygon, drop the corner selection'],
           ['Mouse wheel', 'Zoom at the cursor'],
           ['Middle button, Ctrl, or Alt + drag', 'Reframe the view'],

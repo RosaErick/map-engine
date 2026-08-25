@@ -35,7 +35,7 @@ Para desinstalar: abre la herramienta, menú ⋮ → **Desinstalar**.
 Para una máquina que nunca va a tener internet, o para llevar la herramienta a un montaje
 sin depender de la red.
 
-1. Ve a **[Releases](../../../../releases)** y descarga **`projection-mapping.html`**.
+1. Ve a **[Releases](../../../../releases)** y descarga **`projmap.html`**.
    *(O, con la herramienta ya abierta, haz clic en **descargar para uso sin conexión** en
    la barra de arriba.)*
 2. Copia el archivo donde quieras — una memoria USB, el escritorio, lo que sea.

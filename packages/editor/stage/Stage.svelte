@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Overlay from './Overlay.svelte';
+  import Timeline from './Timeline.svelte';
   import { panZoom } from '../ui/actions.ts';
   import { store, viewport, tools, clampView, fitView, flash, getEngine, outputToFrame, setEngine, surfaceAt, toOutput, toScreen } from '../state.svelte.ts';
   import { createEngine, newId, newSurface, type Vec2, type Source } from '../../engine/index.ts';
@@ -24,7 +25,7 @@
     // would leave the shipped build untested — and it is the console handle you
     // want at 2am on site. Namespaced so an embedding page keeps its own.
     // It grants nothing a user canvas module could not already do.
-    (window as unknown as { mapEngine: typeof engine }).mapEngine = engine;
+    (window as unknown as { projMap: typeof engine }).projMap = engine;
     engine.start();
 
     const ro = new ResizeObserver(() => {
@@ -221,6 +222,11 @@
   {#if !$store.view.uiHidden}
     <Overlay />
   {/if}
+  <!-- Fora da guarda de propósito: a barra segura o relógio da timeline, e ela
+       mesma esconde a própria marcação quando a interface está escondida.
+       Desmontá-la aqui congelaria o show justo quando alguém apertou `H` para
+       deixar a tela limpa. -->
+  <Timeline />
   {#if tools.tool === 'polygon'}
     <div class="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
       <div class="rounded-full border border-base-300 bg-base-100/90 px-4 py-1.5 text-xs text-base-content/70 shadow-lg backdrop-blur">

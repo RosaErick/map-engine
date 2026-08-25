@@ -58,7 +58,9 @@ export interface OutputOptions {
   /** Share the editor's pool: one decode, one capture prompt. */
   pool?: SourcePool;
   resolveUrl?: (path: string) => Promise<string>;
-  /** Title of the output window. English default; the host may localise it. */
+  /** Title of the output window. English default; the host may localise it —
+   *  the editor does, from its own catalogue. The default carries the product
+   *  name so an embedder's operator can pick the window out of a taskbar. */
   title?: string;
   onWarn?: (code: OutputWarning) => void;
   /** Fires when the window goes away for any reason — the user closed it, the
@@ -84,13 +86,13 @@ export function openOutput(store: Store, opts: OutputOptions = {}): OutputHandle
   const features = target
     ? `popup=yes,left=${target.left},top=${target.top},width=${target.width},height=${target.height}`
     : 'popup=yes,width=1280,height=720';
-  const win = window.open('', 'map-engine-output', features);
+  const win = window.open('', 'projmap-output', features);
   if (!win) {
     opts.onWarn?.('popup-blocked');
     return null;
   }
 
-  win.document.title = opts.title ?? 'Output';
+  win.document.title = opts.title ?? 'ProjMap Output';
   win.document.body.style.cssText = 'margin:0;background:#000;overflow:hidden;cursor:none';
   win.document.documentElement.style.cssText = 'background:#000';
   // The window name is reused across opens: clear whatever a previous session

@@ -47,6 +47,66 @@ coisa aparecer.
 - Permissão negada não vira botão para insistir, e handle cuja pasta sumiu é esquecido
   em vez de ficar meio adotado falhando a cada salvamento.
 
+### Texto como conteúdo
+
+Uma fonte nova: `texto`, escrito dentro do app.
+
+- O encaixe é com a regra central da ferramenta: **preto é ausência de luz**, então um
+  canvas preto com glifos coloridos acende exatamente os glifos. Uma fonte de texto por
+  isso **não tem cor de fundo** — quem quiser uma caixa atrás põe uma superfície de cor
+  embaixo.
+- Não há campo de tamanho: a textura é a caixa do próprio texto, e o enquadramento da
+  superfície decide como ela cai na forma. Um corpo em pixels seria um segundo controle
+  brigando com o primeiro.
+- A caixa é desenhada **sempre no limite de 2048 px** no maior lado. Não é economia: é o
+  texto mais nítido que o limite permite, seja a superfície de 200 px ou de 1800.
+- Três famílias do sistema, e não uma lista de fontes: o app é um arquivo único que abre
+  sem rede, e embutir tipografia o inflaria.
+- Digitar **remenda** a fonte em vez de reconstruí-la — reconstruir jogaria a textura fora
+  e piscaria na parede a cada tecla.
+- O nome na lista é o próprio texto, pelo mesmo motivo que a fonte de cor passou a se
+  chamar pela cor.
+
+### Modo raio-x
+
+Um mapeamento com trinta superfícies é ilegível com o conteúdo aceso. O raio-x (tecla `X`)
+apaga o conteúdo e acende a estrutura: a silhueta de cada superfície, o número que o
+projetor desenha, e a malha de quem tem uma — **inclusive as escondidas**, que é como se
+acha a superfície que alguém silenciou.
+
+Onde duas superfícies se sobrepõem, a translucidez soma sozinha e a sobreposição aparece:
+interseção de polígonos sem calcular interseção de polígonos.
+
+**Ele não pode chegar ao projetor, por construção.** É desenhado no overlay, que é DOM, e a
+janela de saída não tem overlay — impossibilidade estrutural, não uma trava que alguém possa
+esquecer de ligar. Medido lendo o buffer GL com o modo ligado e desligado: os pixels são
+idênticos.
+
+### Cenas e timeline
+
+**Esta feature estava explicitamente fora de escopo no brief**, e a decisão de não a
+perseguir estava registrada. A reversão foi deliberada, e o desenho existe para que ela não
+transforme a ferramenta em outro produto.
+
+A regra que decide o modelo inteiro: **uma cena guarda apresentação, nunca geometria.**
+Fonte, opacidade e visibilidade entram; `frame`, `shape`, `warp`, `crop`, `rotação`,
+`encaixe`, `mistura` e ordem, não. O alinhamento custou horas em cima de uma escada e é
+físico — e o efeito colateral é o que torna a regra valiosa: **dá para corrigir alinhamento
+com o show rodando**.
+
+- Capturar cena tira uma foto do visual montado à mão. Duas cenas já são um show.
+- **Segura** é quanto a cena dura; **segura em zero espera o GO**. **Transição** é quanto
+  ela leva para entrar, escurecendo até o preto no meio.
+- Com **repetir**, a última volta para a primeira.
+- **Tocar não escreve um byte no projeto**: nem entrada de desfazer, nem autosave. A
+  timeline sobrepõe na leitura, e o relógio guarda o instante de início em vez do tempo
+  decorrido — uma escrita por cena, não sessenta por segundo.
+- Mexer na opacidade ou na fonte de uma superfície **devolve o controle à mão** e tira a
+  timeline do comando, o idioma que qualquer mesa de luz tem. Mexer na geometria não.
+
+Não há crossfade verdadeiro, e isso é deliberado: exigiria duas texturas por superfície.
+Quem precisar de um empilha duas superfícies e cruza as opacidades pela cena.
+
 ### Controle de várias superfícies
 
 Selecionar uma de cada vez é o que se faz numa parede de três quadros. Numa de trinta,
@@ -111,7 +171,7 @@ a mesma sequência deixava **zero** pixel da saída visível.
   seções, na mesma ordem, com a mesma contagem de passos e atalhos.
 
 **Engine como biblioteca**
-- `npm run build:lib` gera `dist-lib/map-engine.js` (55 KB, ESM, zero dependências)
+- `npm run build:lib` gera `dist-lib/projmap.js` (55 KB, ESM, zero dependências)
   com declarações de tipo, e o pacote expõe `exports`/`types` — instalar direto do
   repositório funciona, sem publicar no npm.
 - Exemplo executável em `examples/embed/`: um canvas, um `Project`, e frames saindo
@@ -179,6 +239,15 @@ a mesma sequência deixava **zero** pixel da saída visível.
   é configurada: **Projetor (saída)**.
 
 ### Corrigido
+- **Não dava para empilhar superfícies**, e por duas razões independentes que se somavam
+  no mesmo caso — um fundo cobrindo a saída, que é o arranjo mais comum que existe.
+  - A área de clique de uma superfície capturava o ponteiro **sempre**, então com um fundo
+    na tela a ferramenta de polígono ficava morta: não havia como traçar um contorno por
+    cima do que já existia. Ela passou a valer só para a ferramenta de seleção.
+  - O overlay iterava as superfícies na ordem do array enquanto o renderer as desenha por
+    `z`. Quando as duas ordens discordavam — uma superfície criada antes e empilhada por
+    cima —, dava para **ver** uma e **selecionar** a de baixo. O overlay passou a pintar na
+    mesma ordem em que se desenha.
 - **O seletor de cor abria dentro da lista de fontes**, empurrava o painel para baixo e
   obrigava a rolar até achá-lo — escondendo justamente a parede, que é o que se olha
   enquanto se escolhe uma cor. E não dizia como fechar. Virou um painel flutuante, que
@@ -231,7 +300,7 @@ a mesma sequência deixava **zero** pixel da saída visível.
 - Integração contínua num pipeline só: `testes → tipos → idioma → build → smoke →
   deploy`, com a publicação no Pages dependente de tudo que vem antes. Antes o deploy
   saía depois de apenas `npm test`, e pull request nenhum era verificado.
-- 100 testes de unidade sem framework (`node:test`).
-- 33 checagens de integração em chromium headless, lendo pixels do build real.
+- 127 testes de unidade sem framework (`node:test`).
+- 42 checagens de integração em chromium headless, lendo pixels do build real.
 - `npm run i18n` reprova string fixa no editor e tradução que perdeu placeholder ou
   marcação.

@@ -14,7 +14,9 @@ export {
   identityWarp, isIdentity, evaluateWarp, unwarp, resampleWarp, tessellate, parseWarp, pointIndex,
   DEFAULT_CELLS, type Warp, type WarpCell, type WarpInterpolation,
 } from './model/warp.ts';
-export { anchorId, expandSelection } from './model/project.ts';
+export { anchorId, expandSelection, DEFAULT_TEXT, TEXT_FAMILIES, TEXT_ALIGNS } from './model/project.ts';
+export type { Cue, Scene, Timeline, TextStyle, TextFamily, TextAlign } from './model/project.ts';
+export { presentationOf, currentScene, isFading } from './model/store.ts';
 export { hexOf, parseHex, rgbToHsv, hsvToRgb, colorKey, type Rgb, type ColorKey } from './math/color.ts';
 export { triangulate, pointInPolygon, pointInUnitEllipse, closestOnSegment, bounds, signedArea, UNIT_QUAD } from './math/geometry.ts';
 export { Renderer, IDENTITY_VIEW, type ViewTransform } from './render/renderer.ts';

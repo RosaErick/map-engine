@@ -1,8 +1,9 @@
 <script lang="ts">
   import Icon from '../ui/Icon.svelte';
   import { store, flash, getEngine } from '../state.svelte.ts';
-  import { anchorId, colorKey, hexOf, newId, listCameras, type Rgb, type Source } from '../../engine/index.ts';
+  import { anchorId, colorKey, DEFAULT_TEXT, hexOf, newId, listCameras, type Rgb, type Source } from '../../engine/index.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
+  import TextEditor from '../ui/TextEditor.svelte';
   import { importFile } from '../platform/project-folder.ts';
   import { t } from '../i18n/index.svelte.ts';
 
@@ -20,7 +21,10 @@
   });
 
   /**
-   * A fonte com o seletor de cor aberto, e a amostra que o abriu.
+   * A fonte com o painel flutuante aberto, e o elemento que o abriu.
+   *
+   * Um estado só para cor e texto: os dois abrem um popover ancorado, e dois
+   * popovers abertos ao mesmo tempo numa lista é uma lista que ninguém lê.
    *
    * A amostra vai junto porque o seletor flutua sobre a página e tira a posição
    * dela. Uma por vez: são linhas de uma lista, e duas abertas é uma lista que
@@ -34,7 +38,8 @@
     const open = editingColor;
     if (!open) return null;
     const found = $store.project.sources.find((s) => s.id === open.id);
-    return found?.kind === 'color' ? { source: found, anchor: open.anchor } : null;
+    if (found?.kind !== 'color' && found?.kind !== 'text') return null;
+    return { source: found, anchor: open.anchor };
   });
 
   function add(source: Source): void {
@@ -48,6 +53,12 @@
   function addColor(): void {
     add({ id: newId('src'), name: '', kind: 'color', rgb: [255, 255, 255] });
   }
+
+  // Também sem nome, e pelo mesmo motivo: o nome de um texto é o texto. Uma
+  // lista de cinco "Texto" não diz qual é qual.
+  function addText(): void {
+    add({ id: newId('src'), name: '', kind: 'text', ...DEFAULT_TEXT });
+  }
   /** O que a lista mostra. Cor sem nome vira o tom mais o hex — a palavra sai
    *  do catálogo, o código sai da engine. */
   function labelOf(source: Source): string {
@@ -55,6 +66,10 @@
     if (source.kind === 'color') {
       const rgb = source.rgb as Rgb;
       return `${t(`color.${colorKey(rgb)}`)} ${hexOf(rgb)}`;
+    }
+    // A primeira linha basta: a lista trunca, e é ela que identifica o texto.
+    if (source.kind === 'text') {
+      return source.text.split('\n')[0]?.trim() || t('text.empty');
     }
     return source.id;
   }
@@ -187,6 +202,7 @@
       <input type="file" accept="image/*,video/*" multiple class="hidden" onchange={addFiles} />
     </label>
     <button class="btn btn-xs" onclick={addColor}>{t('sources.color')}</button>
+    <button class="btn btn-xs" onclick={addText}>{t('sources.text')}</button>
     <button
       class="btn btn-xs"
       onclick={addCapture}
@@ -255,6 +271,19 @@
             ></button>
           {/if}
 
+          {#if source.kind === 'text'}
+            <button
+              class="btn btn-xs btn-ghost h-auto min-h-0 shrink-0 px-1 py-0.5 text-[10px] font-normal text-base-content/40"
+              aria-label={t('text.edit')}
+              title={t('text.edit')}
+              onclick={(e) => {
+                editingColor = editingColor?.id === source.id
+                  ? null
+                  : { id: source.id, anchor: e.currentTarget };
+              }}
+            >{t('text.edit')}</button>
+          {/if}
+
           {#if RELINKABLE.has(source.kind)}
             <label
               class="btn btn-xs btn-ghost h-auto min-h-0 px-1 py-0.5 font-normal text-[10px] {status.bad ? 'text-warning' : 'text-base-content/40'}"
@@ -284,12 +313,19 @@
     </ul>
   {/if}
 
-  {#if editing}
+  {#if editing?.source.kind === 'color'}
     <ColorPicker
       rgb={editing.source.rgb}
       anchor={editing.anchor}
       onpick={(next) => store.setSourceColor(editing.source.id, next)}
       onend={() => store.endGesture()}
+      onclose={() => (editingColor = null)}
+    />
+  {:else if editing?.source.kind === 'text'}
+    <TextEditor
+      style={editing.source}
+      anchor={editing.anchor}
+      onchange={(patch) => store.patchSource(editing.source.id, patch)}
       onclose={() => (editingColor = null)}
     />
   {/if}
