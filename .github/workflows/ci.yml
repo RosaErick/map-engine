@@ -77,13 +77,14 @@ jobs:
           path: dist/index.html
           retention-days: 14
 
-      # `enablement` liga o Pages na primeira execução, com o próprio workflow
-      # como origem. Sem isso, um clone deste repositório só publica depois de
-      # alguém achar a opção certa em Settings.
+      # Sem `enablement: true` de propósito: o `GITHUB_TOKEN` pode falar com a
+      # API do Pages, mas **não pode criar o site** — a criação exige permissão
+      # de administração que nenhum workflow recebe. Habilitar é um passo
+      # manual, uma vez por repositório:
+      #     gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow
+      # ou Settings > Pages > Source: GitHub Actions.
       - uses: actions/configure-pages@v5
         if: github.ref == 'refs/heads/main'
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
