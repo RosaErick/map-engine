@@ -1,138 +1,138 @@
 # ProjMap
 
-Minha própria ferramenta de *projection mapping* que roda no navegador, desenvolvida
-do zero com apoio de ferramentas de IA generativa. Você aponta um projetor para um
-objeto físico — uma parede com quadros, uma pilha de caixas, um móvel —, desenha formas
-por cima da projeção que coincidem com ele, e joga conteúdo dentro de cada forma:
-imagem, vídeo, GIF, cor, captura de tela, câmera ao vivo ou canvas generativo.
+**English** · [Português](docs/readme/pt.md) · [Español](docs/readme/es.md)
 
-São duas metades com fronteira rígida: uma **engine** sem interface, que recebe um
-estado serializável e renderiza; e um **editor**, que é só uma das formas possíveis de
-produzir aquele estado. A engine roda sozinha, importada como biblioteca por qualquer
-outro projeto.
+My own *projection mapping* tool that runs in the browser, built from scratch with the
+help of generative AI tools. You point a projector at a physical object — a wall with
+picture frames, a stack of boxes, a piece of furniture —, draw shapes over the projection
+that line up with it, and drop content inside each shape: image, video, GIF, colour,
+screen capture, live camera, text or a generative canvas.
 
-> **Preto é transparente.** Todo pixel preto na saída é ausência de luz, e a superfície
-> física aparece através dele. Fora das formas mapeadas, nada é desenhado — nem um
-> cinza, nem uma borda, nem um pixel de interface.
+It is two halves with a hard border between them: an **engine** with no interface, which
+takes a serialisable state and renders it; and an **editor**, which is only one of the
+possible ways to produce that state. The engine runs on its own, imported as a library
+by any other project.
 
-**Gratuita e de código aberto, hoje e sempre.** Sem versão paga, sem plano, sem conta,
-sem marca d'água, sem limite de projetos e sem nuvem. A licença
-[AGPL-3.0](#licença) é o que garante isso: qualquer um pode usar, estudar e contribuir,
-e ninguém pode fechar o código e revender.
+> **Black is transparent.** Every black pixel in the output is an absence of light, and
+> the physical surface shows through it. Outside the mapped shapes nothing is drawn — not
+> a grey, not a border, not one pixel of interface.
 
-Todo conteúdo gerado por LLMs foi revisado, editado e selecionado pelo desenvolvedor
-antes de ser inserido no projeto.
+**Free and open source, today and always.** No paid tier, no plan, no account, no
+watermark, no project limit and no cloud. The [AGPL-3.0](#license) licence is what
+guarantees that: anyone may use, study and contribute, and nobody may close the source
+and resell it.
 
----
-
-## Instalar
-
-**Não é programador?** O passo a passo está em
-**[`docs/install/`](docs/install)** — em
-[português](docs/install/pt.md), [inglês](docs/install/en.md) e
-[espanhol](docs/install/es.md). Em resumo, dois caminhos:
-
-- **Instalar como aplicativo** — abra o endereço no Chrome ou Edge e clique no ícone
-  de instalar na barra de endereço. Ganha ícone próprio, janela sem barra de endereço
-  e passa a funcionar sem internet.
-- **Baixar um arquivo** — pegue `projmap.html` nos
-  [Releases](../../releases) e dê dois cliques. Um arquivo só, ~285 KB, sem instalação
-  e sem servidor.
+Every piece of LLM-generated content was reviewed, edited and selected by the developer
+before going into the project.
 
 ---
 
-## Começo rápido (desenvolvimento)
+## Install
+
+**Not a programmer?** The step by step is in **[`docs/install/`](docs/install)** — in
+[English](docs/install/en.md), [Portuguese](docs/install/pt.md) and
+[Spanish](docs/install/es.md). In short, two paths:
+
+- **Install as an app** — open the address in Chrome or Edge and click the install icon
+  in the address bar. You get an icon of your own, a window with no address bar, and it
+  starts working without internet.
+- **Download one file** — grab `projmap.html` from the [Releases](../../releases) and
+  double click it. A single file, ~285 KB, no install and no server.
+
+---
+
+## Quick start (development)
 
 ```bash
 npm install
 npm run dev          # http://localhost:5173
-npm run build        # dist/ — index.html autocontido + manifest, ícones e service worker
+npm run build        # dist/ — self-contained index.html plus manifest, icons and service worker
 ```
 
-`dist/index.html` funciona sozinho: os outros arquivos só existem para a instalação como
-aplicativo, e a ausência deles não impede nada.
+`dist/index.html` works on its own: the other files exist only for installing as an app,
+and their absence stops nothing.
 
 ---
 
-## Teclado
+## Keyboard
 
-| Tecla | O que faz |
+| Key | What it does |
 |---|---|
-| `↑ ↓ ← →` | Move o canto selecionado **1 px** — ou a superfície inteira, se nenhum canto estiver selecionado |
-| `Shift` + setas | O mesmo, **10 px** |
-| `Ctrl` (segurar) | Desliga o ímã enquanto estiver pressionado |
-| `Ctrl+Z` / `Ctrl+Shift+Z` | Desfazer / refazer |
-| `Ctrl+D` | Duplicar a superfície selecionada |
-| `Delete` | Apagar a superfície selecionada |
-| `H` | Esconder / mostrar a interface |
-| `Esc` | Cancelar o traçado de polígono, largar a seleção de canto |
-| Roda do mouse | Zoom no ponto do cursor |
-| Botão do meio, ou `Alt` + arrastar | Pan |
-| Duplo clique (modo polígono) | Fecha o polígono |
+| `↑ ↓ ← →` | Moves the selected corner **1 px** — or the whole surface, when no corner is selected |
+| `Shift` + arrows | The same, **10 px** |
+| `Ctrl` (hold) | Turns the magnet off while held |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
+| `Ctrl+D` | Duplicate the selected surface |
+| `Delete` | Delete the selected surface |
+| `H` | Hide / show the interface |
+| `X` | X-ray: dims the content and lights up the structure |
+| `Esc` | Cancel the polygon trace, drop the corner selection |
+| Mouse wheel | Zoom at the cursor |
+| Middle button, `Ctrl` or `Alt` + drag | Reframe the view |
+| Double click (polygon mode) | Closes the polygon |
 
 ---
 
-## Encaixe do conteúdo
+## Fitting the content
 
-Dentro de cada superfície o conteúdo tem quatro controles independentes, no painel
-da direita:
+Inside each surface the content has four independent controls, in the right-hand panel:
 
-| Controle | O que faz |
+| Control | What it does |
 |---|---|
-| **encaixe** | `esticar` ignora a proporção · `caber` mostra tudo e deixa preto na sobra · `preencher` cobre a forma e corta o excesso |
-| **rotação** | Gira o conteúdo em torno do centro do frame, 0–359°, com atalhos de 0/90/180/270. O **frame não se mexe**, então girar é seguro numa superfície já travada e alinhada |
-| **opacidade** | 0–100% |
-| **mistura** | `normal` · `soma` · `screen` · `multiply` |
+| **fit** | `stretch` ignores the aspect ratio · `contain` shows everything and leaves black around it · `cover` fills the shape and crops the excess |
+| **rotation** | Spins the content around the centre of the frame, 0–359°, with 0/90/180/270 shortcuts. The **frame does not move**, so rotating is safe on a surface that is already locked and aligned |
+| **opacity** | 0–100% |
+| **blend** | `normal` · `add` · `screen` · `multiply` |
 
-Um quarto de volta troca a proporção usada por `caber` e `preencher`, para um vídeo
-deitado continuar encaixando. Rotação livre é para corrigir projetor torto, não para
-reenquadrar.
+A quarter turn swaps the aspect ratio used by `contain` and `cover`, so a landscape video
+keeps fitting. Free rotation is for correcting a crooked projector, not for reframing.
 
 ---
 
-## Comandos
+## Commands
 
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `npm run dev` | Servidor de desenvolvimento com HMR |
-| `npm run build` | Gera `dist/index.html` autocontido |
-| `npm test` | 127 testes de unidade (`node:test`, zero dependências) |
-| `npm run layers` | Reprova um `import` que aponta na direção errada entre as camadas |
-| `npm run smoke` | Abre o build por `file://` em chromium headless e **lê pixels** da saída |
-| `npm run i18n` | Reprova string fixa no editor e tradução que perdeu placeholder |
-| `npm run verify` | Os quatro acima e o build, em ordem — é o que o CI roda em cada PR |
+| `npm run dev` | Development server with HMR |
+| `npm run build` | Produces a self-contained `dist/index.html` |
+| `npm test` | 127 unit tests (`node:test`, zero dependencies) |
+| `npm run layers` | Fails an `import` that points the wrong way across the layers |
+| `npm run smoke` | Opens the build over `file://` in headless chromium and **reads pixels** off the output |
+| `npm run i18n` | Fails hardcoded copy in the editor and a translation that lost a placeholder |
+| `npm run verify` | The four above plus the build, in order — it is what CI runs on every PR |
 | `npm run check` | `tsc --noEmit` + `svelte-check` |
-| `npm run build:lib` | Gera `dist-lib/` — a engine como biblioteca, com tipos |
-| `npm run example` | Roda [`examples/embed/`](examples/embed), que consome essa biblioteca |
+| `npm run build:lib` | Produces `dist-lib/` — the engine as a library, with types |
+| `npm run example` | Runs [`examples/embed/`](examples/embed), which consumes that library |
 
 ---
 
-## Tipos de conteúdo
+## Content kinds
 
-| Tipo | Origem | Observação |
+| Kind | Where it comes from | Note |
 |---|---|---|
-| `image` | arquivo na pasta | decodificado uma vez |
-| `video` | arquivo na pasta | upload guiado por `requestVideoFrameCallback`; WebM com alfa funciona |
-| `gif` | arquivo na pasta | quadros via `ImageDecoder` (WebCodecs), com relógio próprio |
-| `color` | cor sólida | textura 1×1 |
-| `capture` | `getDisplayMedia()` | **qualquer janela da máquina vira textura ao vivo** — jogo, player, outra aba |
-| `camera` | `getUserMedia()` | câmera ao vivo |
-| `canvas` | módulo JS seu | exporta `draw(ctx, t)`; ponto de extensão para conteúdo generativo |
+| `image` | file in the folder | decoded once |
+| `video` | file in the folder | upload driven by `requestVideoFrameCallback`; WebM with alpha works |
+| `gif` | file in the folder | frames through `ImageDecoder` (WebCodecs), on a clock of its own |
+| `color` | solid colour | 1×1 texture |
+| `capture` | `getDisplayMedia()` | **any window on the machine becomes a live texture** — a game, a player, another tab |
+| `camera` | `getUserMedia()` | live camera |
+| `text` | written in the app | black background, coloured glyphs: only the letters light up |
+| `canvas` | a JS module of yours | exports `draw(ctx, t)`; the extension point for generative content |
 
-Uma fonte alimenta várias superfícies: o cache é por fonte, não por superfície.
+One source feeds many surfaces: the cache is per source, never per surface.
 
 ---
 
-## Usar a engine sem o editor
+## Using the engine without the editor
 
-A engine não importa framework nenhum, não toca no DOM fora do próprio canvas e não lê
-nada global.
+The engine imports no framework, touches no DOM outside its own canvas and reads nothing
+global.
 
 ```ts
 import { createEngine, parseProject } from './packages/engine/index.ts';
 
 const engine = createEngine(canvas, parseProject(json), {
-  // como caminhos relativos viram URLs carregáveis — o host decide
+  // how relative paths become loadable URLs — the host decides
   resolveUrl: async (path) => new URL(path, base).href,
 });
 
@@ -142,40 +142,39 @@ engine.on('change', (state) => console.log(state.project.surfaces.length));
 engine.start();
 ```
 
-Toda mutação passa por métodos do store (`engine.store`), o que faz de uma ponte
-OSC/MIDI futura um adaptador puro, sem tocar no renderer.
+Every mutation goes through the store's methods (`engine.store`), which makes a future
+OSC/MIDI bridge a pure adapter, without touching the renderer.
 
 ---
 
-## Requisitos
+## Requirements
 
-**Chromium desktop (Chrome ou Edge).** Várias APIs necessárias existem só ali:
-File System Access, Window Management, `ImageDecoder`, `requestVideoFrameCallback`.
-A ausência de cada uma é detectada e avisada explicitamente — sem pasta de projeto o
-app continua funcionando com a mídia em memória e o `project.json` no navegador, e
-diz isso na tela.
+**Chromium desktop (Chrome or Edge).** Several of the APIs it needs exist only there:
+File System Access, Window Management, `ImageDecoder`, `requestVideoFrameCallback`. The
+absence of each one is detected and reported explicitly — with no project folder the app
+keeps working with the media in memory and the `project.json` in the browser, and says so
+on screen.
 
 ---
 
-## Documentação
+## Documentation
 
-| Documento | O que é |
+| Document | What it is |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | O que cada arquivo faz, o traço de um frame, as cinco armadilhas de renderização |
-| [`AGENTS.md`](AGENTS.md) | As decisões de arquitetura em formato ADR, e as regras para quem for mexer |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | O que mudou a cada versão, e por quê |
-| [`docs/FUTURO.md`](docs/FUTURO.md) | Ideias além da v1, registradas sem compromisso de fazer |
-| [`docs/install/`](docs/install) | Instalação passo a passo, em três idiomas |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | What each file does, the trace of one frame, the five rendering traps |
+| [`AGENTS.md`](AGENTS.md) | The architecture decisions as ADRs, and the rules for anyone touching the code |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | What changed in each version, and why |
+| [`docs/FUTURO.md`](docs/FUTURO.md) | Ideas beyond v1, recorded with no commitment to build them |
+| [`docs/install/`](docs/install) | Step by step installation, in three languages |
 
 ---
 
-## Licença
+## License
 
-**AGPL-3.0-only** ([`LICENSE`](LICENSE)). Qualquer um pode usar, estudar, modificar e
-contribuir. O que a AGPL impede é o único cenário que este projeto não quer: alguém
-pegar o código, fechar e publicar como produto próprio — inclusive hospedando como
-serviço, sem distribuir binário nenhum. Modificou e publicou, o código modificado sai
-junto.
+**AGPL-3.0-only** ([`LICENSE`](LICENSE)). Anyone may use, study, modify and contribute.
+What the AGPL prevents is the one scenario this project does not want: someone taking the
+code, closing it and publishing it as their own product — including hosting it as a
+service, without distributing any binary. Modify it and publish it, and the modified code
+goes out with it.
 
-Como contribuir está em [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
+How to contribute is in [`CONTRIBUTING.md`](CONTRIBUTING.md).

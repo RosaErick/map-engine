@@ -30,7 +30,7 @@ para conferir no olho.
 O CI roda essa mesma sequência em todo pull request, com o mesmo rasterizador de
 software que você tem na sua máquina, e anexa o `dist/index.html` gerado como artefato:
 para revisar uma mudança visual basta baixar esse arquivo e abrir, sem construir nada.
-O que cada script faz está na tabela de comandos do [README](README.md#comandos), e a
+O que cada script faz está na tabela de comandos do [README](docs/readme/pt.md#comandos), e a
 lista completa está no `package.json`.
 
 ## Como o commit e o PR são escritos
